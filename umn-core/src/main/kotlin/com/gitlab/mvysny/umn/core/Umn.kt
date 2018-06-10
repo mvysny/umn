@@ -1,7 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 /**
@@ -9,7 +8,7 @@ import kotlin.reflect.KClass
  * * The [MvstoreUmn] H2 MVStore which offers unparalleled speed
  *
  * The basic functionality of this key store can be enhanced greatly by wrappers:
- * * The [IndexingUmn] which allows you to create indices over documents
+ * * The [IndexedUmn] which allows you to create indices over documents
  * * The [ReplayLogUmn] which captures changes in the storage as a replayable list of events which also provides synchronization capabilities.
  *
  * Generally the actual storage implementations (such as [MvstoreUmn]) define how exactly objects are serialized to byte arrays, or
@@ -48,29 +47,31 @@ interface Umn {
      * Deletes the document with given [id]. Does nothing if the document does not exist.
      */
     fun delete(id: UUID)
+
+    /**
+     * Opens an utility map, creating it if it doesn't exist. Various layers of document storage use the utility map to store various
+     * stuff it needs:
+     * * [IndexedUmn] creates a table which stores indices;
+     * * [ReplayLogUmn] stores the log entries there
+     *
+     * This map is for internal storage purposes for this device only and must not be synced over network to other clients.
+     * @param K the key type, must be one of the simple and easily serializable types: String, Long.
+     */
+    fun <K: Comparable<K>> openUtilityMap(name: String): UtilityMap<K>
 }
 
 /**
- * A very simple in-memory storage of objects. Ideal for writing tests. Thread-safe.
+ * A very simple key-value store. An internal API, used by various implementations of [Umn] to store stuff there. Should not be used by
+ * [Umn] clients.
+ *
+ * Currently not thread-safe.
  */
-class InMemoryUmn : Umn {
-    private val map = ConcurrentHashMap<UUID, Any>()
-
-    override fun create(document: Any): UUID {
-        val id = UUID.randomUUID()
-        map[id] = document
-        return id
-    }
-
-    override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = clazz.java.cast(map[id])
-
-    override fun exists(id: UUID): Boolean = map.contains(id)
-
-    override fun update(id: UUID, document: Any) {
-        map.computeIfPresent(id, { _, _ -> document }) ?: throw IllegalArgumentException("The document with id $id does not exist")
-    }
-
-    override fun delete(id: UUID) {
-        map.remove(id)
-    }
+interface UtilityMap<K: Comparable<K>> {
+    /**
+     * Finds a value under given [key]; returns null if nothing is stored there.
+     */
+    fun find(key: K): ByteArray?
+    fun put(key: K, value: ByteArray?)
+    fun getSmallestKey(): K?
+    fun getLargestKey(): K?
 }
