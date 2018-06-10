@@ -8,9 +8,9 @@ before_script:
 cache:
   key: "$CI_COMMIT_REF_NAME"
   paths:
-    - $GRADLE_USER_HOME/wrapper/
-    - $GRADLE_USER_HOME/caches/
-    - $GRADLE_USER_HOME/build-cache/
+    - .gradle/wrapper/
+    - .gradle/caches/
+    - .gradle/build-cache/
 build:
   script:
     - ./gradlew build
