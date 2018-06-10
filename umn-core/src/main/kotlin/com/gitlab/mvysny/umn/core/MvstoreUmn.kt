@@ -32,7 +32,7 @@ object JavaDocumentSerializer : DocumentSerializer {
  *
  * Currently not thread-safe?
  */
-class MvstoreUmn(store: MVStore, private val serializer: DocumentSerializer) : Umn {
+class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSerializer) : Umn {
     private val map: MVMap<UUID, ByteArray> = store.openMap("ROOT")
 
     override fun create(document: Any): UUID {
@@ -55,23 +55,16 @@ class MvstoreUmn(store: MVStore, private val serializer: DocumentSerializer) : U
     override fun delete(id: UUID) {
         map.remove(id)
     }
+
+    override fun <K : Comparable<K>> openUtilityMap(name: String): UtilityMap<K> = MvstoreUtilityMap(store, name)
 }
 
 class MvstoreUtilityMap<K: Comparable<K>>(store: MVStore, name: String) : UtilityMap<K> {
-    private val map = store.openMap("")
-    override fun find(key: K): ByteArray? {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
+    private val map: MVMap<K, ByteArray> = store.openMap("__$name")
+    override fun find(key: K): ByteArray? = map[key]
     override fun put(key: K, value: ByteArray?) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        map[key] = value
     }
-
-    override fun getSmallestKey(): K? {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
-    override fun getLargestKey(): K? {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
+    override fun getSmallestKey(): K? = map.firstKey()
+    override fun getLargestKey(): K? = map.lastKey()
 }
