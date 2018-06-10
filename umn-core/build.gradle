@@ -1,0 +1,14 @@
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+
+    // logging
+    compile 'org.slf4j:slf4j-api:1.7.25'
+
+    testCompile("com.github.mvysny.dynatest:dynatest:${dynatest_version}")
+}
+
+task sourceJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
