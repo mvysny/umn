@@ -34,12 +34,13 @@ interface Umn {
 
     /**
      * Retrieves a document with given [id], failing if no such document exists.
-     * @throws IllegalArgumentException if no such document exists.
+     * @throws IllegalArgumentException if no document with given ID exists.
      */
     fun <V : Any> get(id: UUID, clazz: KClass<V>): V = find(id, clazz) ?: throw IllegalArgumentException("No document with id $id")
 
     /**
      * Overwrites a [document] with given [id]. The document must exist!
+     * @throws IllegalArgumentException if no document with given ID exists.
      */
     fun update(id: UUID, document: Any)
 
