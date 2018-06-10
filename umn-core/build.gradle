@@ -1,9 +1,7 @@
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-
-    // logging
     compile 'org.slf4j:slf4j-api:1.7.25'
-
+    compile 'com.h2database:h2-mvstore:1.4.196'
     testCompile("com.github.mvysny.dynatest:dynatest:${dynatest_version}")
 }
 
