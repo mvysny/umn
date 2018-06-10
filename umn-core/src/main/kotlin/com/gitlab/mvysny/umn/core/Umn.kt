@@ -71,7 +71,19 @@ interface UtilityMap<K: Comparable<K>> {
      * Finds a value under given [key]; returns null if nothing is stored there.
      */
     fun find(key: K): ByteArray?
+
+    /**
+     * Puts [value] under given [key]; if the value is null the mapping is removed.
+     */
     fun put(key: K, value: ByteArray?)
+
+    /**
+     * Returns the smallest key currently stored in the map.
+     */
     fun getSmallestKey(): K?
+
+    /**
+     * Returns the largest key currently stored in the map.
+     */
     fun getLargestKey(): K?
 }
