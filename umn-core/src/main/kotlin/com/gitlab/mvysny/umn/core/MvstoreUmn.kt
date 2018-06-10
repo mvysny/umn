@@ -30,7 +30,7 @@ object JavaDocumentSerializer : DocumentSerializer {
 /**
  * Stores documents into H2 MVStore. Warning: [serializer] is used every time when a document is stored or retrieved!
  *
- * Currently not thread-safe?
+ * Thread-safe.
  */
 class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSerializer) : Umn {
     private val map: MVMap<UUID, ByteArray> = store.openMap("ROOT")
@@ -59,6 +59,9 @@ class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSer
     override fun <K : Comparable<K>> openUtilityMap(name: String): UtilityMap<K> = MvstoreUtilityMap(store, name)
 }
 
+/**
+ * Thread-safe.
+ */
 class MvstoreUtilityMap<K: Comparable<K>>(store: MVStore, name: String) : UtilityMap<K> {
     private val map: MVMap<K, ByteArray> = store.openMap("__$name")
     override fun find(key: K): ByteArray? = map[key]
