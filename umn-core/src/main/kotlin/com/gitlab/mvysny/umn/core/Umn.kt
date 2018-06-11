@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import java.io.Closeable
 import java.util.*
 import kotlin.reflect.KClass
 
@@ -16,7 +17,7 @@ import kotlin.reflect.KClass
  *
  * The database is currently thread-unsafe.
  */
-interface Umn {
+interface Umn : Closeable {
     /**
      * Puts a new [document] into the database, returning a new generated unique ID for the document.
      */

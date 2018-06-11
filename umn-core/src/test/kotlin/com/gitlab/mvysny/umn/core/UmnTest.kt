@@ -11,6 +11,7 @@ import java.util.*
 fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: ()->Umn) {
     lateinit var umn: Umn
     beforeEach { umn = emptyStorageProvider() }
+    afterEach { umn.close() }
 
     group("update") {
         test("update of non-existing document should fail") {

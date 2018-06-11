@@ -33,6 +33,10 @@ object JavaDocumentSerializer : DocumentSerializer {
  * Thread-safe.
  */
 class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSerializer) : Umn {
+    override fun close() {
+        store.close()
+    }
+
     private val map: MVMap<UUID, ByteArray> = store.openMap("ROOT")
 
     override fun create(document: Any): UUID {

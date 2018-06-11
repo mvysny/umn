@@ -8,6 +8,11 @@ import kotlin.reflect.KClass
  * A very simple in-memory storage of objects. Ideal for writing tests. Thread-safe.
  */
 class InMemoryUmn : Umn {
+    override fun close() {
+        map.clear()
+        utilityMaps.clear()
+    }
+
     private val map = ConcurrentHashMap<UUID, Any>()
     private val utilityMaps = ConcurrentHashMap<String, UtilityMap<*>>()
 
