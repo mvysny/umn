@@ -34,7 +34,7 @@ object JavaDocumentSerializer : DocumentSerializer {
  *
  * @todo ake kluce podporujeme?
  */
-class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSerializer) : Umn {
+class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer) : UMN {
     override fun close() {
         store.close()
     }

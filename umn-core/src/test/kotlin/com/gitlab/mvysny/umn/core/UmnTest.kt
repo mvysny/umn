@@ -8,8 +8,8 @@ import java.util.*
 /**
  * A generic test battery to test basic properties of a UMN storage.
  */
-fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: ()->Umn) {
-    lateinit var umn: Umn
+fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: ()->UMN) {
+    lateinit var umn: UMN
     beforeEach { umn = emptyStorageProvider() }
     afterEach { umn.close() }
 
@@ -23,8 +23,8 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: ()->Umn) {
 }
 
 /**
- * Tests the [InMemoryUmn] implementation.
+ * Tests the [InMemoryUMN] implementation.
  */
-class InMemoryUmnTest : DynaTest({
-    genericUmnTestBattery { InMemoryUmn() }
+class InMemoryUMNTest : DynaTest({
+    genericUmnTestBattery { InMemoryUMN() }
 })

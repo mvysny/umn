@@ -29,7 +29,7 @@ import kotlin.reflect.KClass
  * won't become too long)
  * @property indexGenerator generates IDs for stored documents. If no indices are required for this document, just return an empty set.
  */
-class IndexingUmn<I: Comparable<I>>(name: String, private val delegate: Umn, private val indexGenerator: (Any) -> Set<I>) : Umn {
+class IndexingUMN<I: Comparable<I>>(name: String, private val delegate: UMN, private val indexGenerator: (Any) -> Set<I>) : UMN {
     /**
      * Maps String index to a set of documents. Don't use Set since that's serialized using Java serialization; use Arrays
      * since that's serialized more effectively; see [ObjectDataType#TYPE_ARRAY] for more info.

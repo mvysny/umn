@@ -8,28 +8,28 @@ import java.io.Serializable
 import kotlin.test.expect
 
 /**
- * A testing battery which tests [IndexingUmn] backed by [storageProvider].
+ * A testing battery which tests [IndexingUMN] backed by [storageProvider].
  */
-fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->Umn) {
-    lateinit var storage: Umn
+fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
+    lateinit var storage: UMN
     beforeEach { storage = storageProvider() }
     afterEach { storage.close() }
 
     group("findOneByKey()") {
         test("returns null on empty map") {
-            val umn = IndexingUmn("identity", storageProvider(), { doc -> setOf(doc as String) })
+            val umn = IndexingUMN("identity", storageProvider(), { doc -> setOf(doc as String) })
             expect(null) { umn.findOneByKey("", String::class) }
             expect(null) { umn.findOneByKey("foo", String::class) }
         }
 
         test("correctly finds the document") {
-            val umn = IndexingUmn("identity", storageProvider(), { doc -> setOf(doc as String) })
+            val umn = IndexingUMN("identity", storageProvider(), { doc -> setOf(doc as String) })
             umn.create("kvak")
             expect("kvak") { umn.findOneByKey("kvak", String::class) }
         }
 
         test("correctly updates the indices on update()") {
-            val umn = IndexingUmn("identity", storageProvider(), { doc -> setOf(doc as String) })
+            val umn = IndexingUMN("identity", storageProvider(), { doc -> setOf(doc as String) })
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
             expect("foo") { umn.findOneByKey("foo", String::class) }
@@ -39,7 +39,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->Umn) {
 
     group("findAllByKeyRange()") {
         test("on simple Long key") {
-            val umn = IndexingUmn("toLong", storageProvider(), { doc -> setOf((doc as String).toLong()) })
+            val umn = IndexingUMN("toLong", storageProvider(), { doc -> setOf((doc as String).toLong()) })
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
             expectList("50", "51", "52", "53", "54", "55") { umn.findAllByKeyRange(50L..55L, String::class) }
             expectList("1000") { umn.findAllByKeyRange(1000L..2000L, String::class) }
@@ -48,7 +48,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->Umn) {
         }
 
         test("multiple values mapping to a Long key") {
-            val umn = IndexingUmn("toLong", storageProvider(), { doc -> setOf((doc as String).toLong() / 3) })
+            val umn = IndexingUMN("toLong", storageProvider(), { doc -> setOf((doc as String).toLong() / 3) })
             (0..1000).forEach { umn.create(it.toString()) }
             expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.findAllByKeyRange(16L..18L, String::class) }
             expectList() { umn.findAllByKeyRange(1000L..2000L, String::class) }
@@ -56,7 +56,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->Umn) {
         }
 
         test("using CKey") {
-            val umn = IndexingUmn("index", storageProvider(), { doc -> setOf(doc as CKey) })
+            val umn = IndexingUMN("index", storageProvider(), { doc -> setOf(doc as CKey) })
             (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
@@ -77,33 +77,33 @@ data class CKey(val category: String, val ordering: Float) : Serializable, Compa
 }
 
 /**
- * Tests the [IndexingUmn] class.
+ * Tests the [IndexingUMN] class.
  */
-class IndexingUmnTest : DynaTest({
-    // doesn't test the indexing capabilities per se; it tests whether the IndexingUmn still behaves as a proper Umn storage.
+class IndexingUMNTest : DynaTest({
+    // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
     group("basic tests") {
         group("in-memory") {
             genericUmnTestBattery {
                 val indexGenerator: (Any) -> Set<Int> = { doc -> setOf(System.identityHashCode(doc)) }
-                IndexingUmn("identityHashCode", InMemoryUmn(), indexGenerator)
+                IndexingUMN("identityHashCode", InMemoryUMN(), indexGenerator)
             }
         }
         group("on mvstore") {
             genericUmnTestBattery {
                 val indexGenerator: (Any) -> Set<Int> = { doc -> setOf(System.identityHashCode(doc)) }
-                val mvstore = MvstoreUmn(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer)
-                IndexingUmn("identityHashCode", mvstore, indexGenerator)
+                val mvstore = MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer)
+                IndexingUMN("identityHashCode", mvstore, indexGenerator)
             }
         }
     }
 
-    // tests the indexing capabilities of the IndexingUmn
+    // tests the indexing capabilities of the IndexingUMN
     group("index tests") {
         group("in-memory") {
-            indexingUmnTestBattery { InMemoryUmn() }
+            indexingUmnTestBattery { InMemoryUMN() }
         }
         group("on mvstore") {
-            indexingUmnTestBattery { MvstoreUmn(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer) }
+            indexingUmnTestBattery { MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer) }
         }
     }
 })

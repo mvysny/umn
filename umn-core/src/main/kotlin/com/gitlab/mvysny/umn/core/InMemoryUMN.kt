@@ -9,7 +9,7 @@ import kotlin.reflect.KClass
  *
  * Since it's in-memory only, it supports all key types: any class classes can act as a key.
  */
-class InMemoryUmn : Umn {
+class InMemoryUMN : UMN {
     override fun close() {
         map.clear()
         utilityMaps.clear()

@@ -6,18 +6,18 @@ import kotlin.reflect.KClass
 
 /**
  * A map-value NoSQL storage of documents, keyed by auto-generated UUIDs. There are the following implementations of the store:
- * * The [MvstoreUmn] H2 MVStore which offers unparalleled speed
+ * * The [MvstoreUMN] H2 MVStore which offers unparalleled speed
  *
  * The basic functionality of this key store can be enhanced greatly by wrappers:
- * * The [IndexedUmn] which allows you to create indices over documents
+ * * The [IndexingUMN] which allows you to create indices over documents
  * * The [ReplayLogUmn] which captures changes in the storage as a replayable list of events which also provides synchronization capabilities.
  *
- * Generally the actual storage implementations (such as [MvstoreUmn]) define how exactly objects are serialized to byte arrays, or
+ * Generally the actual storage implementations (such as [MvstoreUMN]) define how exactly objects are serialized to byte arrays, or
  * deserialized back.
  *
  * Thread safety: to be decided, currently some implementors may be thread-unsafe.
  */
-interface Umn : Closeable {
+interface UMN : Closeable {
     /**
      * Puts a new [document] into the database, returning a new generated unique ID for the document.
      */
@@ -47,7 +47,7 @@ interface Umn : Closeable {
 
     /**
      * Deletes the document with given [id]. Does nothing if the document does not exist.
-     * @param clazz this is used for e.g. [IndexingUmn] when the document must be loaded before deleting, so that its indices will be deleted
+     * @param clazz this is used for e.g. [IndexingUMN] when the document must be loaded before deleting, so that its indices will be deleted
      * properly.
      */
     fun delete(id: UUID, clazz: KClass<out Any>)
@@ -65,15 +65,15 @@ interface Umn : Closeable {
 }
 
 /**
- * A very simple key-value store. An internal API, used by various implementations of [Umn] to store stuff there. Should not be used by
- * [Umn] clients.
+ * A very simple key-value store. An internal API, used by various implementations of [UMN] to store stuff there. Should not be used by
+ * [UMN] clients.
  *
  * Thread safety: to be decided, currently some implementors may be thread-unsafe.
  * @param K the type of the key, must be comparable so that the ranges can be looked up conveniently. Only a certain types of keys may
- * be supported by the underlying Umn storage type, check the storage documentation for details. Yet, at least [String] and [Long] must always
+ * be supported by the underlying UMN storage type, check the storage documentation for details. Yet, at least [String] and [Long] must always
  * be supported.
  * @param V the value. Only a certain types of values may
- * be supported by the underlying Umn storage type, check the storage documentation for details. Yet, at least [String], [UUID], primitives
+ * be supported by the underlying UMN storage type, check the storage documentation for details. Yet, at least [String], [UUID], primitives
  * and sets/lists of primitives must always be supported.
  */
 interface UtilityMap<K: Comparable<K>, V> {

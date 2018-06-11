@@ -4,15 +4,15 @@ import com.github.mvysny.dynatest.DynaTest
 import org.h2.mvstore.MVStore
 import java.io.File
 
-class MvstoreUmnTest : DynaTest({
+class MvstoreUMNTest : DynaTest({
     group("in-memory tests") {
-        genericUmnTestBattery { MvstoreUmn(MVStore.open(null), JavaDocumentSerializer) }
+        genericUmnTestBattery { MvstoreUMN(MVStore.open(null), JavaDocumentSerializer) }
     }
 
     group("file-based tests") {
         genericUmnTestBattery {
             val db: File = createTempFile()
-            MvstoreUmn(MVStore.open(db.absolutePath), JavaDocumentSerializer)
+            MvstoreUMN(MVStore.open(db.absolutePath), JavaDocumentSerializer)
         }
     }
 })
