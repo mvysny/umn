@@ -96,4 +96,9 @@ interface UtilityMap<K: Comparable<K>, V> {
      * Returns the largest key currently stored in the map.
      */
     fun getLargestKey(): K?
+
+    /**
+     * Returns an iterator which walks over keys in given range in ascending order.
+     */
+    fun keyIterator(range: ClosedRange<K>): Iterator<K>
 }

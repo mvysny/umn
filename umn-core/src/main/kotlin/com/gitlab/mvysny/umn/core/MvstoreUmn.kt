@@ -69,10 +69,16 @@ class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSer
  * Thread-safe.
  */
 class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : UtilityMap<K, V> {
+    override fun keyIterator(range: ClosedRange<K>): Iterator<K> {
+        if (range.isEmpty()) return emptySequence<K>().iterator()
+        val keySequence = map.keyIterator(range.start).asSequence()
+        return keySequence.takeWhile { key -> key in range } .iterator()
+    }
+
     private val map: MVMap<K, V> = store.openMap("__$name")
     override fun find(key: K): V? = map[key]
     override fun put(key: K, value: V?) {
-        map[key] = value
+        map.putOrRemove(key, value)
     }
     override fun getSmallestKey(): K? = map.firstKey()
     override fun getLargestKey(): K? = map.lastKey()

@@ -92,5 +92,19 @@ class IndexingUmn<I: Comparable<I>>(name: String, private val delegate: Umn, pri
         return delegate.find(id, clazz)
     }
 
-    // @todo implement document range retrieval
+    fun <V: Any> findAllByKeyRange(range: ClosedRange<I>, clazz: KClass<V>): List<V> {
+        val idsEncountered = mutableSetOf<UUID>()
+        val result = LinkedList<V>()
+        indexStore.keyIterator(range).forEach { key ->
+            val ids: Set<UUID> = (indexStore.find(key) ?: setOf<UUID>()) - idsEncountered
+            idsEncountered.addAll(ids)
+            ids.forEach { id ->
+                val doc = delegate.find(id, clazz)
+                if (doc != null) result.add(doc)
+            }
+        }
+        return result.toList()
+    }
+
+    // @todo implement paged document range retrieval
 }

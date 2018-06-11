@@ -43,6 +43,11 @@ class InMemoryUmn : Umn {
  * Thread-safe.
  */
 class InMemoryUtilityMap<K: Comparable<K>, V> : UtilityMap<K, V> {
+    override fun keyIterator(range: ClosedRange<K>): Iterator<K> {
+        val allKeysSorted = map.keys().toList().sorted()
+        return allKeysSorted.filter { key -> key in range } .iterator()
+    }
+
     private val map = ConcurrentHashMap<K, V>()
 
     override fun find(key: K): V? = map[key]
