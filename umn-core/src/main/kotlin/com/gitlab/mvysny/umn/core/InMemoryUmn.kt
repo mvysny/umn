@@ -6,6 +6,8 @@ import kotlin.reflect.KClass
 
 /**
  * A very simple in-memory storage of objects. Ideal for writing tests. Thread-safe.
+ *
+ * Since it's in-memory only, it supports all key types: any class classes can act as a key.
  */
 class InMemoryUmn : Umn {
     override fun close() {
@@ -26,7 +28,7 @@ class InMemoryUmn : Umn {
 
     override fun exists(id: UUID): Boolean = map.contains(id)
 
-    override fun <V: Any> update(id: UUID, document: V, clazz: KClass<V>) {
+    override fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>) {
         map.computeIfPresent(id, { _, _ -> document }) ?: throw IllegalArgumentException("The document with id $id does not exist")
     }
 
@@ -42,13 +44,10 @@ class InMemoryUmn : Umn {
 /**
  * Thread-safe.
  */
-class InMemoryUtilityMap<K: Comparable<K>, V> : UtilityMap<K, V> {
-    override fun keyIterator(range: ClosedRange<K>): Iterator<K> {
-        val allKeysSorted = map.keys().toList().sorted()
-        return allKeysSorted.filter { key -> key in range } .iterator()
-    }
-
+class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
     private val map = ConcurrentHashMap<K, V>()
+
+    override fun keyIterator(range: ClosedRange<K>): Iterator<K> = map.keys.filter { key -> key in range }.sorted().iterator()
 
     override fun find(key: K): V? = map[key]
 
@@ -56,7 +55,7 @@ class InMemoryUtilityMap<K: Comparable<K>, V> : UtilityMap<K, V> {
         map.putOrRemove(key, value)
     }
 
-    override fun getSmallestKey(): K? = map.keys().toList().min()
+    override fun getSmallestKey(): K? = map.keys.min()
 
-    override fun getLargestKey(): K? = map.keys().toList().max()
+    override fun getLargestKey(): K? = map.keys.max()
 }
