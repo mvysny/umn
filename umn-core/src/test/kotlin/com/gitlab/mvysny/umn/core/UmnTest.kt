@@ -16,7 +16,7 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: ()->Umn) {
     group("update") {
         test("update of non-existing document should fail") {
             expectThrows(IllegalArgumentException::class) {
-                umn.update(UUID.randomUUID(), "foo")
+                umn.update(UUID.randomUUID(), "foo", String::class)
             }
         }
     }

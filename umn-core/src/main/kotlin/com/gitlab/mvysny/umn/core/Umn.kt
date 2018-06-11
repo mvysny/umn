@@ -15,7 +15,7 @@ import kotlin.reflect.KClass
  * Generally the actual storage implementations (such as [MvstoreUmn]) define how exactly objects are serialized to byte arrays, or
  * deserialized back.
  *
- * The database is currently thread-unsafe.
+ * Thread safety: to be decided, currently some implementors may be thread-unsafe.
  */
 interface Umn : Closeable {
     /**
@@ -43,12 +43,14 @@ interface Umn : Closeable {
      * Overwrites a [document] with given [id]. The document must exist!
      * @throws IllegalArgumentException if no document with given ID exists.
      */
-    fun update(id: UUID, document: Any)
+    fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>)
 
     /**
      * Deletes the document with given [id]. Does nothing if the document does not exist.
+     * @param clazz this is used for e.g. [IndexingUmn] when the document must be loaded before deleting, so that its indices will be deleted
+     * properly.
      */
-    fun delete(id: UUID)
+    fun delete(id: UUID, clazz: KClass<out Any>)
 
     /**
      * Opens an utility map, creating it if it doesn't exist. Various layers of document storage use the utility map to store various
@@ -59,25 +61,31 @@ interface Umn : Closeable {
      * This map is for internal storage purposes for this device only and must not be synced over network to other clients.
      * @param K the key type, must be one of the simple and easily serializable types: String, Long.
      */
-    fun <K: Comparable<K>> openUtilityMap(name: String): UtilityMap<K>
+    fun <K: Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V>
 }
 
 /**
  * A very simple key-value store. An internal API, used by various implementations of [Umn] to store stuff there. Should not be used by
  * [Umn] clients.
  *
- * Currently not thread-safe.
+ * Thread safety: to be decided, currently some implementors may be thread-unsafe.
+ * @param K the type of the key, must be comparable so that the ranges can be looked up conveniently. Only a certain types of keys may
+ * be supported by the underlying Umn storage type, check the storage documentation for details. Yet, at least [String] and [Long] must always
+ * be supported.
+ * @param V the value. Only a certain types of values may
+ * be supported by the underlying Umn storage type, check the storage documentation for details. Yet, at least [String], [UUID], primitives
+ * and sets/lists of primitives must always be supported.
  */
-interface UtilityMap<K: Comparable<K>> {
+interface UtilityMap<K: Comparable<K>, V> {
     /**
      * Finds a value under given [key]; returns null if nothing is stored there.
      */
-    fun find(key: K): ByteArray?
+    fun find(key: K): V?
 
     /**
      * Puts [value] under given [key]; if the value is null the mapping is removed.
      */
-    fun put(key: K, value: ByteArray?)
+    fun put(key: K, value: V?)
 
     /**
      * Returns the smallest key currently stored in the map.

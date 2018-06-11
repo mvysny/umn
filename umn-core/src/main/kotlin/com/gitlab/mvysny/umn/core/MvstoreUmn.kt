@@ -31,6 +31,8 @@ object JavaDocumentSerializer : DocumentSerializer {
  * Stores documents into H2 MVStore. Warning: [serializer] is used every time when a document is stored or retrieved!
  *
  * Thread-safe.
+ *
+ * @todo ake kluce podporujeme?
  */
 class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSerializer) : Umn {
     override fun close() {
@@ -52,24 +54,24 @@ class MvstoreUmn(private val store: MVStore, private val serializer: DocumentSer
 
     override fun exists(id: UUID): Boolean = map.containsKey(id)
 
-    override fun update(id: UUID, document: Any) {
+    override fun <V: Any> update(id: UUID, document: V, clazz: KClass<V>) {
         map.computeIfPresent(id, { _, _ -> serializer.serialize(document) }) ?: throw IllegalArgumentException("Document with $id does not exist" )
     }
 
-    override fun delete(id: UUID) {
+    override fun delete(id: UUID, clazz: KClass<out Any>) {
         map.remove(id)
     }
 
-    override fun <K : Comparable<K>> openUtilityMap(name: String): UtilityMap<K> = MvstoreUtilityMap(store, name)
+    override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = MvstoreUtilityMap(store, name)
 }
 
 /**
  * Thread-safe.
  */
-class MvstoreUtilityMap<K: Comparable<K>>(store: MVStore, name: String) : UtilityMap<K> {
-    private val map: MVMap<K, ByteArray> = store.openMap("__$name")
-    override fun find(key: K): ByteArray? = map[key]
-    override fun put(key: K, value: ByteArray?) {
+class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : UtilityMap<K, V> {
+    private val map: MVMap<K, V> = store.openMap("__$name")
+    override fun find(key: K): V? = map[key]
+    override fun put(key: K, value: V?) {
         map[key] = value
     }
     override fun getSmallestKey(): K? = map.firstKey()

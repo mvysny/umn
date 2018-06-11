@@ -14,7 +14,7 @@ class InMemoryUmn : Umn {
     }
 
     private val map = ConcurrentHashMap<UUID, Any>()
-    private val utilityMaps = ConcurrentHashMap<String, UtilityMap<*>>()
+    private val utilityMaps = ConcurrentHashMap<String, UtilityMap<*, *>>()
 
     override fun create(document: Any): UUID {
         val id = UUID.randomUUID()
@@ -26,33 +26,29 @@ class InMemoryUmn : Umn {
 
     override fun exists(id: UUID): Boolean = map.contains(id)
 
-    override fun update(id: UUID, document: Any) {
+    override fun <V: Any> update(id: UUID, document: V, clazz: KClass<V>) {
         map.computeIfPresent(id, { _, _ -> document }) ?: throw IllegalArgumentException("The document with id $id does not exist")
     }
 
-    override fun delete(id: UUID) {
+    override fun delete(id: UUID, clazz: KClass<out Any>) {
         map.remove(id)
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <K : Comparable<K>> openUtilityMap(name: String): UtilityMap<K> =
-        utilityMaps.getOrPut(name, { InMemoryUtilityMap<K>() }) as UtilityMap<K>
+    override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> =
+        utilityMaps.getOrPut(name, { InMemoryUtilityMap<K, V>() }) as UtilityMap<K, V>
 }
 
 /**
  * Thread-safe.
  */
-class InMemoryUtilityMap<K: Comparable<K>> : UtilityMap<K> {
-    private val map = ConcurrentHashMap<K, ByteArray>()
+class InMemoryUtilityMap<K: Comparable<K>, V> : UtilityMap<K, V> {
+    private val map = ConcurrentHashMap<K, V>()
 
-    override fun find(key: K): ByteArray? = map[key]
+    override fun find(key: K): V? = map[key]
 
-    override fun put(key: K, value: ByteArray?) {
-        if (value == null) {
-            map.remove(key)
-        } else {
-            map[key] = value
-        }
+    override fun put(key: K, value: V?) {
+        map.putOrRemove(key, value)
     }
 
     override fun getSmallestKey(): K? = map.keys().toList().min()
