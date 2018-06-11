@@ -88,12 +88,12 @@ interface UtilityMap<K: Comparable<K>, V> {
     fun put(key: K, value: V?)
 
     /**
-     * Returns the smallest key currently stored in the map.
+     * Returns the smallest key currently stored in the map. Returns null if the map is empty.
      */
     fun getSmallestKey(): K?
 
     /**
-     * Returns the largest key currently stored in the map.
+     * Returns the largest key currently stored in the map. Returns null if the map is empty.
      */
     fun getLargestKey(): K?
 

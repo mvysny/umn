@@ -45,13 +45,27 @@ class ReplayLogUMN(private val delegate: UMN, private val serializer: DocumentSe
         delegate.update(id, document, clazz)
         appendLog(LogItem.DocumentUpdated(document, id))
     }
+
+    /**
+     * For testing purposes only - retrieves the whole log.
+     */
+    internal fun getLog(): List<LogItem> {
+        val smallest = log.getSmallestKey() ?: return listOf()
+        val largest = log.getLargestKey() ?: return listOf()
+        val iterator: Iterator<Long> = log.keyIterator(smallest..largest)
+        val keys: List<Long> = iterator.asSequence().toList()
+        return keys.map { id ->
+            val bytes: ByteArray = log.find(id)!!
+            LogItem.readFrom(DataInputStream(bytes.inputStream()), serializer)
+        }
+    }
 }
 
-sealed class LogItem(val id: UUID) {
+sealed class LogItem(open val id: UUID) {
     abstract fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer)
     fun toByteArray(serializer: DocumentSerializer): ByteArray = ByteArrayOutputStream().apply { writeTo(DataOutputStream(this), serializer) } .toByteArray()
 
-    class DocumentCreated(val document: Any, id: UUID) : LogItem(id) {
+    data class DocumentCreated(val document: Any, override val id: UUID) : LogItem(id) {
         override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
             dout.writeByte(TYPE_DOCUMENT_CREATED)
             dout.writeLong(id.leastSignificantBits)
@@ -71,7 +85,7 @@ sealed class LogItem(val id: UUID) {
         }
     }
 
-    class DocumentDeleted(id: UUID) : LogItem(id) {
+    data class DocumentDeleted(override val id: UUID) : LogItem(id) {
         override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
             dout.writeByte(TYPE_DOCUMENT_DELETED)
             dout.writeLong(id.leastSignificantBits)
@@ -79,7 +93,7 @@ sealed class LogItem(val id: UUID) {
         }
     }
 
-    class DocumentUpdated(val document: Any, id: UUID) : LogItem(id) {
+    data class DocumentUpdated(val document: Any, override val id: UUID) : LogItem(id) {
         override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
             dout.writeByte(TYPE_DOCUMENT_UPDATED)
             dout.writeLong(id.leastSignificantBits)
