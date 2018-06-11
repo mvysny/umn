@@ -6,8 +6,22 @@ import java.io.*
 import java.util.*
 import kotlin.reflect.KClass
 
+/**
+ * Provides support for serializing/deserializing of objects. You can either use:
+ * * The standard Java Serialization (by the means of [JavaDocumentSerializer])
+ * * You can store the documents as JSON (say by using `Gson`)
+ * * You can provide a completely custom serialization solution
+ */
 interface DocumentSerializer {
+    /**
+     * Serializes the [document] into the [dout] stream. Don't close the stream - it is automatically closed afterwards.
+     */
     fun serialize(document: Any, dout: DataOutputStream)
+
+    /**
+     * Deserializes the object of given [clazz] from given [din] input stream.
+     * We need to know the class upfront: it is needed both by the JSON Serializer, and possibly by custom serializers.
+     */
     fun <T: Any> deserialize(clazz: KClass<T>, din: DataInputStream): T
 
     fun serialize(document: Any): ByteArray = ByteArrayOutputStream().apply {
@@ -32,7 +46,7 @@ object JavaDocumentSerializer : DocumentSerializer {
  *
  * Thread-safe.
  *
- * @todo ake kluce podporujeme?
+ * Supports all [Serializable]/[Externalizable] keys; for more info please consult the documentation for H2 MV Store.
  */
 class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer) : UMN {
     override fun close() {

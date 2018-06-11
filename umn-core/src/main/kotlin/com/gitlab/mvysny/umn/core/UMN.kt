@@ -10,7 +10,7 @@ import kotlin.reflect.KClass
  *
  * The basic functionality of this key store can be enhanced greatly by wrappers:
  * * The [IndexingUMN] which allows you to create indices over documents
- * * The [ReplayLogUmn] which captures changes in the storage as a replayable list of events which also provides synchronization capabilities.
+ * * The [ReplayLogUMN] which captures changes in the storage as a replayable list of events which also provides synchronization capabilities.
  *
  * Generally the actual storage implementations (such as [MvstoreUMN]) define how exactly objects are serialized to byte arrays, or
  * deserialized back.

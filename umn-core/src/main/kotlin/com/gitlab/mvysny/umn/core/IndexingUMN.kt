@@ -87,12 +87,20 @@ class IndexingUMN<I: Comparable<I>>(name: String, private val delegate: UMN, pri
         delegate.close()
     }
 
+    /**
+     * Finds one document matching given [key]. If there are multiple documents, one is picked arbitrarily.
+     * @param clazz deserialize the document to this class, using [UMN#find].
+     */
     fun <V: Any> findOneByKey(key: I, clazz: KClass<V>): V? {
         val ids: Array<UUID> = indexStore.find(key) ?: return null
         val id: UUID = ids.firstOrNull() ?: return null
         return delegate.find(id, clazz)
     }
 
+    /**
+     * Returns all documents matching given key [range].
+     * @param clazz deserialize the documents to this class, using [UMN#find].
+     */
     fun <V: Any> findAllByKeyRange(range: ClosedRange<I>, clazz: KClass<V>): List<V> {
         val idsEncountered = mutableSetOf<UUID>()
         val result = LinkedList<V>()
@@ -110,4 +118,6 @@ class IndexingUMN<I: Comparable<I>>(name: String, private val delegate: UMN, pri
     }
 
     // @todo implement paged document range retrieval
+
+    // @todo implement unique index
 }
