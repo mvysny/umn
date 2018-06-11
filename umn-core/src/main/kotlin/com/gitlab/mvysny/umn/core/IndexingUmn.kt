@@ -14,9 +14,10 @@ import kotlin.reflect.KClass
  * supported. For example you can have a key with two parts: the `key` itself which is used to range-select the values, and the `ordering`
  * part which is then used to order the paged results.
  *
- * The indices are never re-generated for all documents. It is imperative that the [indexGenerator] function is stable and always returns
+ * The indices are never re-generated on function change; it is imperative that the [indexGenerator] function is stable and always returns
  * the same set for given document. It is currently not possible to update an index for all documents; any changes to the [indexGenerator]
- * function will be applied to newly inserted or updated documents only.
+ * function will be applied to newly inserted or updated documents only. You can not currently create a new index over a database with
+ * existing documents.
  *
  * ### Implementation
  * Intercepts all calls and passes them to underlying map, but updates the indices on the fly. Currently thread unsafe.
