@@ -31,9 +31,10 @@ import kotlin.reflect.KClass
  */
 class IndexingUmn<I: Comparable<I>>(name: String, private val delegate: Umn, private val indexGenerator: (Any) -> Set<I>) : Umn {
     /**
-     * Maps String index to a set of documents.
+     * Maps String index to a set of documents. Don't use Set since that's serialized using Java serialization; use Arrays
+     * since that's serialized more effectively; see [ObjectDataType#TYPE_ARRAY] for more info.
      */
-    private val indexStore: UtilityMap<I, MutableSet<UUID>> = delegate.openUtilityMap("INDEX_$name")
+    private val indexStore: UtilityMap<I, Array<UUID>> = delegate.openUtilityMap("INDEX_$name")
 
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
@@ -45,20 +46,20 @@ class IndexingUmn<I: Comparable<I>>(name: String, private val delegate: Umn, pri
         val indicesToRegister: Set<I> = register - unregister
         val indicesToUnregister: Set<I> = unregister - register
         indicesToRegister.forEach { index ->
-            var array: MutableSet<UUID>? = indexStore.find(index)
+            var array: Array<UUID>? = indexStore.find(index)
             if (array == null) {
-                array = mutableSetOf(id)
+                array = arrayOf(id)
                 indexStore.put(index, array)
             } else if (!array.contains(id)) {
-                array.add(id)
+                array += id
                 indexStore.put(index, array)
             }
         }
         indicesToUnregister.forEach { index ->
-            val array = indexStore.find(index)
-            if (array != null && array.contains(id)) {
-                array.remove(id)
-                indexStore.put(index, if (array.isEmpty()) null else array)
+            var array = indexStore.find(index)
+            if (array != null && array!!.contains(id)) {
+                array = array!!.filterNot { it == id } .toTypedArray()
+                indexStore.put(index, if (array!!.isEmpty()) null else array!!)
             }
         }
     }
@@ -87,7 +88,7 @@ class IndexingUmn<I: Comparable<I>>(name: String, private val delegate: Umn, pri
     }
 
     fun <V: Any> findOneByKey(key: I, clazz: KClass<V>): V? {
-        val ids: Set<UUID> = indexStore.find(key) ?: return null
+        val ids: Array<UUID> = indexStore.find(key) ?: return null
         val id: UUID = ids.firstOrNull() ?: return null
         return delegate.find(id, clazz)
     }
@@ -96,12 +97,14 @@ class IndexingUmn<I: Comparable<I>>(name: String, private val delegate: Umn, pri
         val idsEncountered = mutableSetOf<UUID>()
         val result = LinkedList<V>()
         indexStore.keyIterator(range).forEach { key ->
-            val ids: Set<UUID> = (indexStore.find(key) ?: setOf<UUID>()) - idsEncountered
-            idsEncountered.addAll(ids)
+            val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
             ids.forEach { id ->
-                val doc = delegate.find(id, clazz)
-                if (doc != null) result.add(doc)
+                if (!idsEncountered.contains(id)) {
+                    val doc = delegate.find(id, clazz)
+                    if (doc != null) result.add(doc)
+                }
             }
+            idsEncountered.addAll(ids)
         }
         return result.toList()
     }
