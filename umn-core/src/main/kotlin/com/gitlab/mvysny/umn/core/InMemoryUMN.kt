@@ -26,7 +26,7 @@ class InMemoryUMN : UMN {
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = clazz.java.cast(map[id])
 
-    override fun exists(id: UUID): Boolean = map.contains(id)
+    override fun exists(id: UUID): Boolean = map.containsKey(id)
 
     override fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>) {
         map.computeIfPresent(id, { _, _ -> document }) ?: throw IllegalArgumentException("The document with id $id does not exist")
