@@ -103,7 +103,7 @@ class IndexingUMNTest : DynaTest({
             indexingUmnTestBattery { InMemoryUMN() }
         }
         group("on mvstore") {
-            indexingUmnTestBattery { MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer) }
+            indexingUmnTestBattery { createMvstoreUMN() }
         }
     }
 })

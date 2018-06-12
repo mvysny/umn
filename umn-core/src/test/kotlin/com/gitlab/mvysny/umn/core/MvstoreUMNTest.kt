@@ -10,9 +10,6 @@ class MvstoreUMNTest : DynaTest({
     }
 
     group("file-based tests") {
-        genericUmnTestBattery {
-            val db: File = createTempFile()
-            MvstoreUMN(MVStore.open(db.absolutePath), JavaDocumentSerializer)
-        }
+        genericUmnTestBattery { createMvstoreUMN() }
     }
 })

@@ -62,6 +62,14 @@ interface UMN : Closeable {
      * @param K the key type, must be one of the simple and easily serializable types: String, Long.
      */
     fun <K: Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V>
+
+    /**
+     * INTERNAL USE ONLY!!! Puts a [document] with given [id] to the database. Fails if there already is a document with given ID.
+     *
+     * Never use! Only used by [ReplayLogUMN] to apply changes. This function breaks the guarantee that a document
+     * delete with given id is permanent and irreversible. This in turn ... @todo mavi do we need this guarantee?
+     */
+//    fun create(document: Any, id: UUID)
 }
 
 /**

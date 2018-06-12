@@ -53,10 +53,7 @@ class ReplayLogUMNTest : DynaTest({
             replayLogTestBattery { ReplayLogUMN(InMemoryUMN(), JavaDocumentSerializer) }
         }
         group("on mvstore") {
-            replayLogTestBattery {
-                val mvstore = MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer)
-                ReplayLogUMN(mvstore, JavaDocumentSerializer)
-            }
+            replayLogTestBattery { ReplayLogUMN(createMvstoreUMN(), JavaDocumentSerializer) }
         }
     }
 })

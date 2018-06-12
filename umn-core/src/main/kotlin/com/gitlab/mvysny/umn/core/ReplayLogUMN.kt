@@ -14,7 +14,7 @@ import kotlin.reflect.KClass
  * @todo implement support for log replaying
  */
 class ReplayLogUMN(private val delegate: UMN, private val serializer: DocumentSerializer) : UMN {
-    private val log = delegate.openUtilityMap<Long, ByteArray>("REPLAY_LOG")
+    private val log: UtilityMap<Long, ByteArray> = delegate.openUtilityMap("REPLAY_LOG")
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)
 
     override fun exists(id: UUID): Boolean = delegate.exists(id)
