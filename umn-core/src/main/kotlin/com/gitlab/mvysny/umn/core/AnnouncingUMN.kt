@@ -7,57 +7,36 @@ import java.util.*
 import kotlin.reflect.KClass
 
 /**
- * Stores a log of all operations into an internal utility table.
+ * Announces all mutate operations made to this UMN (such as create document, modify document and delete document) to given [listener].
+ * The operation takes effect even if the listener fails.
  *
- * Thread-unsafe.
- *
- * @todo implement support for log replaying
+ * Thread-safe.
  */
-class ReplayLogUMN(private val delegate: UMN, private val serializer: DocumentSerializer) : UMN {
-    private val log: UtilityMap<Long, ByteArray> = delegate.openUtilityMap("REPLAY_LOG")
+class AnnouncingUMN(private val delegate: UMN, private val listener: (LogItem)->Unit = {}) : UMN {
+    override fun create(document: Any): UUID {
+        val id = delegate.create(document)
+        listener(LogItem.DocumentCreated(document, id))
+        return id
+    }
+
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)
 
     override fun exists(id: UUID): Boolean = delegate.exists(id)
+
+    override fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>) {
+        delegate.update(id, document, clazz)
+        listener(LogItem.DocumentUpdated(document, id))
+    }
+
+    override fun delete(id: UUID, clazz: KClass<out Any>) {
+        delegate.delete(id, clazz)
+        listener(LogItem.DocumentDeleted(id))
+    }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)
 
     override fun close() {
         delegate.close()
-    }
-
-    override fun create(document: Any): UUID {
-        val id = delegate.create(document)
-        appendLog(LogItem.DocumentCreated(document, id))
-        return id
-    }
-
-    private fun appendLog(logItem: LogItem) {
-        val id: Long = (log.getLargestKey() ?: 0L) + 1L
-        log.put(id, logItem.toByteArray(serializer))
-    }
-
-    override fun delete(id: UUID, clazz: KClass<out Any>) {
-        delegate.delete(id, clazz)
-        appendLog(LogItem.DocumentDeleted(id))
-    }
-
-    override fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>) {
-        delegate.update(id, document, clazz)
-        appendLog(LogItem.DocumentUpdated(document, id))
-    }
-
-    /**
-     * For testing purposes only - retrieves the whole log.
-     */
-    internal fun getLog(): List<LogItem> {
-        val smallest = log.getSmallestKey() ?: return listOf()
-        val largest = log.getLargestKey() ?: return listOf()
-        val iterator: Iterator<Long> = log.keyIterator(smallest..largest)
-        val keys: List<Long> = iterator.asSequence().toList()
-        return keys.map { id ->
-            val bytes: ByteArray = log.find(id)!!
-            LogItem.readFrom(DataInputStream(bytes.inputStream()), serializer)
-        }
     }
 }
 
@@ -128,5 +107,8 @@ sealed class LogItem(open val id: UUID) {
                 else -> throw RuntimeException("Unsupported document type: $type")
             }
         }
+
+        fun fromByteArray(bytes: ByteArray, serializer: DocumentSerializer): LogItem =
+                readFrom(DataInputStream(bytes.inputStream()), serializer)
     }
 }

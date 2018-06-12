@@ -1,0 +1,74 @@
+package com.gitlab.mvysny.umn.core
+
+import com.github.mvysny.dynatest.DynaNodeGroup
+import com.github.mvysny.dynatest.DynaTest
+import com.github.mvysny.dynatest.expectList
+
+/**
+ * Thread-safe.
+ */
+internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, val serializer: DocumentSerializer) {
+    fun log(item: LogItem) {
+        buffer.append(item.toByteArray(serializer))
+    }
+
+    fun drain(): List<LogItem> =
+        generateSequence { buffer.poll() } .map { LogItem.fromByteArray(it, serializer) } .toList()
+}
+
+internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<UMN, MutationLog> {
+    val log = MutationLog(FIFOBuffer(openUtilityMap("MUTATION_LOG")), serializer)
+    val umn = AnnouncingUMN(this, { log.log(it) })
+    return umn to log
+}
+
+internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN, MutationLog>) {
+    lateinit var umn: UMN
+    lateinit var log: MutationLog
+    beforeEach { replayLogProducer().apply { umn = first; log = second } }
+    afterEach { umn.close() }
+
+    group("log producer tests") {
+        test("initially the log is empty") {
+            expectList() { log.drain() }
+        }
+        test("creating document produces one log entry") {
+            val id = umn.create("kvak")
+            expectList(LogItem.DocumentCreated("kvak", id)) { log.drain() }
+        }
+        test("creating+updating document produces two log entries") {
+            val id = umn.create("kvak")
+            umn.update(id, "foo", String::class)
+            expectList(LogItem.DocumentCreated("kvak", id), LogItem.DocumentUpdated("foo", id)) { log.drain() }
+        }
+        test("creating+deleting document produces two log entries") {
+            val id = umn.create("kvak")
+            umn.delete(id, String::class)
+            expectList(LogItem.DocumentCreated("kvak", id), LogItem.DocumentDeleted(id)) { log.drain() }
+        }
+    }
+}
+
+/**
+ * Tests the [IndexingUMN] class.
+ */
+class AnnouncingUMNTest : DynaTest({
+    // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
+    group("basic tests") {
+        group("in-memory") {
+            genericUmnTestBattery { InMemoryUMN().mutationLog(JavaDocumentSerializer).first }
+        }
+        group("on mvstore") {
+            genericUmnTestBattery { createMvstoreUMN().mutationLog(JavaDocumentSerializer).first }
+        }
+    }
+
+    group("replay log specific tests") {
+        group("in-memory") {
+            announcingTestBattery { InMemoryUMN().mutationLog(JavaDocumentSerializer) }
+        }
+        group("on mvstore") {
+            announcingTestBattery { createMvstoreUMN().mutationLog(JavaDocumentSerializer) }
+        }
+    }
+})
