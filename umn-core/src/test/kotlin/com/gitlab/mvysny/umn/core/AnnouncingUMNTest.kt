@@ -50,7 +50,7 @@ internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN
 }
 
 /**
- * Tests the [IndexingUMN] class.
+ * Tests the [AnnouncingUMN] class. Also tests the serialization of [LogItem]s.
  */
 class AnnouncingUMNTest : DynaTest({
     // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
