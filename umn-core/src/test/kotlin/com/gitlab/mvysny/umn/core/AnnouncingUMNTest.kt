@@ -7,7 +7,7 @@ import com.github.mvysny.dynatest.expectList
 /**
  * Thread-safe.
  */
-internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, val serializer: DocumentSerializer) {
+internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, private val serializer: DocumentSerializer) {
     fun log(item: LogItem) {
         buffer.append(item.toByteArray(serializer))
     }
