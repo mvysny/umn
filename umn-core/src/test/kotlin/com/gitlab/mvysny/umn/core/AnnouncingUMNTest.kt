@@ -58,7 +58,7 @@ internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN
         test("creating+deleting document produces two log entries") {
             val id = umn.create("kvak")
             umn.delete(id, String::class)
-            expectList(LogItem.DocumentCreated("kvak", id), LogItem.DocumentDeleted(id)) { log.drain() }
+            expectList(LogItem.DocumentCreated("kvak", id), LogItem.DocumentDeleted(id, String::class)) { log.drain() }
         }
     }
 }

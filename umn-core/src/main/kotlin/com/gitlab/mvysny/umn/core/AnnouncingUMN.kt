@@ -84,6 +84,7 @@ sealed class LogItem(open val id: UUID) {
             dout.writeByte(TYPE_DOCUMENT_DELETED)
             dout.writeLong(id.leastSignificantBits)
             dout.writeLong(id.mostSignificantBits)
+            dout.writeUTF(clazz.java.name)
         }
 
         companion object {
