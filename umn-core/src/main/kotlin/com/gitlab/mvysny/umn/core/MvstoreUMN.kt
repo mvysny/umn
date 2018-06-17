@@ -49,6 +49,10 @@ object JavaDocumentSerializer : DocumentSerializer {
  * Supports all [Serializable]/[Externalizable] keys; for more info please consult the documentation for H2 MV Store.
  */
 class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer) : UMN {
+    override fun create(document: Any, id: UUID) {
+        map.putIfAbsent(id, serializer.serialize(document))
+    }
+
     override fun close() {
         store.close()
     }

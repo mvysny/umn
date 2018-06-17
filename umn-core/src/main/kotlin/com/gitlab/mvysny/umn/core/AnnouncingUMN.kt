@@ -11,8 +11,14 @@ import kotlin.reflect.KClass
  * The operation takes effect even if the listener fails.
  *
  * Thread-safe.
+ *
+ * @property listener notified of mutate operations. May be called from multiple threads at once.
  */
 class AnnouncingUMN(private val delegate: UMN, private val listener: (LogItem)->Unit = {}) : UMN {
+    override fun create(document: Any, id: UUID) {
+        delegate.create(document, id)
+    }
+
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
         listener(LogItem.DocumentCreated(document, id))
@@ -30,7 +36,7 @@ class AnnouncingUMN(private val delegate: UMN, private val listener: (LogItem)->
 
     override fun delete(id: UUID, clazz: KClass<out Any>) {
         delegate.delete(id, clazz)
-        listener(LogItem.DocumentDeleted(id))
+        listener(LogItem.DocumentDeleted(id, clazz))
     }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)
@@ -43,8 +49,13 @@ class AnnouncingUMN(private val delegate: UMN, private val listener: (LogItem)->
 sealed class LogItem(open val id: UUID) {
     abstract fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer)
     fun toByteArray(serializer: DocumentSerializer): ByteArray = ByteArrayOutputStream().apply { writeTo(DataOutputStream(this), serializer) } .toByteArray()
+    abstract fun applyTo(umn: UMN)
 
     data class DocumentCreated(val document: Any, override val id: UUID) : LogItem(id) {
+        override fun applyTo(umn: UMN) {
+            umn.create(document, id)
+        }
+
         override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
             dout.writeByte(TYPE_DOCUMENT_CREATED)
             dout.writeLong(id.leastSignificantBits)
@@ -64,15 +75,32 @@ sealed class LogItem(open val id: UUID) {
         }
     }
 
-    data class DocumentDeleted(override val id: UUID) : LogItem(id) {
+    data class DocumentDeleted(override val id: UUID, val clazz: KClass<*>) : LogItem(id) {
+        override fun applyTo(umn: UMN) {
+            umn.delete(id, clazz)
+        }
+
         override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
             dout.writeByte(TYPE_DOCUMENT_DELETED)
             dout.writeLong(id.leastSignificantBits)
             dout.writeLong(id.mostSignificantBits)
         }
+
+        companion object {
+            internal fun readFrom(id: UUID, din: DataInputStream): DocumentDeleted {
+                val clazz = Class.forName(din.readUTF()).asSubclass(Any::class.java)
+                return DocumentDeleted(id, clazz.kotlin)
+            }
+        }
     }
 
     data class DocumentUpdated(val document: Any, override val id: UUID) : LogItem(id) {
+        override fun applyTo(umn: UMN) {
+            if (umn.exists(id)) {
+                umn.update(id, document, document.javaClass.kotlin)
+            }
+        }
+
         override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
             dout.writeByte(TYPE_DOCUMENT_UPDATED)
             dout.writeLong(id.leastSignificantBits)
@@ -102,7 +130,7 @@ sealed class LogItem(open val id: UUID) {
             val id = UUID(msb, lsb)
             return when (type) {
                 TYPE_DOCUMENT_CREATED -> DocumentCreated.readFrom(id, din, serializer)
-                TYPE_DOCUMENT_DELETED -> DocumentDeleted(id)
+                TYPE_DOCUMENT_DELETED -> DocumentDeleted.readFrom(id, din)
                 TYPE_DOCUMENT_UPDATED -> DocumentUpdated.readFrom(id, din, serializer)
                 else -> throw RuntimeException("Unsupported document type: $type")
             }

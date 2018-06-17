@@ -41,4 +41,13 @@ internal class FIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
         log.put(lowestKey, null)
         result
     }
+
+    /**
+     * Retrieves (but does not remove) the head of this queue,
+     * or returns `null` if this queue is empty.
+     */
+    fun peek(): T? = readLock.withLock {
+        val lowestKey: Long = log.getSmallestKey() ?: return null
+        log.find(lowestKey)
+    }
 }

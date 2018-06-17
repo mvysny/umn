@@ -10,7 +10,7 @@ import kotlin.reflect.KClass
  *
  * The basic functionality of this key store can be enhanced greatly by wrappers:
  * * The [IndexingUMN] which allows you to create indices over documents
- * * The [ReplayLogUMN] which captures changes in the storage as a replayable list of events which also provides synchronization capabilities.
+ * * The [AnnouncingUMN] which captures changes in the storage as a replayable list of events which also provides synchronization capabilities.
  *
  * Generally the actual storage implementations (such as [MvstoreUMN]) define how exactly objects are serialized to byte arrays, or
  * deserialized back.
@@ -25,6 +25,9 @@ interface UMN : Closeable {
 
     /**
      * Finds a document with given [id] and converts it to given [clazz]. If there is no such document or it has been deleted, returns null.
+     *
+     * The [clazz] parameter is necessary for, say, JSON converters which do not know the exact class
+     * of the expected document.
      */
     fun <V : Any> find(id: UUID, clazz: KClass<V>): V?
 
@@ -41,6 +44,7 @@ interface UMN : Closeable {
 
     /**
      * Overwrites a [document] with given [id]. The document must exist!
+     * @param clazz needed by the indexing UMN to retrieve the old copy of the document to remove its indices.
      * @throws IllegalArgumentException if no document with given ID exists.
      */
     fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>)
@@ -64,12 +68,13 @@ interface UMN : Closeable {
     fun <K: Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V>
 
     /**
-     * INTERNAL USE ONLY!!! Puts a [document] with given [id] to the database. Fails if there already is a document with given ID.
+     * INTERNAL USE ONLY!!! Puts a [document] with given [id] to the database.
+     * Does nothing if there already is a document with given ID.
      *
-     * Never use! Only used by [ReplayLogUMN] to apply changes. This function breaks the guarantee that a document
-     * delete with given id is permanent and irreversible. This in turn ... @todo mavi do we need this guarantee?
+     * Never use! Only used by [RemoteLogPuller] to apply changes. This function breaks the guarantee that a document
+     * delete with given id is permanent and irreversible. @todo mavi what may this cause?
      */
-//    fun create(document: Any, id: UUID)
+    fun create(document: Any, id: UUID)
 }
 
 /**
