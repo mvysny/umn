@@ -3,15 +3,21 @@ package com.gitlab.mvysny.umn.core
 import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.expectThrows
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.expect
 
+/**
+ * Tests a [GlobalLogClient].
+ * @param clientProducer expected to return clients connected to the same global log; the global log
+ * must be cleared between individual tests.
+ */
 fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()->GlobalLogClient) {
-
-    lateinit var client: GlobalLogClient
-    beforeEach { client = clientProducer() }
-    afterEach { client.close() }
-
     // tests whether the client correctly responds with IllegalStateExceptions
     group("contract tests") {
+        lateinit var client: GlobalLogClient
+        beforeEach { client = clientProducer() }
+        afterEach { client.close() }
+
         test("client can be closed immediately even if not started") {
             client.close()
         }
@@ -54,6 +60,64 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()->GlobalLogClient
             expectThrows(IllegalStateException::class) {
                 client.setAddCallback {}
             }
+        }
+    }
+
+    group("simple listener tests") {
+        lateinit var client: GlobalLogClient
+        beforeEach { client = clientProducer() }
+        afterEach { client.close() }
+
+        test("publishing item calls both listeners") {
+            val item = LogRecord.DocumentCreated("foo", UUID.randomUUID())
+            var addCallbackCalled = false
+            client.setAddCallback { addCallbackCalled = true }
+            var receiverCallbackCalled = false
+            client.setReceiverCallback(0L) { record, orderNumber ->
+                receiverCallbackCalled = true
+                expect(item) { record }
+                expect(0L) { orderNumber }
+            }
+            client.start()
+            client.addAsync(item)
+            expectAsync(true) { addCallbackCalled }
+            expectAsync(true) { receiverCallbackCalled }
+        }
+    }
+
+    multipleClientTestBattery(2, clientProducer)
+
+    multipleClientTestBattery(10, clientProducer)
+}
+
+/**
+ * Runs tests on multitude of clients.
+ * @param clientCount must be 2 or higher
+ */
+fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()->GlobalLogClient) {
+    require(clientCount >= 2) { "$clientCount must be 2 or higher" }
+
+    group("$clientCount client test") {
+        lateinit var clients: List<GlobalLogClient>
+        beforeEach { clients = List(clientCount) { clientProducer() } }
+        afterEach { clients.forEach { it.closeQuietly() } }
+
+        test("addAsync() sends to the other client") {
+            val item = LogRecord.DocumentCreated("foo", UUID.randomUUID())
+            clients[0].start()
+            val receiverCallbackCalled = AtomicInteger()
+            clients.subList(1, clients.size).forEach {
+                it.setAddCallback { kotlin.test.fail("Should not be called") }
+                it.setReceiverCallback(0L) { record, orderNumber ->
+                    receiverCallbackCalled.incrementAndGet()
+                    expect(item) { record }
+                    expect(0L) { orderNumber }
+                }
+                it.start()
+            }
+
+            clients[0].addAsync(item)
+            expectAsync(clientCount - 1) { receiverCallbackCalled.get() }
         }
     }
 }

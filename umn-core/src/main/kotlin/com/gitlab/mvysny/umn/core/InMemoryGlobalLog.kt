@@ -13,8 +13,8 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
-    internal lateinit var addCallback: (orderNumber: Long) -> Unit
-    internal lateinit var receiveCallback: (record: LogRecord, orderNumber: Long) -> Unit
+    internal var addCallback: (orderNumber: Long) -> Unit = {}
+    internal var receiveCallback: (record: LogRecord, orderNumber: Long) -> Unit = { _, _ -> }
     private var currentLogPointer: Long = 0L
 
     private fun checkNotClosed() {
