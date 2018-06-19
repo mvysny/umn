@@ -1,0 +1,9 @@
+dependencies {
+    compile(project(":umn-core"))
+    compile('org.apache.kafka:kafka-clients:1.1.0') {
+        exclude module: "snappy-java"
+        exclude module: "lz4-java"
+    }
+    testCompile("com.github.mvysny.dynatest:dynatest:${dynatest_version}")
+    testCompile("ch.qos.logback:logback-classic:1.2.3")
+}
