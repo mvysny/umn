@@ -12,7 +12,7 @@ import kotlin.concurrent.thread
  * ### Global Log
  *
  * The *global log* is essentially a list of
- * [LogItem]s with 0-based indices, which maintains a total order of the items.
+ * [LogRecord]s with 0-based indices, which maintains a total order of the items.
  * Items are added at the end of the log only, never into the middle of the log.
  * The item ordering is important and must never be changed.
  * Newly added items must be announced to the receiver callback in exactly the same order
@@ -23,12 +23,12 @@ import kotlin.concurrent.thread
  *
  * The log may contain holes. Say a UMN document has been created and later on, deleted.
  * It is for example no longer necessary to synchronize all modifications to the document;
- * only the [LogItem.DocumentDeleted] needs to be transmitted. Therefore we can safely
- * remove al [LogItem.DocumentCreated] and [LogItem.DocumentUpdated] related to this document from
+ * only the [LogRecord.DocumentDeleted] needs to be transmitted. Therefore we can safely
+ * remove al [LogRecord.DocumentCreated] and [LogRecord.DocumentUpdated] related to this document from
  * the log, thus saving both the disk space and the network bandwidth.
  *
  * This is an optional optimization - some global log implementations may decide to not to
- * optimize and hold all [LogItem]s indefinitely.
+ * optimize and hold all [LogRecord]s indefinitely.
  *
  * ### Client
  *
@@ -53,7 +53,7 @@ interface GlobalLogClient : Closeable {
 
     /**
      * Sets the receiver [callback]. The callback is invoked for every item with index equal to
-     * or greater than given [rewind] parameter, for every new [LogItem] available.
+     * or greater than given [rewind] parameter, for every new [LogRecord] available.
      * The log items must be announced in the same order as they were introduced; the
      * `orderNumber` parameter in the [callback] must increase as the callback is called.
      *
@@ -63,15 +63,15 @@ interface GlobalLogClient : Closeable {
      * The [callback] must be called by at most one thread at once.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    fun setReceiverCallback(rewind: Long, callback: (item: LogItem, orderNumber: Long) -> Unit)
+    fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit)
 
     /**
-     * Invoked for every [LogItem] sent by [addAsync] of this client, serves as a confirmation
+     * Invoked for every [LogRecord] sent by [addAsync] of this client, serves as a confirmation
      * that the item has been stored in the global log. The `orderNumber` in the callback
-     * is the global index number assigned to the [LogItem] by the server. The `orderNumber` must
+     * is the global index number assigned to the [LogRecord] by the server. The `orderNumber` must
      * increase as the callback is called. @todo what if the callback fails?
      *
-     * The [callback] is called for any [LogItem] including items published via this client.
+     * The [callback] is called for any [LogRecord] including items published via this client.
      *
      * The [callback] must be called by at most one thread at once.
      * @throws IllegalStateException if the client has already been started or is closed
@@ -88,12 +88,12 @@ interface GlobalLogClient : Closeable {
     fun start()
 
     /**
-     * Appends given [item] into the global log asynchronously. Returns immediately.
-     * When the [item] has been added successfully server-side, the [setAddCallback] callback
-     * is called. Afterwards, the item is also announced to all clients via the [setReceiverCallback].
+     * Appends given [record] into the global log asynchronously. Returns immediately.
+     * When the [record] has been added successfully server-side, the [setAddCallback] callback
+     * is called. Afterwards, the record is also announced to all clients via the [setReceiverCallback].
      * @throws IllegalStateException if the client is not yet started or has been closed.
      */
-    fun addAsync(item: LogItem)
+    fun addAsync(record: LogRecord)
 
     /**
      * Returns true after [start] has been called. Returns false if the client is closed.
@@ -105,12 +105,14 @@ interface GlobalLogClient : Closeable {
  * Asynchronously pushes contents of the [buffer] to the [globalLogClient]. Only removes the item from the buffer
  * when the [GlobalLogClient.addAsync] has been ACKed; that means that double-sending may occur on
  * failures or when this class is closed while the item is being sent. This is however okay
- * since [LogItem]s are idempotent (may be executed multiple times without side effects).
+ * since [LogRecord]s are idempotent (may be executed multiple times without side effects).
  *
  * Typically used in conjunction with [AnnouncingUMN] which announces all mutation ops which are
  * then pushed by this class to the global log.
+ *
+ * @param globalLogClient not closed by this class
  */
-internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, private val buffer: FIFOBuffer<LogItem>) : Closeable {
+internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, private val buffer: FIFOBuffer<LogRecord>) : Closeable {
     init {
         globalLogClient.setAddCallback {
             // when the remote log ACKs that the item has been added, remove it from the buffer
@@ -144,8 +146,8 @@ internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, pri
         }
     }
 
-    fun addAsync(item: LogItem) {
-        buffer.append(item)
+    fun addAsync(record: LogRecord) {
+        buffer.append(record)
     }
 
     override fun close() {
@@ -169,9 +171,11 @@ internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, pri
  *
  * Note: items already applied in this UMN will too be published via [GlobalLogPusher],
  * pulled via this class and applied back to the UMN. This is fine since
- * [LogItem]s are idempotent (may be executed multiple times without side effects).
+ * [LogRecord]s are idempotent (may be executed multiple times without side effects).
  * Also the items will be applied in correct global order hence everybody will see the
  * same effect.
+ *
+ * @param globalLogClient not closed by this class
  */
 internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
@@ -197,7 +201,7 @@ internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: Global
 fun UMN.replicator(client: GlobalLogClient): UMN {
     // buffer which stores outgoing changes until they are correctly transmitted over given
     // client to the global log
-    val changes = FIFOBuffer<LogItem>(this.openUtilityMap("OUTGOING_BUFFER"))
+    val changes = FIFOBuffer<LogRecord>(this.openUtilityMap("OUTGOING_BUFFER"))
 
     GlobalLogPuller(this, client)
     val pusher = GlobalLogPusher(client, changes)

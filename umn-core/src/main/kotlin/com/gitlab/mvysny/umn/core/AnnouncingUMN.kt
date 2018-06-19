@@ -14,14 +14,14 @@ import kotlin.reflect.KClass
  *
  * @property listener notified of mutate operations. May be called from multiple threads at once.
  */
-class AnnouncingUMN(private val delegate: UMN, private val listener: (LogItem)->Unit = {}) : UMN {
+class AnnouncingUMN(private val delegate: UMN, private val listener: (LogRecord)->Unit = {}) : UMN {
     override fun create(document: Any, id: UUID) {
         delegate.create(document, id)
     }
 
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
-        listener(LogItem.DocumentCreated(document, id))
+        listener(LogRecord.DocumentCreated(document, id))
         return id
     }
 
@@ -31,12 +31,12 @@ class AnnouncingUMN(private val delegate: UMN, private val listener: (LogItem)->
 
     override fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>) {
         delegate.update(id, document, clazz)
-        listener(LogItem.DocumentUpdated(document, id))
+        listener(LogRecord.DocumentUpdated(document, id))
     }
 
     override fun delete(id: UUID, clazz: KClass<out Any>) {
         delegate.delete(id, clazz)
-        listener(LogItem.DocumentDeleted(id, clazz))
+        listener(LogRecord.DocumentDeleted(id, clazz))
     }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)
@@ -46,12 +46,12 @@ class AnnouncingUMN(private val delegate: UMN, private val listener: (LogItem)->
     }
 }
 
-sealed class LogItem(open val id: UUID) {
+sealed class LogRecord(open val id: UUID) {
     abstract fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer)
     fun toByteArray(serializer: DocumentSerializer): ByteArray = ByteArrayOutputStream().apply { writeTo(DataOutputStream(this), serializer) } .toByteArray()
     abstract fun applyTo(umn: UMN)
 
-    data class DocumentCreated(val document: Any, override val id: UUID) : LogItem(id) {
+    data class DocumentCreated(val document: Any, override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             umn.create(document, id)
         }
@@ -75,7 +75,7 @@ sealed class LogItem(open val id: UUID) {
         }
     }
 
-    data class DocumentDeleted(override val id: UUID, val clazz: KClass<*>) : LogItem(id) {
+    data class DocumentDeleted(override val id: UUID, val clazz: KClass<*>) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             umn.delete(id, clazz)
         }
@@ -95,7 +95,7 @@ sealed class LogItem(open val id: UUID) {
         }
     }
 
-    data class DocumentUpdated(val document: Any, override val id: UUID) : LogItem(id) {
+    data class DocumentUpdated(val document: Any, override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             if (umn.exists(id)) {
                 umn.update(id, document, document.javaClass.kotlin)
@@ -124,7 +124,7 @@ sealed class LogItem(open val id: UUID) {
         private val TYPE_DOCUMENT_DELETED = 1
         private val TYPE_DOCUMENT_UPDATED = 2
 
-        fun readFrom(din: DataInputStream, serializer: DocumentSerializer): LogItem {
+        fun readFrom(din: DataInputStream, serializer: DocumentSerializer): LogRecord {
             val type = din.readByte().toInt()
             val lsb = din.readLong()
             val msb = din.readLong()
@@ -137,7 +137,7 @@ sealed class LogItem(open val id: UUID) {
             }
         }
 
-        fun fromByteArray(bytes: ByteArray, serializer: DocumentSerializer): LogItem =
+        fun fromByteArray(bytes: ByteArray, serializer: DocumentSerializer): LogRecord =
                 readFrom(DataInputStream(bytes.inputStream()), serializer)
     }
 }

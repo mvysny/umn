@@ -14,7 +14,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     internal lateinit var addCallback: (orderNumber: Long) -> Unit
-    internal lateinit var receiveCallback: (item: LogItem, orderNumber: Long) -> Unit
+    internal lateinit var receiveCallback: (record: LogRecord, orderNumber: Long) -> Unit
     private var currentLogPointer: Long = 0L
 
     private fun checkNotClosed() {
@@ -41,16 +41,16 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
         addCallback = callback
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (item: LogItem, orderNumber: Long) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit) {
         checkNotStarted()
         currentLogPointer = rewind
         receiveCallback = callback
     }
 
-    override fun addAsync(item: LogItem) {
+    override fun addAsync(record: LogRecord) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
-        owner.add(this, item)
+        owner.add(this, record)
     }
 
     override fun close() {
@@ -60,8 +60,8 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
     }
 
     @Synchronized
-    internal fun onNewItem(item: LogItem) {
-        receiveCallback(item, currentLogPointer++)
+    internal fun onNewItem(record: LogRecord) {
+        receiveCallback(record, currentLogPointer++)
     }
 }
 
@@ -70,12 +70,12 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
  */
 class InMemoryGlobalLog {
     private val clients = CopyOnWriteArrayList<InMemoryGlobalLogClient>()
-    internal val log = CopyOnWriteArrayList<LogItem>()
+    internal val log = CopyOnWriteArrayList<LogRecord>()
 
     fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)
 
     @Synchronized
-    internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long): List<LogItem> {
+    internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long): List<LogRecord> {
         clients.add(client)
         return log.subList(retrieveLogFrom.toInt(), log.size)
     }
@@ -85,10 +85,10 @@ class InMemoryGlobalLog {
     }
 
     @Synchronized
-    internal fun add(client: InMemoryGlobalLogClient, item: LogItem) {
-        log.add(item)
+    internal fun add(client: InMemoryGlobalLogClient, record: LogRecord) {
+        log.add(record)
         val newItemIndex = (log.size - 1).toLong()
         client.addCallback(newItemIndex)
-        clients.forEach { it.onNewItem(item) }
+        clients.forEach { it.onNewItem(record) }
     }
 }

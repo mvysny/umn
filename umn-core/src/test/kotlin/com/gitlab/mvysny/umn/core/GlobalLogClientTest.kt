@@ -21,20 +21,20 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()->GlobalLogClient
         }
         test("calling addAsync() on unstarted client fails") {
             expectThrows(IllegalStateException::class) {
-                client.addAsync(LogItem.DocumentCreated("foo", UUID.randomUUID()))
+                client.addAsync(LogRecord.DocumentCreated("foo", UUID.randomUUID()))
             }
         }
         test("calling addAsync() on closed client fails") {
             client.close()
             expectThrows(IllegalStateException::class) {
-                client.addAsync(LogItem.DocumentCreated("foo", UUID.randomUUID()))
+                client.addAsync(LogRecord.DocumentCreated("foo", UUID.randomUUID()))
             }
         }
         test("calling addAsync() on started+closed client fails") {
             client.start()
             client.close()
             expectThrows(IllegalStateException::class) {
-                client.addAsync(LogItem.DocumentCreated("foo", UUID.randomUUID()))
+                client.addAsync(LogRecord.DocumentCreated("foo", UUID.randomUUID()))
             }
         }
         test("calling start() multiple times fails") {

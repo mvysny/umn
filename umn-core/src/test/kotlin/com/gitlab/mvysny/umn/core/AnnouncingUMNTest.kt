@@ -9,23 +9,23 @@ import com.github.mvysny.dynatest.expectList
  */
 internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, private val serializer: DocumentSerializer) {
     /**
-     * Logs this mutation [item].
+     * Logs this mutation [record].
      */
-    fun log(item: LogItem) {
-        buffer.append(item.toByteArray(serializer))
+    fun log(record: LogRecord) {
+        buffer.append(record.toByteArray(serializer))
     }
 
     /**
      * Empties this log. Warning! This operation is NOT atomic - if multiple threads call this, items are randomly drained to both
      * threads.
      */
-    fun drain(): List<LogItem> =
-        generateSequence { buffer.poll() } .map { LogItem.fromByteArray(it, serializer) } .toList()
+    fun drain(): List<LogRecord> =
+        generateSequence { buffer.poll() } .map { LogRecord.fromByteArray(it, serializer) } .toList()
 }
 
 /**
  * Wraps this UMN in a capturing UMN which sends all mutation events to a log. Returns both the new capturing UMN and the log
- * which hosts the mutation events (in the form of [LogItem]s).
+ * which hosts the mutation events (in the form of [LogRecord]s).
  */
 internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<UMN, MutationLog> {
     val log = MutationLog(FIFOBuffer(openUtilityMap("MUTATION_LOG")), serializer)
@@ -34,7 +34,7 @@ internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<UMN, Mutation
 }
 
 /**
- * A test battery which tests the [AnnouncingUMN], [MutationLog] and the serialization of [LogItem]s.
+ * A test battery which tests the [AnnouncingUMN], [MutationLog] and the serialization of [LogRecord]s.
  */
 internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN, MutationLog>) {
     lateinit var umn: UMN
@@ -48,23 +48,23 @@ internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN
         }
         test("creating document produces one log entry") {
             val id = umn.create("kvak")
-            expectList(LogItem.DocumentCreated("kvak", id)) { log.drain() }
+            expectList(LogRecord.DocumentCreated("kvak", id)) { log.drain() }
         }
         test("creating+updating document produces two log entries") {
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
-            expectList(LogItem.DocumentCreated("kvak", id), LogItem.DocumentUpdated("foo", id)) { log.drain() }
+            expectList(LogRecord.DocumentCreated("kvak", id), LogRecord.DocumentUpdated("foo", id)) { log.drain() }
         }
         test("creating+deleting document produces two log entries") {
             val id = umn.create("kvak")
             umn.delete(id, String::class)
-            expectList(LogItem.DocumentCreated("kvak", id), LogItem.DocumentDeleted(id, String::class)) { log.drain() }
+            expectList(LogRecord.DocumentCreated("kvak", id), LogRecord.DocumentDeleted(id, String::class)) { log.drain() }
         }
     }
 }
 
 /**
- * Tests the [AnnouncingUMN] class. Also tests the serialization of [LogItem]s.
+ * Tests the [AnnouncingUMN] class. Also tests the serialization of [LogRecord]s.
  */
 class AnnouncingUMNTest : DynaTest({
     // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
