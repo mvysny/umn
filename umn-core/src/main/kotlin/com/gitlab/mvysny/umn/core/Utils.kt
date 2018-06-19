@@ -1,5 +1,7 @@
 package com.gitlab.mvysny.umn.core
 
+import org.slf4j.LoggerFactory
+import java.io.Closeable
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -49,5 +51,16 @@ internal class FIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
     fun peek(): T? = readLock.withLock {
         val lowestKey: Long = log.getSmallestKey() ?: return null
         log.find(lowestKey)
+    }
+}
+
+/**
+ * Closes receiver quietly, logging any exceptions thrown by the [Closeable.close] method.
+ */
+fun Closeable.closeQuietly() {
+    try {
+        close()
+    } catch (t: Exception) {
+        LoggerFactory.getLogger(javaClass).warn("Failed to close $this", t)
     }
 }

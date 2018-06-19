@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import org.slf4j.LoggerFactory
 import java.io.Closeable
 import kotlin.concurrent.thread
 
@@ -93,6 +94,11 @@ interface GlobalLogClient : Closeable {
      * @throws IllegalStateException if the client is not yet started or has been closed.
      */
     fun addAsync(item: LogItem)
+
+    /**
+     * Returns true after [start] has been called. Returns false if the client is closed.
+     */
+    val isStarted: Boolean
 }
 
 /**
@@ -104,7 +110,7 @@ interface GlobalLogClient : Closeable {
  * Typically used in conjunction with [AnnouncingUMN] which announces all mutation ops which are
  * then pushed by this class to the global log.
  */
-internal class RemoteLogPusher(private val globalLogClient: GlobalLogClient, private val buffer: FIFOBuffer<LogItem>) : Closeable {
+internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, private val buffer: FIFOBuffer<LogItem>) : Closeable {
     init {
         globalLogClient.setAddCallback {
             // when the remote log ACKs that the item has been added, remove it from the buffer
@@ -115,13 +121,26 @@ internal class RemoteLogPusher(private val globalLogClient: GlobalLogClient, pri
     private var closed: Boolean = false
 
     private val pusherThread = thread(isDaemon = true, name = "UMN Remote Log Pusher") {
-        while (!closed) {
-            val item = buffer.peek()
-            if (item == null) {
-                Thread.sleep(100)
-            } else {
-                globalLogClient.addAsync(item)
+        try {
+            while (!closed) {
+                try {
+                    if (!globalLogClient.isStarted) {
+                        Thread.sleep(100)
+                    } else {
+                        val item = buffer.peek()
+                        if (item == null) {
+                            Thread.sleep(100)
+                        } else {
+                            globalLogClient.addAsync(item)
+                        }
+                    }
+                } catch (t: Throwable) {
+                    log.error("Pusher Thread failure", t)
+                    Thread.sleep(5000)
+                }
             }
+        } catch (t: Throwable) {
+            log.error("Pusher Thread fatal failure", t)
         }
     }
 
@@ -133,6 +152,11 @@ internal class RemoteLogPusher(private val globalLogClient: GlobalLogClient, pri
         closed = true
         pusherThread.join()
     }
+
+    companion object {
+        @JvmStatic
+        private val log = LoggerFactory.getLogger(GlobalLogPusher::class.java)
+    }
 }
 
 /**
@@ -143,13 +167,13 @@ internal class RemoteLogPusher(private val globalLogClient: GlobalLogClient, pri
  * in turn publish the change into the log, which will in turn notify this class,
  * which will in turn replay the op which will trigger the [AnnouncingUMN.listener] ... etc.
  *
- * Note: items already applied in this UMN will too be published via [RemoteLogPusher],
+ * Note: items already applied in this UMN will too be published via [GlobalLogPusher],
  * pulled via this class and applied back to the UMN. This is fine since
  * [LogItem]s are idempotent (may be executed multiple times without side effects).
  * Also the items will be applied in correct global order hence everybody will see the
  * same effect.
  */
-internal class RemoteLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient) {
+internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
     init {
         val currentPtr = currentLogPointer.find(false) ?: 0L
@@ -157,5 +181,45 @@ internal class RemoteLogPuller(val umn: UMN, private val globalLogClient: Global
             item.applyTo(umn)
             currentLogPointer.put(false, newPtr)
         }
+    }
+}
+
+/**
+ * Wraps given receiver and replicates all changes to the global log through given [client].
+ * To correctly intercept changes you must use the [UMN] returned by this function.
+ *
+ * Warning: never use more than one replicator on an UMN since they will use the same buffer
+ * and will replicate different pieces of data!
+ * @param client the client, must not be started yet. Closed when the UMN is closed.
+ * @receiver wrap this UMN
+ * @return a wrapped receiver which replicates all changes to the global log.
+ */
+fun UMN.replicator(client: GlobalLogClient): UMN {
+    // buffer which stores outgoing changes until they are correctly transmitted over given
+    // client to the global log
+    val changes = FIFOBuffer<LogItem>(this.openUtilityMap("OUTGOING_BUFFER"))
+
+    GlobalLogPuller(this, client)
+    val pusher = GlobalLogPusher(client, changes)
+
+    try {
+        client.start()
+        val announcingUMN = AnnouncingUMN(this) { item -> pusher.addAsync(item) }
+        val replicatingUMN = ReplicatingUMN(announcingUMN, client, pusher)
+        return replicatingUMN
+    } catch (t: Throwable) {
+        // if anything fails, clean up
+        pusher.closeQuietly()
+        client.closeQuietly()
+        throw t
+    }
+}
+
+internal class ReplicatingUMN(private val delegate: UMN, private val client: GlobalLogClient,
+                              private val pusher: GlobalLogPusher) : UMN by delegate {
+    override fun close() {
+        pusher.closeQuietly()
+        client.closeQuietly()
+        delegate.close()
     }
 }

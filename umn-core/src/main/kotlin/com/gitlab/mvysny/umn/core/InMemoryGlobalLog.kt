@@ -4,9 +4,13 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Currently thread-unsafe.
+ * Use [InMemoryGlobalLog.newClient] to construct new clients.
+ *
+ * Should be thread-safe :-D
  */
-class InMemoryGlobalLogClient(val owner: InMemoryGlobalLog) : GlobalLogClient {
+class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog) : GlobalLogClient {
+    override val isStarted: Boolean
+        get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     internal lateinit var addCallback: (orderNumber: Long) -> Unit
@@ -55,23 +59,22 @@ class InMemoryGlobalLogClient(val owner: InMemoryGlobalLog) : GlobalLogClient {
         }
     }
 
+    @Synchronized
     internal fun onNewItem(item: LogItem) {
         receiveCallback(item, currentLogPointer++)
     }
 }
 
 /**
- * Currently thread-unsafe.
+ * Should be thread-safe :-D
  */
 class InMemoryGlobalLog {
     private val clients = CopyOnWriteArrayList<InMemoryGlobalLogClient>()
     internal val log = CopyOnWriteArrayList<LogItem>()
 
-    fun newClient() : GlobalLogClient {
-        val client = InMemoryGlobalLogClient(this)
-        return client
-    }
+    fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)
 
+    @Synchronized
     internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long): List<LogItem> {
         clients.add(client)
         return log.subList(retrieveLogFrom.toInt(), log.size)
@@ -81,6 +84,7 @@ class InMemoryGlobalLog {
         clients.remove(client)
     }
 
+    @Synchronized
     internal fun add(client: InMemoryGlobalLogClient, item: LogItem) {
         log.add(item)
         val newItemIndex = (log.size - 1).toLong()

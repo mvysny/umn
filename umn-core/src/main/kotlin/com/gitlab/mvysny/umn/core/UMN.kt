@@ -71,7 +71,7 @@ interface UMN : Closeable {
      * INTERNAL USE ONLY!!! Puts a [document] with given [id] to the database.
      * Does nothing if there already is a document with given ID.
      *
-     * Never use! Only used by [RemoteLogPuller] to apply changes. This function breaks the guarantee that a document
+     * Never use! Only used by [GlobalLogPuller] to apply changes. This function breaks the guarantee that a document
      * delete with given id is permanent and irreversible. @todo mavi what may this cause?
      */
     fun create(document: Any, id: UUID)
