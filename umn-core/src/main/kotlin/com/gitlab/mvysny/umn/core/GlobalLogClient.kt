@@ -61,6 +61,8 @@ interface GlobalLogClient : Closeable {
      * regardless of whether the listener succeeded or failed.
      *
      * The [callback] must be called by at most one thread at once.
+     * @param rewind start announcing new messages from the log with this message. Must be 0 or
+     * greater.
      * @throws IllegalStateException if the client has already been started or is closed
      */
     fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit)

@@ -42,6 +42,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
     }
 
     override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit) {
+        require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         currentLogPointer = rewind
         receiveCallback = callback

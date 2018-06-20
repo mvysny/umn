@@ -49,6 +49,11 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()->GlobalLogClient
                 client.start()
             }
         }
+        test("calling setReceiverCallback() with negative rewind fails") {
+            expectThrows(IllegalArgumentException::class, "rewind") {
+                client.setReceiverCallback(-25L) { _, _->}
+            }
+        }
         test("calling setReceiverCallback() on started client fails") {
             client.start()
             expectThrows(IllegalStateException::class) {
