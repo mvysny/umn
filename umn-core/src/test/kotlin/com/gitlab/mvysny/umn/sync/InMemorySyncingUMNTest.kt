@@ -1,12 +1,12 @@
-package com.gitlab.mvysny.umn.core
+package com.gitlab.mvysny.umn.sync
 
 import com.github.mvysny.dynatest.DynaTest
+import com.gitlab.mvysny.umn.core.InMemoryUMN
+import com.gitlab.mvysny.umn.core.genericUmnTestBattery
 
-class InMemoryGlobalLogTest : DynaTest({
+class InMemorySyncingUMNTest : DynaTest({
     lateinit var log: InMemoryGlobalLog
     beforeEach { log = InMemoryGlobalLog() }
-
-    globalLogClientTestBattery { log.newClient() }
 
     // run the basic test battery on the replicating UMN
     group("basic test battery on replicating UMN") {

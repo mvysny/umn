@@ -1,7 +1,7 @@
 package com.gitlab.mvysny.umn.sync.kafka
 
 import com.gitlab.mvysny.umn.core.DocumentSerializer
-import com.gitlab.mvysny.umn.core.GlobalLogClient
+import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.closeQuietly
 import org.apache.kafka.clients.consumer.KafkaConsumer

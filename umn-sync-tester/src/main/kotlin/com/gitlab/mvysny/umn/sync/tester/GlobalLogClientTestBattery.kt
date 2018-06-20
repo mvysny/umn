@@ -1,7 +1,10 @@
-package com.gitlab.mvysny.umn.core
+package com.gitlab.mvysny.umn.sync.tester
 
 import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.expectThrows
+import com.gitlab.mvysny.umn.core.LogRecord
+import com.gitlab.mvysny.umn.core.closeQuietly
+import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.expect
@@ -11,7 +14,7 @@ import kotlin.test.expect
  * @param clientProducer expected to return clients connected to the same global log; the global log
  * must be cleared between individual tests.
  */
-fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()->GlobalLogClient) {
+fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClient) {
     // tests whether the client correctly responds with IllegalStateExceptions
     group("contract tests") {
         lateinit var client: GlobalLogClient
@@ -99,7 +102,7 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()->GlobalLogClient
  * Runs tests on multitude of clients.
  * @param clientCount must be 2 or higher
  */
-fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()->GlobalLogClient) {
+fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()-> GlobalLogClient) {
     require(clientCount >= 2) { "$clientCount must be 2 or higher" }
 
     group("$clientCount client test") {

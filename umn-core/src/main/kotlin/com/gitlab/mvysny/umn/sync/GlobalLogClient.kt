@@ -1,5 +1,6 @@
-package com.gitlab.mvysny.umn.core
+package com.gitlab.mvysny.umn.sync
 
+import com.gitlab.mvysny.umn.core.*
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 import kotlin.concurrent.thread
@@ -226,7 +227,8 @@ fun UMN.syncing(client: GlobalLogClient): UMN {
  * Properly closes [pusher], [client] and [delegate] when [close]d.
  */
 internal class SyncCloserUMN(private val delegate: UMN, private val client: GlobalLogClient,
-                              private val pusher: GlobalLogPusher) : UMN by delegate {
+                             private val pusher: GlobalLogPusher
+) : UMN by delegate {
     override fun close() {
         pusher.closeQuietly()
         client.closeQuietly()

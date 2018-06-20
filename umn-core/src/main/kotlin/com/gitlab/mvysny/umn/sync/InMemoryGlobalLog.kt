@@ -1,5 +1,6 @@
-package com.gitlab.mvysny.umn.core
+package com.gitlab.mvysny.umn.sync
 
+import com.gitlab.mvysny.umn.core.LogRecord
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
