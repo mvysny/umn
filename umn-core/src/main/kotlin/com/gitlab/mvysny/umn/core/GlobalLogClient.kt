@@ -7,7 +7,7 @@ import kotlin.concurrent.thread
 /**
  * Connects multitude of [UMN]s to a *global log* and synchronizes data. For example,
  * one implementation would be a Kafka client, connecting to a Kafka server which holds the
- * global log itself.
+ * global log itself, as a topic with one partition.
  *
  * ### Global Log
  *
@@ -191,16 +191,17 @@ internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: Global
 }
 
 /**
- * Wraps given receiver and replicates all changes to the global log through given [client].
- * To correctly intercept changes you must use the [UMN] returned by this function.
+ * Wraps given receiver and syncs all changes to the global log through given [client].
+ * To correctly propagate changes you must use the [UMN] returned by this function, otherwise
+ * nothing will be synced.
  *
- * Warning: never use more than one replicator on an UMN since they will use the same buffer
+ * Warning: never use more than one sync on an UMN storage since they will use the same buffer
  * and will replicate different pieces of data!
  * @param client the client, must not be started yet. Closed when the UMN is closed.
  * @receiver wrap this UMN
- * @return a wrapped receiver which replicates all changes to the global log.
+ * @return a wrapped receiver which syncs all changes to the global log.
  */
-fun UMN.replicator(client: GlobalLogClient): UMN {
+fun UMN.syncing(client: GlobalLogClient): UMN {
     // buffer which stores outgoing changes until they are correctly transmitted over given
     // client to the global log
     val changes = FIFOBuffer<LogRecord>(this.openUtilityMap("OUTGOING_BUFFER"))
@@ -211,7 +212,7 @@ fun UMN.replicator(client: GlobalLogClient): UMN {
     try {
         client.start()
         val announcingUMN = AnnouncingUMN(this) { item -> pusher.addAsync(item) }
-        val replicatingUMN = ReplicatingUMN(announcingUMN, client, pusher)
+        val replicatingUMN = SyncCloserUMN(announcingUMN, client, pusher)
         return replicatingUMN
     } catch (t: Throwable) {
         // if anything fails, clean up
@@ -221,7 +222,10 @@ fun UMN.replicator(client: GlobalLogClient): UMN {
     }
 }
 
-internal class ReplicatingUMN(private val delegate: UMN, private val client: GlobalLogClient,
+/**
+ * Properly closes [pusher], [client] and [delegate] when [close]d.
+ */
+internal class SyncCloserUMN(private val delegate: UMN, private val client: GlobalLogClient,
                               private val pusher: GlobalLogPusher) : UMN by delegate {
     override fun close() {
         pusher.closeQuietly()

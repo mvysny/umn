@@ -20,9 +20,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /**
- * Synchronizes UMN records over Kafka topic.
+ * Provides means to store [LogRecord]s into given Kafka topic and partition.
+ *
+ * All changes are stored as a list of [LogRecord]s stored as a byte array (see
+ * [LogRecord.toByteArray] for more info).
+ *
+ * Not compatible with Android: [KAFKA-7025](https://issues.apache.org/jira/browse/KAFKA-7025)
+ *
  * @param bootstrapServers the value of Kafka `bootstrap.servers`
  * @param topicPartition the topic/partition to use.
+ * @param serializer used to serialize documents stored in the [UMN] to byte array, so that
+ * they can be passed wrapped in [LogRecord]s to the Kafka topic.
  */
 class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartition,
                   val serializer: DocumentSerializer) : GlobalLogClient {

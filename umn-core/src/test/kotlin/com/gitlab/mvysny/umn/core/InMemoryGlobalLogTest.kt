@@ -10,6 +10,6 @@ class InMemoryGlobalLogTest : DynaTest({
 
     // run the basic test battery on the replicating UMN
     group("basic test battery on replicating UMN") {
-        genericUmnTestBattery { InMemoryUMN().replicator(log.newClient()) }
+        genericUmnTestBattery { InMemoryUMN().syncing(log.newClient()) }
     }
 })
