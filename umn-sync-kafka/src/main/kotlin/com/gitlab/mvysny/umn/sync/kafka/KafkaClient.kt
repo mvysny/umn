@@ -7,9 +7,11 @@ import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.errors.TimeoutException
 import org.apache.kafka.common.errors.WakeupException
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
@@ -50,13 +52,9 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
     @Volatile
     private var consumerThread: KafkaConsumerThread? = null
 
-    private fun checkNotClosed() {
-        check(!closed.get()) { "Already closed" }
-    }
+    private fun checkNotClosed() = check(!closed.get()) { "Already closed" }
 
-    private fun checkNotStarted() {
-        check(!started.get()) { "Already started" }
-    }
+    private fun checkNotStarted() = check(!started.get()) { "Already started" }
 
     override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
@@ -78,13 +76,20 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
             throw IllegalStateException("Already started")
         }
 
-        // I have no idea what group.id means, but apparently KafkaProducer needs it for something... or was it KafkaConsumer?
-        val config = mapOf("bootstrap.servers" to bootstrapServers, "group.id" to "unused")
+        val config = mapOf("bootstrap.servers" to bootstrapServers,
+            // I have no idea what group.id means, but apparently KafkaProducer needs it for something... or was it KafkaConsumer?
+            "group.id" to "unused",
+            // this is very good to have, unfortunately we need newer Kafka for this
+            // @todo mavi uncomment when there is newer Kafka
+//            "enable.idempotence" to true,
+            // Kafka spuriously can't sync metadata ... whatever. Decrease for faster sync
+            ProducerConfig.MAX_BLOCK_MS_CONFIG to 1000L)
         consumerThread = KafkaConsumerThread(config,
             offset,
             topicPartition,
             serializer,
-            receiveCallback).apply { start() }
+            receiveCallback,
+            addCallback).apply { start() }
     }
 
     override fun close() {
@@ -93,24 +98,10 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
         consumerThread!!.close()
     }
 
-    companion object {
-        @JvmStatic
-        private val log = LoggerFactory.getLogger(KafkaClient::class.java)
-    }
-
     override fun addAsync(record: LogRecord) {
         checkNotClosed()
         check(started.get()) { "Not started" }
-        val producerRecord: ProducerRecord<String?, ByteArray> =
-            ProducerRecord(topicPartition.topic(), topicPartition.partition(), null, record.toByteArray(serializer))
-        consumerThread!!.producer.send(producerRecord) { metadata: RecordMetadata?, exception: Exception? ->
-            if (exception != null) {
-                // @todo what to do with the exception? log it for now...
-                log.warn("Failed to send a message", exception)
-            } else {
-                addCallback(metadata!!.offset())
-            }
-        }
+        consumerThread!!.addAsync(record)
     }
 }
 
@@ -118,14 +109,15 @@ private class KafkaConsumerThread(config: Map<String, Any>,
                                   val offset: Long,
                                   val topicPartition: TopicPartition,
                                   val serializer: DocumentSerializer,
-                                  val receiveCallback: (record: LogRecord, orderNumber: Long)->Unit) :
+                                  val receiveCallback: (record: LogRecord, orderNumber: Long)->Unit,
+                                  val addCallback: (orderNumber: Long) -> Unit) :
     Thread("Kafka Client Consumer Thread"), Closeable {
     /**
      * The Kafka producer, initialized in [start].
      *
      * Closed in [close].
      */
-    val producer: KafkaProducer<String, ByteArray>
+    private val producer: KafkaProducer<String, ByteArray>
     /**
      * The Kafka consumer, initialized in [start]. Polled in its own thread, hence the usage
      * is thread-safe as mandated by the [KafkaConsumer] API.
@@ -143,8 +135,8 @@ private class KafkaConsumerThread(config: Map<String, Any>,
             consumer = KafkaConsumer<String, ByteArray>(config, StringDeserializer(), ByteArrayDeserializer())
         }
         // retarded KafkaProducer will deadlock if we immediately tried to send a record.
-        Thread.sleep(1000)
-        // @todo mavi move the producer/consumer init into the thread where we can sleep.
+        // https://issues.apache.org/jira/browse/KAFKA-7085
+        Thread.sleep(2000)
     }
 
     override fun run() {
@@ -182,4 +174,33 @@ private class KafkaConsumerThread(config: Map<String, Any>,
         @JvmStatic
         private val log = LoggerFactory.getLogger(KafkaConsumerThread::class.java)
     }
+
+    fun addAsync(record: LogRecord) {
+        checkNotClosed()
+        val producerRecord: ProducerRecord<String?, ByteArray> =
+            ProducerRecord(topicPartition.topic(), topicPartition.partition(), null, record.toByteArray(serializer))
+        producer.send(producerRecord) { metadata: RecordMetadata?, exception: Exception? ->
+            if (exception != null) {
+                if (!closed.get() && exception is TimeoutException) {
+                    // Kafka Client spuriously fails with
+                    // org.apache.kafka.common.errors.TimeoutException: Failed to update metadata after 60000 ms.
+                    // https://issues.apache.org/jira/browse/KAFKA-7085
+                    // retry? no need - we enabled the idempotence? That requires Kafka 0.11 though...
+
+                    // This exception is also thrown when the Kafka broker is unavailable...
+                    // If we don't retry, then the message is lost.
+                    log.warn("Got timeout, retrying", exception)
+                    addAsync(record)
+                } else {
+                    // @todo what to do with the exception? rethrow it?
+                    log.error("Failed to send a message", exception)
+                    throw RuntimeException(exception)
+                }
+            } else {
+                addCallback(metadata!!.offset())
+            }
+        }
+    }
+
+    private fun checkNotClosed() = check(!closed.get()) { "Already closed" }
 }
