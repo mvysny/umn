@@ -21,14 +21,14 @@ fun main(args: Array<String>) {
 
         val client: HazelcastInstance = HazelcastClient.newHazelcastClient(clientConfig)
         try {
-            client.getList<String>("mytopic").add("Foo")
+            client.getList<String>("mytopic").addAll(listOf("Foo", "Bar", "Baz"))
         } finally {
             client.shutdown()
         }
 
         val client2: HazelcastInstance = HazelcastClient.newHazelcastClient(clientConfig)
         try {
-            client2.getList<String>("mytopic").forEach { println(it) }
+            println(client2.getList<String>("mytopic")[1])
         } finally {
             client2.shutdown()
         }

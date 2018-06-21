@@ -43,8 +43,8 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
-    private var addCallback: (orderNumber: Long) -> Unit = {}
-    private var receiveCallback: (record: LogRecord, orderNumber: Long) -> Unit = { _, _ -> }
+    private var addCallback: () -> Unit = {}
+    private var receiveCallback: (record: LogRecord) -> Unit = {}
     private var offset: Long = 0L
     /**
      * The consumer thread polling [consumer]. Started in [start], killed in [close].
@@ -56,7 +56,7 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
 
     private fun checkNotStarted() = check(!started.get()) { "Already started" }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
         checkNotClosed()
         checkNotStarted()
@@ -64,7 +64,7 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
         receiveCallback = callback
     }
 
-    override fun setAddCallback(callback: (orderNumber: Long) -> Unit) {
+    override fun setAddCallback(callback: () -> Unit) {
         checkNotClosed()
         checkNotStarted()
         addCallback = callback
@@ -109,8 +109,8 @@ private class KafkaConsumerThread(config: Map<String, Any>,
                                   val offset: Long,
                                   val topicPartition: TopicPartition,
                                   val serializer: DocumentSerializer,
-                                  val receiveCallback: (record: LogRecord, orderNumber: Long)->Unit,
-                                  val addCallback: (orderNumber: Long) -> Unit) :
+                                  val receiveCallback: (record: LogRecord)->Unit,
+                                  val addCallback: () -> Unit) :
     Thread("Kafka Client Consumer Thread"), Closeable {
     /**
      * The Kafka producer, initialized in [start].
@@ -148,7 +148,7 @@ private class KafkaConsumerThread(config: Map<String, Any>,
                 records.forEach { record ->
                     val rec = LogRecord.fromByteArray(record.value(), serializer)
                     try {
-                        receiveCallback(rec, record.offset())
+                        receiveCallback(rec)
                     } catch (t: Throwable) {
                         log.error("Receiver callback failed", t)
                     }
@@ -197,7 +197,7 @@ private class KafkaConsumerThread(config: Map<String, Any>,
                     throw RuntimeException(exception)
                 }
             } else {
-                addCallback(metadata!!.offset())
+                addCallback()
             }
         }
     }

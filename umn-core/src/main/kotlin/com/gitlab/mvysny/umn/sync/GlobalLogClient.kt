@@ -66,24 +66,23 @@ interface GlobalLogClient : Closeable {
      * greater.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit)
+    fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit)
 
     /**
      * Invoked for every [LogRecord] sent by [addAsync] of this client, serves as a confirmation
-     * that the item has been stored in the global log. The `orderNumber` in the callback
-     * is the global index number assigned to the [LogRecord] by the server. The `orderNumber` must
-     * increase as the callback is called. @todo what if the callback fails?
+     * that the item has been stored in the global log. @todo what if the callback fails?
      *
      * The [callback] is called for any [LogRecord] including items published via this client.
      *
      * The [callback] must be called by at most one thread at once.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    fun setAddCallback(callback: (orderNumber: Long) -> Unit)
+    fun setAddCallback(callback: () -> Unit)
 
     /**
      * Starts the client - connects to the global log (if it hasn't been connected already)
-     * and starts firing events.
+     * and starts firing events. The method may be synchronous and may start firing events
+     * already from the method body.
      *
      * The client can be started only once.
      * @throws IllegalStateException if the client is already started or has been closed.
@@ -101,6 +100,8 @@ interface GlobalLogClient : Closeable {
      * unavailable. The internal outgoing buffer should be quite small since [GlobalLogPusher]
      * stores outgoing messages on-disk first.
      *
+     * Only called by one thread.
+     *
      * @throws IllegalStateException if the client is not yet started or has been closed.
      */
     fun addAsync(record: LogRecord)
@@ -116,6 +117,8 @@ interface GlobalLogClient : Closeable {
  * when the [GlobalLogClient.addAsync] has been ACKed; that means that double-sending may occur on
  * failures or when this class is closed while the item is being sent. This is however okay
  * since [LogRecord]s are idempotent (may be executed multiple times without side effects).
+ * todo what if one client sends 'update' and dies, another updates to something else, and then
+ * the first client re-sends the first 'update'?
  *
  * Typically used in conjunction with [AnnouncingUMN] which announces all mutation ops which are
  * then pushed by this class to the global log.
@@ -137,6 +140,7 @@ internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, pri
             while (!closed) {
                 try {
                     if (!globalLogClient.isStarted) {
+                        globalLogClient.start()
                         Thread.sleep(100)
                     } else {
                         val item = buffer.peek()
@@ -190,10 +194,10 @@ internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, pri
 internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
     init {
-        val currentPtr = currentLogPointer.find(false) ?: 0L
-        globalLogClient.setReceiverCallback(currentPtr) { item, newPtr ->
+        var currentPtr = currentLogPointer.find(false) ?: 0L
+        globalLogClient.setReceiverCallback(currentPtr) { item ->
             item.applyTo(umn)
-            currentLogPointer.put(false, newPtr)
+            currentLogPointer.put(false, ++currentPtr)
         }
     }
 }
@@ -215,10 +219,10 @@ fun UMN.syncing(client: GlobalLogClient): UMN {
     val changes = FIFOBuffer<LogRecord>(this.openUtilityMap("OUTGOING_BUFFER"))
 
     GlobalLogPuller(this, client)
+    // also starts the client in the background
     val pusher = GlobalLogPusher(client, changes)
 
     try {
-        client.start()
         val announcingUMN = AnnouncingUMN(this) { item -> pusher.addAsync(item) }
         val replicatingUMN = SyncCloserUMN(announcingUMN, client, pusher)
         return replicatingUMN

@@ -54,13 +54,13 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
         }
         test("calling setReceiverCallback() with negative rewind fails") {
             expectThrows(IllegalArgumentException::class, "rewind") {
-                client.setReceiverCallback(-25L) { _, _->}
+                client.setReceiverCallback(-25L) {}
             }
         }
         test("calling setReceiverCallback() on started client fails") {
             client.start()
             expectThrows(IllegalStateException::class) {
-                client.setReceiverCallback(0L) { _, _->}
+                client.setReceiverCallback(0L) {}
             }
         }
         test("calling setAddCallback() on started client fails") {
@@ -81,10 +81,9 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
             var addCallbackCalled = false
             client.setAddCallback { addCallbackCalled = true }
             var receiverCallbackCalled = false
-            client.setReceiverCallback(0L) { record, orderNumber ->
+            client.setReceiverCallback(0L) { record->
                 receiverCallbackCalled = true
                 expect(item) { record }
-                expect(0L) { orderNumber }
             }
             client.start()
             client.addAsync(item)
@@ -116,10 +115,9 @@ fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()
             val receiverCallbackCalled = AtomicInteger()
             clients.subList(1, clients.size).forEach {
                 it.setAddCallback { kotlin.test.fail("Should not be called") }
-                it.setReceiverCallback(0L) { record, orderNumber ->
+                it.setReceiverCallback(0L) { record ->
                     receiverCallbackCalled.incrementAndGet()
                     expect(item) { record }
-                    expect(0L) { orderNumber }
                 }
                 it.start()
             }

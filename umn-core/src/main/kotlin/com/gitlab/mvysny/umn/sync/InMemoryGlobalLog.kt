@@ -14,8 +14,8 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
-    internal var addCallback: (orderNumber: Long) -> Unit = {}
-    internal var receiveCallback: (record: LogRecord, orderNumber: Long) -> Unit = { _, _ -> }
+    internal var addCallback: () -> Unit = {}
+    internal var receiveCallback: (record: LogRecord) -> Unit = {}
     private var currentLogPointer: Long = 0L
 
     private fun checkNotClosed() {
@@ -37,12 +37,12 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
         }
     }
 
-    override fun setAddCallback(callback: (orderNumber: Long) -> Unit) {
+    override fun setAddCallback(callback: () -> Unit) {
         checkNotStarted()
         addCallback = callback
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord, orderNumber: Long) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         currentLogPointer = rewind
@@ -63,7 +63,8 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
 
     @Synchronized
     internal fun onNewItem(record: LogRecord) {
-        receiveCallback(record, currentLogPointer++)
+        receiveCallback(record)
+        currentLogPointer++
     }
 }
 
@@ -90,7 +91,7 @@ class InMemoryGlobalLog {
     internal fun add(client: InMemoryGlobalLogClient, record: LogRecord) {
         log.add(record)
         val newItemIndex = (log.size - 1).toLong()
-        client.addCallback(newItemIndex)
+        client.addCallback() // newItemIndex
         clients.forEach { it.onNewItem(record) }
     }
 }
