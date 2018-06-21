@@ -64,3 +64,21 @@ fun Closeable.closeQuietly() {
         LoggerFactory.getLogger(javaClass).warn("Failed to close $this", t)
     }
 }
+
+/**
+ * Intended to be used with a constructor which initializes multiple [Closeable]s.
+ * The [Closeable] is closed if [block] fails. If the block succeeds, the [Closeable]
+ * remains opened.
+ */
+fun <T: Closeable> T.tryInit(block: ()->Unit): T {
+    try {
+        block()
+    } catch (t: Throwable) {
+        try {
+            close()
+        } catch (ex: Exception) {
+            t.addSuppressed(ex)
+        }
+    }
+    return this
+}
