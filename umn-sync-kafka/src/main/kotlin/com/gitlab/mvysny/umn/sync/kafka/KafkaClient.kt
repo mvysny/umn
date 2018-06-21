@@ -142,6 +142,9 @@ private class KafkaConsumerThread(config: Map<String, Any>,
         producer = KafkaProducer<String, ByteArray>(config, StringSerializer(), ByteArraySerializer()).tryInit {
             consumer = KafkaConsumer<String, ByteArray>(config, StringDeserializer(), ByteArrayDeserializer())
         }
+        // retarded KafkaProducer will deadlock if we immediately tried to send a record.
+        Thread.sleep(1000)
+        // @todo mavi move the producer/consumer init into the thread where we can sleep.
     }
 
     override fun run() {

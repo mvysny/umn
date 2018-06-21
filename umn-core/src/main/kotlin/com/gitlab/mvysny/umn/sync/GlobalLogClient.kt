@@ -91,9 +91,16 @@ interface GlobalLogClient : Closeable {
     fun start()
 
     /**
-     * Appends given [record] into the global log asynchronously. Returns immediately.
+     * Appends given [record] into the global log asynchronously. Does not wait while the
+     * record is added to the log.
+     *
      * When the [record] has been added successfully server-side, the [setAddCallback] callback
      * is called. Afterwards, the record is also announced to all clients via the [setReceiverCallback].
+     *
+     * The method can block if the internal outgoing buffer is full, or if the server is currently
+     * unavailable. The internal outgoing buffer should be quite small since [GlobalLogPusher]
+     * stores outgoing messages on-disk first.
+     *
      * @throws IllegalStateException if the client is not yet started or has been closed.
      */
     fun addAsync(record: LogRecord)
