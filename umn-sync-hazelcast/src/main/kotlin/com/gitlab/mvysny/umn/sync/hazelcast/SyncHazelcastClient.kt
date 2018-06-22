@@ -86,7 +86,8 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
 
     override fun addAsync(record: LogRecord) {
         check(started.get()) { "Not started" }
-        client!!.getList<ByteArray>(topic).add(record.toByteArray(serializer))
+        val ba = record.toByteArray(serializer)
+        client!!.getList<ByteArray>(topic).add(ba)
         addCallback()
     }
 

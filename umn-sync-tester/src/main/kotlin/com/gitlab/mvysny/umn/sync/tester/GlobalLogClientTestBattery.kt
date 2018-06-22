@@ -5,6 +5,7 @@ import com.github.mvysny.dynatest.expectThrows
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import java.io.Closeable
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.expect
@@ -101,7 +102,7 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
  * Runs tests on multitude of clients.
  * @param clientCount must be 2 or higher
  */
-fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()-> GlobalLogClient) {
+private fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()-> GlobalLogClient) {
     require(clientCount >= 2) { "$clientCount must be 2 or higher" }
 
     group("$clientCount client test") {
@@ -111,19 +112,24 @@ fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()
 
         test("addAsync() sends to the other client") {
             val item = LogRecord.DocumentCreated("foo", UUID.randomUUID())
-            clients[0].start()
-            val receiverCallbackCalled = AtomicInteger()
-            clients.subList(1, clients.size).forEach {
-                it.setAddCallback { kotlin.test.fail("Should not be called") }
-                it.setReceiverCallback(0L) { record ->
-                    receiverCallbackCalled.incrementAndGet()
-                    expect(item) { record }
-                }
-                it.start()
-            }
-
+            val cts = clients.map { ClientTester(0L, it) }
             clients[0].addAsync(item)
-            expectAsync(clientCount - 1) { receiverCallbackCalled.get() }
+            cts.forEach {
+                expectAsync(listOf(item)) { it.received }
+            }
+            cts.subList(1, clients.size).forEach {
+                expect(0) { it.addCallbackCalledCount.get() }
+            }
         }
+    }
+}
+
+private class ClientTester(offset: Long, val client: GlobalLogClient) {
+    val addCallbackCalledCount = AtomicInteger()
+    val received = mutableListOf<LogRecord>()
+    init {
+        client.setAddCallback { addCallbackCalledCount.incrementAndGet() }
+        client.setReceiverCallback(offset) { record -> received.add(record) }
+        client.start()
     }
 }
