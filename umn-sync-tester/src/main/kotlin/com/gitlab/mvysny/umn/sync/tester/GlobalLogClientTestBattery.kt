@@ -7,6 +7,7 @@ import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import java.io.Closeable
 import java.util.*
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.expect
 
@@ -110,23 +111,40 @@ private fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProd
         beforeEach { clients = List(clientCount) { clientProducer() } }
         afterEach { clients.forEach { it.closeQuietly() } }
 
-        test("addAsync() sends to the other client") {
+        test("addAsync() broadcasts one message to all other clients") {
             val item = LogRecord.DocumentCreated("foo", UUID.randomUUID())
             val cts = clients.map { ClientTester(0L, it) }
             clients[0].addAsync(item)
             cts.forEach {
-                expectAsync(listOf(item)) { it.received }
+                expectAsync(listOf(item)) { it.getReceived() }
             }
             cts.subList(1, clients.size).forEach {
                 expect(0) { it.addCallbackCalledCount.get() }
             }
+            expect(1) { cts[0].addCallbackCalledCount.get() }
+        }
+
+        test("addAsync() preserves message order") {
+            val items = (0..100).map { LogRecord.DocumentUpdated("foo$it", UUID.randomUUID()) }
+            val cts = clients.map { ClientTester(0L, it) }
+            for (item in items) {
+                clients[0].addAsync(item)
+            }
+            cts.forEach {
+                expectAsync(items) { it.getReceived() }
+            }
+            cts.subList(1, clients.size).forEach {
+                expect(0) { it.addCallbackCalledCount.get() }
+            }
+            expect(101) { cts[0].addCallbackCalledCount.get() }
         }
     }
 }
 
 private class ClientTester(offset: Long, val client: GlobalLogClient) {
     val addCallbackCalledCount = AtomicInteger()
-    val received = mutableListOf<LogRecord>()
+    private val received = LinkedBlockingQueue<LogRecord>()
+    fun getReceived(): List<LogRecord> = received.toList()
     init {
         client.setAddCallback { addCallbackCalledCount.incrementAndGet() }
         client.setReceiverCallback(offset) { record -> received.add(record) }
