@@ -7,7 +7,15 @@ import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
 
 fun main(args: Array<String>) {
+    try {
+        testHazelcast()
+    } catch (e: Exception) {
+        println("EXCEPTION! $e")
+        e.printStackTrace()
+    }
+}
 
+private fun testHazelcast() {
     val cfg: Config = Config().apply {
         networkConfig.interfaces.addInterface("127.0.0.1")
         networkConfig.port = 5051

@@ -8,6 +8,7 @@ import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.ItemEvent
 import com.hazelcast.core.ItemListener
+import java.net.ConnectException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -29,16 +30,24 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
     private fun checkNotClosed() = check(!closed.get()) { "Already closed" }
     private fun checkNotStarted() = check(!started.get()) { "Already started" }
 
+    @Synchronized
     override fun start() {
         checkNotClosed()
-        if (!started.compareAndSet(false, true)) {
-            throw IllegalStateException("Already started")
-        }
+        checkNotStarted()
         val clientConfig = ClientConfig().apply {
             networkConfig.addresses.add(hostPort)
         }
-        val client: HazelcastInstance = HazelcastClient.newHazelcastClient(clientConfig)
+        val client: HazelcastInstance = try {
+            HazelcastClient.newHazelcastClient(clientConfig)
+        } catch (e: IllegalStateException) {
+            if (e.message!!.contains("Unable to connect to any address!")) {
+                throw ConnectException(e.message).apply { initCause(e) }
+            } else {
+                throw e
+            }
+        }
         this.client = client
+        started.set(true)
 
         val list = client.getList<ByteArray>(topic)
         list.addItemListener(object : ItemListener<ByteArray>{

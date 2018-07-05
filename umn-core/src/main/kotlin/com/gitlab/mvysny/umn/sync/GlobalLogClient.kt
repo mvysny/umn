@@ -3,6 +3,7 @@ package com.gitlab.mvysny.umn.sync
 import com.gitlab.mvysny.umn.core.*
 import org.slf4j.LoggerFactory
 import java.io.Closeable
+import java.net.ConnectException
 import kotlin.concurrent.thread
 
 /**
@@ -84,8 +85,15 @@ interface GlobalLogClient : Closeable {
      * and starts firing events. The method may be synchronous and may start firing events
      * already from the method body.
      *
-     * The client can be started only once.
+     * The client can be started only once, and from one thread in parallel only.
+     *
+     * The method may block (potentially endlessly) until a successful connection has been made. Alternatively, the method
+     * may throw [java.io.IOException] - in this case start should be re-attempted again after a small backoff period.
+     *
+     * If [close] is called, the client must stop starting/connecting and return from this method (normal return or throw an exception).
      * @throws IllegalStateException if the client is already started or has been closed.
+     * @throws java.io.IOException on recoverable I/O exception
+     * @throws java.net.ConnectException a special subclass of IOException when we know that the server is down.
      */
     fun start()
 
@@ -136,12 +144,22 @@ internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, pri
     private var closed: Boolean = false
 
     private val pusherThread = thread(isDaemon = true, name = "UMN Remote Log Pusher") {
+
+        fun tryStartClient() {
+            try {
+                globalLogClient.start()
+                Thread.sleep(100)
+            } catch (e: ConnectException) {
+                log.info("Failed to connect to the server", e)
+                Thread.sleep(1000)
+            }
+        }
+
         try {
             while (!closed) {
                 try {
                     if (!globalLogClient.isStarted) {
-                        globalLogClient.start()
-                        Thread.sleep(100)
+                        tryStartClient()
                     } else {
                         val item = buffer.peek()
                         if (item == null) {
