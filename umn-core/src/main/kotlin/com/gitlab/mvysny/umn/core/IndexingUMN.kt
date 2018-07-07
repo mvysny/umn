@@ -1,6 +1,8 @@
 package com.gitlab.mvysny.umn.core
 
 import java.util.*
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.reflect.KClass
 
 /**
@@ -31,8 +33,10 @@ import kotlin.reflect.KClass
  */
 class IndexingUMN<I: Comparable<I>>(name: String, override val delegate: UMN, private val indexGenerator: (Any) -> Set<I>) : UMN {
     override fun create(document: Any, id: UUID) {
-        delegate.create(document, id)
-        registerUnregisterIndices(id, indexGenerator(document), setOf())
+        indexUpdaterGlobalLock.withLock {
+            delegate.create(document, id)
+            registerUnregisterIndices(id, indexGenerator(document), setOf())
+        }
     }
 
     /**
@@ -42,12 +46,23 @@ class IndexingUMN<I: Comparable<I>>(name: String, override val delegate: UMN, pr
     private val indexStore: UtilityMap<I, Array<UUID>> = delegate.openUtilityMap("INDEX_$name")
 
     override fun create(document: Any): UUID {
-        val id = delegate.create(document)
-        registerUnregisterIndices(id, indexGenerator(document), setOf())
-        return id
+        return indexUpdaterGlobalLock.withLock {
+            val id = delegate.create(document)
+            registerUnregisterIndices(id, indexGenerator(document), setOf())
+            id
+        }
     }
 
+    /**
+     * Prevents multiple threads from updating indices of a particular document at the same time.
+     *
+     * Pozor! Nestaci zamknut lock iba v [registerUnregisterIndices]: ak naraz updatuje jeden dokument viacero threadov,
+     * operacie zapisu mozu bezat v inom poradi ako update indexov! Preto treba zamknut komplet cele metody.
+     */
+    private val indexUpdaterGlobalLock = ReentrantLock()
+
     private fun registerUnregisterIndices(id: UUID, register: Set<I>, unregister: Set<I>) {
+        check(indexUpdaterGlobalLock.isHeldByCurrentThread) { "lock not held!" }
         val indicesToRegister: Set<I> = register - unregister
         val indicesToUnregister: Set<I> = unregister - register
         indicesToRegister.forEach { index ->
@@ -61,10 +76,10 @@ class IndexingUMN<I: Comparable<I>>(name: String, override val delegate: UMN, pr
             }
         }
         indicesToUnregister.forEach { index ->
-            var array = indexStore.find(index)
-            if (array != null && array!!.contains(id)) {
-                array = array!!.filterNot { it == id } .toTypedArray()
-                indexStore.put(index, if (array!!.isEmpty()) null else array!!)
+            val array = indexStore.find(index)
+            if (array != null && array.contains(id)) {
+                val newArray = array.filterNot { it == id } .toTypedArray()
+                indexStore.put(index, if (newArray.isEmpty()) null else array)
             }
         }
     }
@@ -74,16 +89,20 @@ class IndexingUMN<I: Comparable<I>>(name: String, override val delegate: UMN, pr
     override fun exists(id: UUID) = delegate.exists(id)
 
     override fun delete(id: UUID, clazz: KClass<out Any>) {
-        val document: Any = find(id, clazz) ?: return
-        val indices = indexGenerator(document)
-        delegate.delete(id, clazz)
-        registerUnregisterIndices(id, setOf(), indices)
+        indexUpdaterGlobalLock.withLock {
+            val document: Any = find(id, clazz) ?: return
+            val indices = indexGenerator(document)
+            delegate.delete(id, clazz)
+            registerUnregisterIndices(id, setOf(), indices)
+        }
     }
 
     override fun <V: Any> update(id: UUID, document: V, clazz: KClass<V>) {
-        val oldDoc: V = get(id, clazz)
-        delegate.update(id, document, clazz)
-        registerUnregisterIndices(id, indexGenerator(document), indexGenerator(oldDoc))
+        indexUpdaterGlobalLock.withLock {
+            val oldDoc: V = get(id, clazz)
+            delegate.update(id, document, clazz)
+            registerUnregisterIndices(id, indexGenerator(document), indexGenerator(oldDoc))
+        }
     }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)

@@ -51,28 +51,28 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
         }
         test("propagation creates indices properly") {
             val id = writer.create("askdj124389akj")
-            allClients().forEach { reader ->
-                expectAsync(true) { reader.exists(id) }
-                expect("askdj124389akj") { reader.facet<IndexingUMN<Int>>().findOneByKey(14, String::class) }
+            allClients().forEach { umn ->
+                expectAsync(true) { umn.exists(id) }
+                expect("askdj124389akj") { umn.facet<IndexingUMN<Int>>().findOneByKey(14, String::class) }
             }
         }
         test("create()+update() propagates properly") {
             val id = writer.create("askdj124389akj")
             writer.update(id, "foo", String::class)
-            allClients().forEach { reader ->
-                expectAsync("foo") { reader.find(id, String::class) }
-                expectAsync(null) { reader.facet<IndexingUMN<Int>>().findOneByKey(14, String::class) }
-                expect("foo") { reader.facet<IndexingUMN<Int>>().findOneByKey(3, String::class) }
+            allClients().forEach { umn ->
+                expectAsync("foo") { umn.find(id, String::class) }
+                expect(null) { umn.facet<IndexingUMN<Int>>().findOneByKey(14, String::class) }
+                expect("foo") { umn.facet<IndexingUMN<Int>>().findOneByKey(3, String::class) }
             }
         }
         test("create()+update()+delete() propagates properly") {
             val id = writer.create("askdj124389akj")
             writer.update(id, "foo", String::class)
             writer.delete(id, String::class)
-            allClients().forEach { reader ->
-                expectAsync(null) { reader.find(id, String::class) }
-                expect(null) { reader.facet<IndexingUMN<Int>>().findOneByKey(14, String::class) }
-                expect(null) { reader.facet<IndexingUMN<Int>>().findOneByKey(3, String::class) }
+            allClients().forEach { umn ->
+                expectAsync(null) { umn.find(id, String::class) }
+                expect(null) { umn.facet<IndexingUMN<Int>>().findOneByKey(14, String::class) }
+                expect(null) { umn.facet<IndexingUMN<Int>>().findOneByKey(3, String::class) }
             }
         }
     }

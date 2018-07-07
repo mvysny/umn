@@ -30,5 +30,5 @@ class SyncHazelcastClientTest : DynaTest({
 
     syncTestBattery(1, { InMemoryUMN() }, { newClient() })
 
-    syncTestBattery(10, { InMemoryUMN() }, { newClient() })
+//    syncTestBattery(10, { InMemoryUMN() }, { newClient() })
 })

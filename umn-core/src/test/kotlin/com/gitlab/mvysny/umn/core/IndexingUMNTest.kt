@@ -35,6 +35,14 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             expect("foo") { umn.findOneByKey("foo", String::class) }
             expect(null) { umn.findOneByKey("kvak", String::class) }
         }
+
+        test("correctly updates the length-indices on update()") {
+            val umn = IndexingUMN("length", storageProvider(), { doc -> setOf((doc as String).length) })
+            val id = umn.create("kvak")
+            umn.update(id, "foo", String::class)
+            expect("foo") { umn.findOneByKey(3, String::class) }
+            expect(null) { umn.findOneByKey(4, String::class) }
+        }
     }
 
     group("findAllByKeyRange()") {
