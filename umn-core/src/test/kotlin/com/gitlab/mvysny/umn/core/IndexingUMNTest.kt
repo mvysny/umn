@@ -42,6 +42,11 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             umn.update(id, "foo", String::class)
             expect("foo") { umn.findOneByKey(3, String::class) }
             expect(null) { umn.findOneByKey(4, String::class) }
+            // now simulate the Sync as it replays actions as they come from the log
+            umn.create("kvak", id)
+            umn.update(id, "foo", String::class)
+            expect("foo") { umn.findOneByKey(3, String::class) }
+            expect(null) { umn.findOneByKey(4, String::class) }
         }
     }
 

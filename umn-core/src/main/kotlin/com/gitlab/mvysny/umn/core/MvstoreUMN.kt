@@ -52,8 +52,8 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
     override val delegate: UMN?
         get() = null
 
-    override fun create(document: Any, id: UUID) {
-        map.putIfAbsent(id, serializer.serialize(document))
+    override fun create(document: Any, id: UUID): Boolean {
+        return map.putIfAbsent(id, serializer.serialize(document)) == null
     }
 
     override fun close() {

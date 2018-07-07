@@ -15,9 +15,7 @@ import kotlin.reflect.KClass
  * @property listener notified of mutate operations. May be called from multiple threads at once.
  */
 class AnnouncingUMN(override val delegate: UMN, private val listener: (LogRecord)->Unit = {}) : UMN {
-    override fun create(document: Any, id: UUID) {
-        delegate.create(document, id)
-    }
+    override fun create(document: Any, id: UUID) = delegate.create(document, id)
 
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
@@ -99,6 +97,11 @@ sealed class LogRecord(open val id: UUID) {
         override fun applyTo(umn: UMN) {
             if (umn.exists(id)) {
                 umn.update(id, document, document.javaClass.kotlin)
+                println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UPDATING $id to $document")
+                Exception("Stacktrace").printStackTrace()
+                println("UMN=$umn")
+            } else {
+                println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! document $id does not exist!")
             }
         }
 

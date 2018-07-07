@@ -19,16 +19,23 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
         expect(false) { umn.exists(id) }
         expect(null) { umn.find(id, String::class) }
     }
-    test("create of document should succeed") {
-        umn.create("testing document")
+    group("create") {
+        test("create of document should succeed") {
+            umn.create("testing document")
+        }
+        test("created document should exist") {
+            val id = umn.create("testing document")
+            expect(true) { umn.exists(id) }
+        }
+        test("re-creating same document does nothing") {
+            val id = umn.create("testing document")
+            expect(false) { umn.create("foo", id) }
+            expect("testing document") { umn.get(id, String::class) }
+        }
     }
     test("re-reading of created document should succeed") {
         val id = umn.create("testing document")
         expect("testing document") { umn.find(id, String::class)!! }
-    }
-    test("created document should exist") {
-        val id = umn.create("testing document")
-        expect(true) { umn.exists(id) }
     }
     group("update") {
         test("created document should be updatable") {

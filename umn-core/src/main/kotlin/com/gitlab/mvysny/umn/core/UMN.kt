@@ -73,8 +73,9 @@ interface UMN : Closeable {
      *
      * Never use! Only used by [GlobalLogPuller] to apply changes. This function breaks the guarantee that a document
      * delete with given id is permanent and irreversible. @todo mavi what may this cause?
+     * @return true if the document was non-existent and was created, false if it already existed and nothing was done
      */
-    fun create(document: Any, id: UUID)
+    fun create(document: Any, id: UUID): Boolean
 
     val delegate: UMN?
 }

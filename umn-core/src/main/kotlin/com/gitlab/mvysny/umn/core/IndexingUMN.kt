@@ -32,10 +32,13 @@ import kotlin.reflect.KClass
  * @property indexGenerator generates IDs for stored documents. If no indices are required for this document, just return an empty set.
  */
 class IndexingUMN<I: Comparable<I>>(name: String, override val delegate: UMN, private val indexGenerator: (Any) -> Set<I>) : UMN {
-    override fun create(document: Any, id: UUID) {
-        indexUpdaterGlobalLock.withLock {
-            delegate.create(document, id)
-            registerUnregisterIndices(id, indexGenerator(document), setOf())
+    override fun create(document: Any, id: UUID): Boolean {
+        return indexUpdaterGlobalLock.withLock {
+            val created = delegate.create(document, id)
+            if (created) {
+                registerUnregisterIndices(id, indexGenerator(document), setOf())
+            }
+            created
         }
     }
 

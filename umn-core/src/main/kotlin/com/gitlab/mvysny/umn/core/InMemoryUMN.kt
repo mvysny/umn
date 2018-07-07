@@ -13,8 +13,8 @@ class InMemoryUMN : UMN {
     override val delegate: UMN?
         get() = null
 
-    override fun create(document: Any, id: UUID) {
-        map.putIfAbsent(id, document)
+    override fun create(document: Any, id: UUID): Boolean {
+        return map.putIfAbsent(id, document) == null
     }
 
     override fun close() {
