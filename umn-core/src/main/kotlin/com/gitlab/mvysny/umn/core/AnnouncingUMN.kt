@@ -14,7 +14,7 @@ import kotlin.reflect.KClass
  *
  * @property listener notified of mutate operations. May be called from multiple threads at once.
  */
-class AnnouncingUMN(private val delegate: UMN, private val listener: (LogRecord)->Unit = {}) : UMN {
+class AnnouncingUMN(override val delegate: UMN, private val listener: (LogRecord)->Unit = {}) : UMN {
     override fun create(document: Any, id: UUID) {
         delegate.create(document, id)
     }

@@ -141,7 +141,7 @@ fun UMN.syncing(client: GlobalLogClient): UMN {
 /**
  * Properly closes [pusher], [client] and [delegate] when [close]d.
  */
-internal class SyncCloserUMN(private val delegate: UMN, private val client: GlobalLogClient,
+internal class SyncCloserUMN(override val delegate: UMN, private val client: GlobalLogClient,
                              private val pusher: GlobalLogPusher
 ) : UMN by delegate {
     override fun close() {

@@ -75,7 +75,19 @@ interface UMN : Closeable {
      * delete with given id is permanent and irreversible. @todo mavi what may this cause?
      */
     fun create(document: Any, id: UUID)
+
+    val delegate: UMN?
 }
+
+fun <T: UMN> umnfacet(this_: UMN, clazz: KClass<T>): T {
+    if (clazz.java.isInstance(this_)) {
+        return clazz.java.cast(this_)
+    }
+    val d = this_.delegate ?: throw IllegalArgumentException("This UMN chain contains no instance of $clazz")
+    return umnfacet(d, clazz)
+}
+
+inline fun <reified T: UMN> UMN.facet(): T = umnfacet(this, T::class)
 
 /**
  * A very simple key-value store. An internal API, used by various implementations of [UMN] to store stuff there. Should not be used by

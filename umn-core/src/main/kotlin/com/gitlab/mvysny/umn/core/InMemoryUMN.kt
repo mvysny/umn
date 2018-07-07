@@ -10,6 +10,9 @@ import kotlin.reflect.KClass
  * Since it's in-memory only, it supports all key types: any class classes can act as a key.
  */
 class InMemoryUMN : UMN {
+    override val delegate: UMN?
+        get() = null
+
     override fun create(document: Any, id: UUID) {
         map.putIfAbsent(id, document)
     }
