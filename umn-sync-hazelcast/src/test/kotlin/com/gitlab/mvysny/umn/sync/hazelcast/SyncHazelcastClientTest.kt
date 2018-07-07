@@ -22,5 +22,7 @@ class SyncHazelcastClientTest : DynaTest({
     lateinit var topic: String
     beforeEach { topic = "topic-${UUID.randomUUID()}" }
 
-    globalLogClientTestBattery { SyncHazelcastClient("127.0.0.1:5051", topic, JavaDocumentSerializer) }
+    fun newClient() = SyncHazelcastClient("127.0.0.1:5051", topic, JavaDocumentSerializer)
+
+    globalLogClientTestBattery { newClient() }
 })

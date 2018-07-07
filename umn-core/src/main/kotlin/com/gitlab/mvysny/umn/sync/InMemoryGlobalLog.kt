@@ -90,8 +90,7 @@ class InMemoryGlobalLog {
     @Synchronized
     internal fun add(client: InMemoryGlobalLogClient, record: LogRecord) {
         log.add(record)
-        val newItemIndex = (log.size - 1).toLong()
-        client.addCallback() // newItemIndex
+        client.addCallback()
         clients.forEach { it.onNewItem(record) }
     }
 }
