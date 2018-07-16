@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.core
 
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.collections.LinkedHashMap
 import kotlin.concurrent.withLock
 import kotlin.reflect.KClass
 
@@ -16,8 +17,8 @@ import kotlin.reflect.KClass
  * supported. For example you can have a key with two parts: the `key` itself which is used to range-select the values, and the `ordering`
  * part which is then used to order the paged results.
  *
- * The indices are never re-generated on function change; it is imperative that the [indexGenerator] function is stable and always returns
- * the same set for given document. It is currently not possible to update an index for all documents; any changes to the [indexGenerator]
+ * The indices are never re-generated on function change; it is imperative that the [IndexDef.indexGenerator] function is stable and always returns
+ * the same set for given document. It is currently not possible to update an index for all documents; any changes to the [IndexDef.indexGenerator]
  * function will be applied to newly inserted or updated documents only. You can not currently create a new index over a database with
  * existing documents.
  *
@@ -121,39 +122,45 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
          * Finds one document matching given [key]. If there are multiple documents, one is picked arbitrarily.
          * @param clazz deserialize the document to this class, using [UMN.find].
          */
-        fun <V: Any> findOneByKey(key: I, clazz: KClass<V>): V? {
+        fun <V: Any> findOneByKey(key: I, clazz: KClass<V>): Pair<UUID, V>? {
             val ids: Array<UUID> = indexStore.find(key) ?: return null
             val id: UUID = ids.firstOrNull() ?: return null
-            return delegate.find(id, clazz)
+            val doc = delegate.find(id, clazz)
+            return if (doc == null) null else id to doc
         }
 
         /**
          * Finds all documents matching given [key].
          * @param clazz deserialize the document to this class, using [UMN.find].
          */
-        fun <V: Any> findAllByKey(key: I, clazz: KClass<V>): List<V> {
+        fun <V: Any> findAllByKey(key: I, clazz: KClass<V>): Map<UUID, V> {
             val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
-            return ids.mapNotNull { id -> delegate.find(id, clazz) }
+            val map = mutableMapOf<UUID, V>()
+            ids.forEach { id ->
+                if (!map.containsKey(id)) {
+                    val doc = delegate.find(id, clazz)
+                    if (doc != null) map[id] = doc
+                }
+            }
+            return map
         }
 
         /**
          * Returns all documents matching given key [range].
          * @param clazz deserialize the documents to this class, using [UMN.find].
          */
-        fun <V: Any> findAllByKeyRange(range: ClosedRange<I>, clazz: KClass<V>): List<V> {
-            val idsEncountered = mutableSetOf<UUID>()
-            val result = LinkedList<V>()
+        fun <V: Any> findAllByKeyRange(range: ClosedRange<I>, clazz: KClass<V>): Map<UUID, V> {
+            val result = mutableMapOf<UUID, V>()
             indexStore.keyIterator(range).forEach { key ->
                 val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
                 ids.forEach { id ->
-                    if (!idsEncountered.contains(id)) {
+                    if (!result.containsKey(id)) {
                         val doc = delegate.find(id, clazz)
-                        if (doc != null) result.add(doc)
+                        if (doc != null) result[id] = doc
                     }
                 }
-                idsEncountered.addAll(ids)
             }
-            return result.toList()
+            return result
         }
 
         internal fun onCreated(id: UUID, document: Any) {

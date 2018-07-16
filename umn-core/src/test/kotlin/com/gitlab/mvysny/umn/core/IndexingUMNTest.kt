@@ -32,15 +32,15 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
 
         test("correctly finds the document") {
             val umn = IndexingUMN(storageProvider(), indices)
-            umn.create("kvak")
-            expect("kvak") { umn.idxIdentity().findOneByKey("kvak", String::class) }
+            val id = umn.create("kvak")
+            expect(id to "kvak") { umn.idxIdentity().findOneByKey("kvak", String::class) }
         }
 
         test("correctly updates the indices on update()") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
-            expect("foo") { umn.idxIdentity().findOneByKey("foo", String::class) }
+            expect(id to "foo") { umn.idxIdentity().findOneByKey("foo", String::class) }
             expect(null) { umn.idxIdentity().findOneByKey("kvak", String::class) }
         }
 
@@ -48,12 +48,12 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
-            expect("foo") { umn.idxLength().findOneByKey(3, String::class) }
+            expect(id to "foo") { umn.idxLength().findOneByKey(3, String::class) }
             expect(null) { umn.idxLength().findOneByKey(4, String::class) }
             // now simulate the Sync as it replays actions as they come from the log
             umn.create("kvak", id)
             umn.update(id, "foo", String::class)
-            expect("foo") { umn.idxLength().findOneByKey(3, String::class) }
+            expect(id to "foo") { umn.idxLength().findOneByKey(3, String::class) }
             expect(null) { umn.idxLength().findOneByKey(4, String::class) }
         }
     }
@@ -61,22 +61,22 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
     group("findAllByKey()") {
         test("returns empty list on empty map") {
             val umn = IndexingUMN(storageProvider(), indices)
-            expect(listOf()) { umn.idxIdentity().findAllByKey("", String::class) }
-            expect(listOf()) { umn.idxIdentity().findAllByKey("foo", String::class) }
+            expect(mapOf()) { umn.idxIdentity().findAllByKey("", String::class) }
+            expect(mapOf()) { umn.idxIdentity().findAllByKey("foo", String::class) }
         }
 
         test("correctly finds the document") {
             val umn = IndexingUMN(storageProvider(), indices)
-            umn.create("kvak")
-            expect(listOf("kvak")) { umn.idxIdentity().findAllByKey("kvak", String::class) }
+            val id = umn.create("kvak")
+            expect(mapOf(id to "kvak")) { umn.idxIdentity().findAllByKey("kvak", String::class) }
         }
 
         test("correctly updates the indices on update()") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
-            expect(listOf("foo")) { umn.idxIdentity().findAllByKey("foo", String::class) }
-            expect(listOf()) { umn.idxIdentity().findAllByKey("kvak", String::class) }
+            expect(mapOf(id to "foo")) { umn.idxIdentity().findAllByKey("foo", String::class) }
+            expect(mapOf()) { umn.idxIdentity().findAllByKey("kvak", String::class) }
         }
     }
 
@@ -84,18 +84,18 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         test("on simple Long key") {
             val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef<Long>("toLong", { doc -> setOf((doc as String).toLong()) })))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expectList("50", "51", "52", "53", "54", "55") { umn.idxToLong().findAllByKeyRange(50L..55L, String::class) }
-            expectList("1000") { umn.idxToLong().findAllByKeyRange(1000L..2000L, String::class) }
-            expectList() { umn.idxToLong().findAllByKeyRange(1001L..2000L, String::class) }
-            expectList() { umn.idxToLong().findAllByKeyRange(-1000L..-10L, String::class) }
+            expectList("50", "51", "52", "53", "54", "55") { umn.idxToLong().findAllByKeyRange(50L..55L, String::class).values.sorted() }
+            expectList("1000") { umn.idxToLong().findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
+            expectList() { umn.idxToLong().findAllByKeyRange(1001L..2000L, String::class).values.sorted() }
+            expectList() { umn.idxToLong().findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
         }
 
         test("multiple values mapping to a Long key") {
             val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef("toLong", { doc -> setOf((doc as String).toLong() / 3) })))
             (0..1000).forEach { umn.create(it.toString()) }
-            expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.idxToLong().findAllByKeyRange(16L..18L, String::class) }
-            expectList() { umn.idxToLong().findAllByKeyRange(1000L..2000L, String::class) }
-            expectList() { umn.idxToLong().findAllByKeyRange(-1000L..-10L, String::class) }
+            expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.idxToLong().findAllByKeyRange(16L..18L, String::class).values.sorted() }
+            expectList() { umn.idxToLong().findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
+            expectList() { umn.idxToLong().findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
         }
 
         test("using CKey") {
@@ -105,10 +105,10 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
-            expectList() { umn.idx().findAllByKeyRange(CKey("kvak", 0f)..CKey("kvak", 10f), CKey::class) }
-            expectList() { umn.idx().findAllByKeyRange(CKey("bar", 2000f)..CKey("bar", 3000f), CKey::class) }
+            expectList() { umn.idx().findAllByKeyRange(CKey("kvak", 0f)..CKey("kvak", 10f), CKey::class).values.sorted() }
+            expectList() { umn.idx().findAllByKeyRange(CKey("bar", 2000f)..CKey("bar", 3000f), CKey::class).values.sorted() }
             expect((0..10).map { it.toFloat() }) {
-                umn.idx().findAllByKeyRange(CKey("foo", 0f)..CKey("foo", 10f), CKey::class).map { it.ordering }
+                umn.idx().findAllByKeyRange(CKey("foo", 0f)..CKey("foo", 10f), CKey::class).values.map { it.ordering }
             }
         }
     }
