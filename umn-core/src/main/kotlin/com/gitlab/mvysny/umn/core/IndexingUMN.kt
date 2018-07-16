@@ -163,6 +163,16 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
             return result
         }
 
+        /**
+         * Deletes all documents that have at least one key present in the index.
+         */
+        fun deleteAllDocuments(clazz: KClass<*>) {
+            indexStore.values().forEach { ids ->
+                ids.forEach { id -> delegate.delete(id, clazz) }
+            }
+            indexStore.clear()
+        }
+
         internal fun onCreated(id: UUID, document: Any) {
             registerUnregisterIndices(id, def.indexGenerator(document), setOf())
         }

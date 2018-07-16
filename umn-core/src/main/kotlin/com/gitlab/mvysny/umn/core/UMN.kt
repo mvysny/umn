@@ -127,4 +127,14 @@ interface UtilityMap<K: Comparable<K>, V> {
      * Returns an iterator which walks over keys in given range in ascending order.
      */
     fun keyIterator(range: ClosedRange<K>): Iterator<K>
+
+    /**
+     * Iterates over all values present in this map, in no particular order.
+     */
+    fun values(): Iterator<V>
+
+    /**
+     * Clears the map and removes all keys and values.
+     */
+    fun clear()
 }

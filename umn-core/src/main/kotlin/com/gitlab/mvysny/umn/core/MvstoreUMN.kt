@@ -103,4 +103,10 @@ class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : Uti
     }
     override fun getSmallestKey(): K? = map.firstKey()
     override fun getLargestKey(): K? = map.lastKey()
+
+    override fun values(): Iterator<V> = map.values.iterator()
+
+    override fun clear() {
+        map.clear()
+    }
 }

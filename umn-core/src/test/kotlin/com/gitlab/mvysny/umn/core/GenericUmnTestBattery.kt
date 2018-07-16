@@ -86,5 +86,22 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             expect(null) { map.getSmallestKey() }
             expectList() { map.keyIterator(0L..10000L).asSequence().toList() }
         }
+
+        test("values() returns all values") {
+            map.put(10L, "Hello world")
+            map.put(20L, "Goodbye world")
+            expect(listOf("Goodbye world", "Hello world")) { map.values().asSequence().toList().sorted() }
+        }
+
+        test("values() is empty for an empty map") {
+            expect(listOf()) { map.values().asSequence().toList() }
+        }
+
+        test("clearing the map removes all keys") {
+            map.put(10L, "Hello world")
+            map.clear()
+            expect(null) { map.getLargestKey() }
+            expect(null) { map.getSmallestKey() }
+        }
     }
 }
