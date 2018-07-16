@@ -103,5 +103,16 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             expect(null) { map.getLargestKey() }
             expect(null) { map.getSmallestKey() }
         }
+
+        test("iterating values works even if the mappings are meanwhile deleted") {
+            map.put(10L, "Hello world")
+            map.put(20L, "Goodbye world")
+            var count = 0
+            map.values().forEach { map.put(10L, null); count++ }
+            map.put(20L, null)
+            expect(null) { map.getLargestKey() }
+            expect(null) { map.getSmallestKey() }
+            expect(2) { count }
+        }
     }
 }
