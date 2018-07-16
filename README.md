@@ -15,3 +15,21 @@ ensuring the "One" "truth" across all devices.
 The project is in a very early stage - definitely not usable in a production. Currently
 this is merely a technology demo, a prototype that the idea of having configurable sync backends
 is viable and may work.
+
+## Adding it to your project
+
+Make sure you have the following repository in your `build.gradle`:
+
+```
+repositories {
+    maven { url "https://dl.bintray.com/mvysny/gitlab" }
+}
+```
+
+Then you can add the following dependency:
+
+```
+dependencies {
+    compile 'com.gitlab.mvysny.umn:umn-core:0.2'
+}
+```
