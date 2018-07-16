@@ -22,7 +22,7 @@ defaultTasks 'clean', 'build'
 
 allprojects {
     group 'com.gitlab.mvysny.umn'
-    version '0.1-SNAPSHOT'
+    version '0.1'
 }
 
 sourceCompatibility = 1.8
@@ -36,6 +36,7 @@ subprojects {
 
     apply plugin: 'maven-publish'
     apply plugin: 'kotlin'
+    apply plugin: 'com.jfrog.bintray'
 
     compileKotlin {
         kotlinOptions {
