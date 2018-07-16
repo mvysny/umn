@@ -23,6 +23,11 @@ import kotlin.reflect.KClass
  *
  * ### Implementation
  * Intercepts all calls and passes them to underlying map, but updates the indices on the fly.
+ *
+ * @property delegate delegate all calls to the underlying UMN storage. Typically either one of [InMemoryUMN] or [MvstoreUMN].
+ * @param indices the indices definition. WARNING: the same set of indices must be provided upon every UMN open! New indices not yet present
+ * in the database will not reindex existing documents to build the index and searches will not find those documents. Changing the indexing
+ * function will not reindex existing documents. Removing an index will not clear the associated index map.
  */
 class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
 
@@ -56,6 +61,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
      * but sometimes it's more complex comparable so that we can select a range of keys and have the values sorted.
      * @property name the unique name of the index
      * @property indexGenerator generates IDs for stored documents. If no indices are required for this document, just return an empty set.
+     * The function must run quick, must be pure and must be consistent in computing the same set of keys for a particular document.
      */
     class IndexDef<I: Comparable<I>>(val name: String, val indexGenerator: (Any) -> Set<I>) {
         override fun equals(other: Any?): Boolean {
