@@ -163,6 +163,11 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
             return result
         }
 
+        /**
+         * Iterates all UUIDs of all indexed documents. It is safe to modify the index (e.g. deleting documents) while iterating.
+         */
+        fun iterator(): Iterator<UUID> = indexStore.values().asSequence().flatMap { it -> it.asSequence() } .iterator()
+
         internal fun onCreated(id: UUID, document: Any) {
             registerUnregisterIndices(id, def.indexGenerator(document), setOf())
         }

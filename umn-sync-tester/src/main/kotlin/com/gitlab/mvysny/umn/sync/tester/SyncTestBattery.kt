@@ -53,7 +53,7 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             val id = writer.create("askdj124389akj")
             allClients().forEach { umn ->
                 expectAsync(true) { umn.exists(id) }
-                expect("askdj124389akj") { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(14, String::class) }
+                expect(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(14, String::class) }
             }
         }
         test("create()+update() propagates properly") {
@@ -62,7 +62,7 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             allClients().forEach { umn ->
                 expectAsync("foo") { umn.find(id, String::class) }
                 expect(null) { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(14, String::class) }
-                expect("foo") { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(3, String::class) }
+                expect(id to "foo") { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(3, String::class) }
             }
         }
         test("create()+update()+delete() propagates properly") {

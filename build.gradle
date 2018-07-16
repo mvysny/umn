@@ -25,7 +25,7 @@ allprojects {
     version '0.3-SNAPSHOT'
 }
 
-sourceCompatibility = 1.8
+sourceCompatibility = 1.6
 
 subprojects {
     repositories {
@@ -40,12 +40,12 @@ subprojects {
 
     compileKotlin {
         kotlinOptions {
-            jvmTarget = "1.8"
+            jvmTarget = "1.6" // because of Android compatibility
         }
     }
     compileTestKotlin {
         kotlinOptions {
-            jvmTarget = "1.8"
+            jvmTarget = "1.6"
         }
     }
 
