@@ -1,10 +1,16 @@
 buildscript {
     ext.kotlin_version = '1.2.51'
     ext.dynatest_version = "0.8"
+
+    ext.local = new Properties()
+    if (project.rootProject.file('local.properties').exists()) {
+        ext.local.load(project.rootProject.file('local.properties').newDataInputStream())
+    }
 }
 
 plugins {
     id "org.jetbrains.kotlin.jvm" version "1.2.51"
+    id "com.jfrog.bintray" version "1.8.1"
 }
 
 repositories {
@@ -28,7 +34,9 @@ subprojects {
         maven { url 'https://dl.bintray.com/mvysny/github' }
     }
 
+    apply plugin: 'maven-publish'
     apply plugin: 'kotlin'
+
     compileKotlin {
         kotlinOptions {
             jvmTarget = "1.8"
