@@ -58,6 +58,28 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
+    group("findAllByKey()") {
+        test("returns empty list on empty map") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            expect(listOf()) { umn.idxIdentity().findAllByKey("", String::class) }
+            expect(listOf()) { umn.idxIdentity().findAllByKey("foo", String::class) }
+        }
+
+        test("correctly finds the document") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            umn.create("kvak")
+            expect(listOf("kvak")) { umn.idxIdentity().findAllByKey("kvak", String::class) }
+        }
+
+        test("correctly updates the indices on update()") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val id = umn.create("kvak")
+            umn.update(id, "foo", String::class)
+            expect(listOf("foo")) { umn.idxIdentity().findAllByKey("foo", String::class) }
+            expect(listOf()) { umn.idxIdentity().findAllByKey("kvak", String::class) }
+        }
+    }
+
     group("findAllByKeyRange()") {
         test("on simple Long key") {
             val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef<Long>("toLong", { doc -> setOf((doc as String).toLong()) })))

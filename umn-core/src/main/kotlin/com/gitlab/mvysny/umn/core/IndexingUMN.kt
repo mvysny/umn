@@ -128,6 +128,15 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
         }
 
         /**
+         * Finds all documents matching given [key].
+         * @param clazz deserialize the document to this class, using [UMN.find].
+         */
+        fun <V: Any> findAllByKey(key: I, clazz: KClass<V>): List<V> {
+            val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
+            return ids.mapNotNull { id -> delegate.find(id, clazz) }
+        }
+
+        /**
          * Returns all documents matching given key [range].
          * @param clazz deserialize the documents to this class, using [UMN.find].
          */
