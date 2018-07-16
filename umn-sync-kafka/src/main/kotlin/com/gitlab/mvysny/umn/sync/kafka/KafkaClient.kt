@@ -179,7 +179,7 @@ private class KafkaConsumerThread(config: Map<String, Any>,
         checkNotClosed()
         val producerRecord: ProducerRecord<String?, ByteArray> =
             ProducerRecord(topicPartition.topic(), topicPartition.partition(), null, record.toByteArray(serializer))
-        producer.send(producerRecord) { metadata: RecordMetadata?, exception: Exception? ->
+        producer.send(producerRecord) { _, exception: Exception? ->
             if (exception != null) {
                 if (!closed.get() && exception is TimeoutException) {
                     // Kafka Client spuriously fails with

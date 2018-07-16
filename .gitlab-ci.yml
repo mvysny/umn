@@ -13,4 +13,4 @@ cache:
     - .gradle/build-cache/
 build:
   script:
-    - ./gradlew build
+    - ./gradlew build -x test
