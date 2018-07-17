@@ -16,100 +16,97 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
     beforeEach { storage = storageProvider() }
     afterEach { storage.close() }
 
-    val indices: Set<IndexingUMN.IndexDef<*>> = setOf(
-        IndexingUMN.IndexDef<String>("identity", { doc -> setOf(doc as String) }),
-        IndexingUMN.IndexDef<Int>("length", { doc -> setOf((doc as String).length) })
-    )
-    fun IndexingUMN.idxIdentity(): IndexingUMN.IndexImpl<String> = getIndex("identity")
-    fun IndexingUMN.idxLength(): IndexingUMN.IndexImpl<Int> = getIndex("length")
-    fun IndexingUMN.idxToLong(): IndexingUMN.IndexImpl<Long> = getIndex("toLong")
+    val idxIdentity = IndexingUMN.IndexDef<String, String>("identity", { doc -> setOf(doc) }, String::class)
+    val idxLength = IndexingUMN.IndexDef<Int, String>("length", { doc -> setOf(doc.length) }, String::class)
+    val idxToLong = IndexingUMN.IndexDef<Long, String>("toLong", { doc -> setOf(doc.toLong()) }, String::class)
+    val indices: Set<IndexingUMN.IndexDef<*, *>> = setOf(idxIdentity, idxLength)
 
     group("findOneByKey()") {
         test("returns null on empty map") {
             val umn = IndexingUMN(storageProvider(), indices)
-            expect(null) { umn.idxIdentity().findOneByKey("", String::class) }
-            expect(null) { umn.idxIdentity().findOneByKey("foo", String::class) }
+            expect(null) { umn.getIndex(idxIdentity).findOneByKey("") }
+            expect(null) { umn.getIndex(idxIdentity).findOneByKey("foo") }
         }
 
         test("correctly finds the document") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
-            expect(id to "kvak") { umn.idxIdentity().findOneByKey("kvak", String::class) }
+            expect(id to "kvak") { umn.getIndex(idxIdentity).findOneByKey("kvak") }
         }
 
         test("correctly updates the indices on update()") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
-            expect(id to "foo") { umn.idxIdentity().findOneByKey("foo", String::class) }
-            expect(null) { umn.idxIdentity().findOneByKey("kvak", String::class) }
+            expect(id to "foo") { umn.getIndex(idxIdentity).findOneByKey("foo") }
+            expect(null) { umn.getIndex(idxIdentity).findOneByKey("kvak") }
         }
 
         test("correctly updates the length-indices on update()") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
-            expect(id to "foo") { umn.idxLength().findOneByKey(3, String::class) }
-            expect(null) { umn.idxLength().findOneByKey(4, String::class) }
+            expect(id to "foo") { umn.getIndex(idxLength).findOneByKey(3) }
+            expect(null) { umn.getIndex(idxLength).findOneByKey(4) }
             // now simulate the Sync as it replays actions as they come from the log
             umn.create("kvak", id)
             umn.update(id, "foo", String::class)
-            expect(id to "foo") { umn.idxLength().findOneByKey(3, String::class) }
-            expect(null) { umn.idxLength().findOneByKey(4, String::class) }
+            expect(id to "foo") { umn.getIndex(idxLength).findOneByKey(3) }
+            expect(null) { umn.getIndex(idxLength).findOneByKey(4) }
         }
     }
 
     group("findAllByKey()") {
         test("returns empty list on empty map") {
             val umn = IndexingUMN(storageProvider(), indices)
-            expect(mapOf()) { umn.idxIdentity().findAllByKey("", String::class) }
-            expect(mapOf()) { umn.idxIdentity().findAllByKey("foo", String::class) }
+            expect(mapOf()) { umn.getIndex(idxIdentity).findAllByKey("") }
+            expect(mapOf()) { umn.getIndex(idxIdentity).findAllByKey("foo") }
         }
 
         test("correctly finds the document") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
-            expect(mapOf(id to "kvak")) { umn.idxIdentity().findAllByKey("kvak", String::class) }
+            expect(mapOf(id to "kvak")) { umn.getIndex(idxIdentity).findAllByKey("kvak") }
         }
 
         test("correctly updates the indices on update()") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
             umn.update(id, "foo", String::class)
-            expect(mapOf(id to "foo")) { umn.idxIdentity().findAllByKey("foo", String::class) }
-            expect(mapOf()) { umn.idxIdentity().findAllByKey("kvak", String::class) }
+            expect(mapOf(id to "foo")) { umn.getIndex(idxIdentity).findAllByKey("foo") }
+            expect(mapOf()) { umn.getIndex(idxIdentity).findAllByKey("kvak") }
         }
     }
 
     group("findAllByKeyRange()") {
         test("on simple Long key") {
-            val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef<Long>("toLong", { doc -> setOf((doc as String).toLong()) })))
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expectList("50", "51", "52", "53", "54", "55") { umn.idxToLong().findAllByKeyRange(50L..55L, String::class).values.sorted() }
-            expectList("1000") { umn.idxToLong().findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
-            expectList() { umn.idxToLong().findAllByKeyRange(1001L..2000L, String::class).values.sorted() }
-            expectList() { umn.idxToLong().findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
+            expectList("50", "51", "52", "53", "54", "55") { umn.getIndex(idxToLong).findAllByKeyRange(50L..55L, String::class).values.sorted() }
+            expectList("1000") { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1001L..2000L, String::class).values.sorted() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
         }
 
         test("multiple values mapping to a Long key") {
-            val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef("toLong", { doc -> setOf((doc as String).toLong() / 3) })))
+            val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
             (0..1000).forEach { umn.create(it.toString()) }
-            expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.idxToLong().findAllByKeyRange(16L..18L, String::class).values.sorted() }
-            expectList() { umn.idxToLong().findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
-            expectList() { umn.idxToLong().findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
+            expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.getIndex(idxToLong).findAllByKeyRange(16L..18L, String::class).values.sorted() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
         }
 
         test("using CKey") {
-            val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef("index", { doc -> setOf(doc as CKey) })))
-            fun IndexingUMN.idx(): IndexingUMN.IndexImpl<CKey> = getIndex("index")
+            val idx = IndexingUMN.IndexDef("index", { doc -> setOf(doc) }, CKey::class)
+            val umn = IndexingUMN(storageProvider(), setOf(idx))
 
             (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
-            expectList() { umn.idx().findAllByKeyRange(CKey("kvak", 0f)..CKey("kvak", 10f), CKey::class).values.sorted() }
-            expectList() { umn.idx().findAllByKeyRange(CKey("bar", 2000f)..CKey("bar", 3000f), CKey::class).values.sorted() }
+            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("kvak", 0f)..CKey("kvak", 10f), CKey::class).values.sorted() }
+            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("bar", 2000f)..CKey("bar", 3000f), CKey::class).values.sorted() }
             expect((0..10).map { it.toFloat() }) {
-                umn.idx().findAllByKeyRange(CKey("foo", 0f)..CKey("foo", 10f), CKey::class).values.map { it.ordering }
+                umn.getIndex(idx).findAllByKeyRange(CKey("foo", 0f)..CKey("foo", 10f), CKey::class).values.map { it.ordering }
             }
         }
     }
@@ -117,32 +114,32 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
     group("documentIdIterator()") {
         test("initially the iterator is empty") {
             val umn = IndexingUMN(storageProvider(), indices)
-            expectList() { umn.getIndex<String>("identity").documentIdIterator().asSequence().toList() }
-            expectList() { umn.getIndex<String>("length").documentIdIterator().asSequence().toList() }
+            expectList() { umn.getIndex(idxIdentity).allDocumentIdSequence().toList() }
+            expectList() { umn.getIndex(idxLength).allDocumentIdSequence().toList() }
         }
         test("iterator lists all documents") {
             val umn = IndexingUMN(storageProvider(), indices)
             val ids: Set<UUID> = (0..100).map { umn.create("$it") } .toSet()
-            expect(ids) { umn.getIndex<String>("identity").documentIdIterator().asSequence().toSet() }
-            expect(ids) { umn.getIndex<String>("length").documentIdIterator().asSequence().toSet() }
+            expect(ids) { umn.getIndex(idxIdentity).allDocumentIdSequence().toSet() }
+            expect(ids) { umn.getIndex(idxLength).allDocumentIdSequence().toSet() }
         }
         test("iterator doesn't list removed documents") {
             val umn = IndexingUMN(storageProvider(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
             ids.forEach { umn.delete(it, String::class) }
-            expect(null) { umn.getIndex<String>("identity").findOneByKey("0", String::class) }
-            expectList() { umn.getIndex<String>("identity").documentIdIterator().asSequence().toList() }
-            expect(null) { umn.getIndex<Int>("length").findOneByKey(1, String::class) }
-            expectList() { umn.getIndex<Int>("length").documentIdIterator().asSequence().toList() }
+            expect(null) { umn.getIndex(idxIdentity).findOneByKey("0") }
+            expectList() { umn.getIndex(idxIdentity).allDocumentIdSequence().toList() }
+            expect(null) { umn.getIndex(idxLength).findOneByKey(1) }
+            expectList() { umn.getIndex(idxLength).allDocumentIdSequence().toList() }
         }
         test("iterating IDs doesn't fail even when the documents are being deleted") {
             val umn = IndexingUMN(storageProvider(), indices)
             (0..10).map { umn.create("$it") } .toSet()
-            umn.getIndex<String>("identity").documentIdIterator().forEach { umn.delete(it, String::class) }
-            expect(null) { umn.getIndex<String>("identity").findOneByKey("0", String::class) }
-            expectList() { umn.getIndex<String>("identity").documentIdIterator().asSequence().toList() }
-            expect(null) { umn.getIndex<Int>("length").findOneByKey(1, String::class) }
-            expectList() { umn.getIndex<Int>("length").documentIdIterator().asSequence().toList() }
+            umn.getIndex(idxIdentity).allDocumentIdSequence().forEach { umn.delete(it, String::class) }
+            expect(null) { umn.getIndex(idxIdentity).findOneByKey("0") }
+            expectList() { umn.getIndex(idxIdentity).allDocumentIdSequence().toList() }
+            expect(null) { umn.getIndex(idxLength).findOneByKey(1) }
+            expectList() { umn.getIndex(idxLength).allDocumentIdSequence().toList() }
         }
     }
 }
@@ -162,13 +159,13 @@ class IndexingUMNTest : DynaTest({
     group("basic tests") {
         group("in-memory") {
             genericUmnTestBattery {
-                val indices = setOf(IndexingUMN.IndexDef("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }))
+                val indices = setOf(IndexingUMN.IndexDef("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }, Any::class))
                 IndexingUMN(InMemoryUMN(), indices)
             }
         }
         group("on mvstore") {
             genericUmnTestBattery {
-                val indices = setOf(IndexingUMN.IndexDef("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }))
+                val indices = setOf(IndexingUMN.IndexDef("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }, Any::class))
                 val mvstore = MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer)
                 IndexingUMN(mvstore, indices)
             }
