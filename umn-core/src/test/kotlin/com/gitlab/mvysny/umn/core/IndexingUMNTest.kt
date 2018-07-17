@@ -5,6 +5,7 @@ import com.github.mvysny.dynatest.DynaTest
 import com.github.mvysny.dynatest.expectList
 import org.h2.mvstore.MVStore
 import java.io.Serializable
+import java.util.*
 import kotlin.test.expect
 
 /**
@@ -110,6 +111,29 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             expect((0..10).map { it.toFloat() }) {
                 umn.idx().findAllByKeyRange(CKey("foo", 0f)..CKey("foo", 10f), CKey::class).values.map { it.ordering }
             }
+        }
+    }
+
+    group("documentIdIterator()") {
+        test("initially the iterator is empty") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            expectList() { umn.getIndex<String>("identity").documentIdIterator().asSequence().toList() }
+            expectList() { umn.getIndex<String>("length").documentIdIterator().asSequence().toList() }
+        }
+        test("iterator lists all documents") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val ids: Set<UUID> = (0..100).map { umn.create("$it") } .toSet()
+            expect(ids) { umn.getIndex<String>("identity").documentIdIterator().asSequence().toSet() }
+            expect(ids) { umn.getIndex<String>("length").documentIdIterator().asSequence().toSet() }
+        }
+        test("iterator doesn't list removed documents") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val ids: Set<UUID> = (0..1).map { umn.create("$it") } .toSet()
+            ids.forEach { umn.delete(it, String::class) }
+            expect(null) { umn.getIndex<String>("identity").findOneByKey("0", String::class) }
+            expectList() { umn.getIndex<String>("identity").documentIdIterator().asSequence().toList() }
+            expect(null) { umn.getIndex<Int>("length").findOneByKey(1, String::class) }
+            expectList() { umn.getIndex<Int>("length").documentIdIterator().asSequence().toList() }
         }
     }
 }

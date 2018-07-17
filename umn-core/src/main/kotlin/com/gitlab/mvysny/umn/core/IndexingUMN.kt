@@ -112,7 +112,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
                 val array = indexStore.find(index)
                 if (array != null && array.contains(id)) {
                     val newArray = array.filterNot { it == id }.toTypedArray()
-                    indexStore.put(index, if (newArray.isEmpty()) null else array)
+                    indexStore.put(index, if (newArray.isEmpty()) null else newArray)
                 }
             }
         }
@@ -165,7 +165,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
         /**
          * Iterates all UUIDs of all indexed documents. It is safe to modify the index (e.g. deleting documents) while iterating.
          */
-        fun iterator(): Iterator<UUID> = indexStore.values().asSequence().flatMap { it -> it.asSequence() } .iterator()
+        fun documentIdIterator(): Iterator<UUID> = indexStore.values().asSequence().flatMap { it -> it.asSequence() } .iterator()
 
         internal fun onCreated(id: UUID, document: Any) {
             registerUnregisterIndices(id, def.indexGenerator(document), setOf())
