@@ -215,6 +215,12 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*>>) : UMN {
         return indexMap[name] as IndexImpl<I>? ?: throw IllegalStateException("Unknown index name $name, available indices: ${indexMap.keys}")
     }
 
+    @Suppress("UNCHECKED_CAST")
+    fun <I: Comparable<I>> getIndex(index: IndexDef<I>): IndexImpl<I> {
+        return indexMap[index.name] as IndexImpl<I>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
+    }
+
+
     // @todo implement paged document range retrieval
 
     // @todo implement unique index
