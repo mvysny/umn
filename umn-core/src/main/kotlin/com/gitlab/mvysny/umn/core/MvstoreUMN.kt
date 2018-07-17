@@ -47,6 +47,8 @@ object JavaDocumentSerializer : DocumentSerializer {
  * Thread-safe.
  *
  * Supports all [Serializable]/[Externalizable] keys; for more info please consult the documentation for H2 MV Store.
+ *
+ * @property store the underlying store to use, closed when this UMN is closed.
  */
 class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer) : UMN {
     override val delegate: UMN?
