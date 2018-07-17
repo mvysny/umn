@@ -63,6 +63,7 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
         test("The map is initially empty") {
             expect(null) { map.getLargestKey() }
             expect(null) { map.getSmallestKey() }
+            expect(true) { map.isEmpty() }
             (0..1000).forEach { key ->
                 expect(null) { map.find(key.toLong()) }
             }
@@ -77,6 +78,7 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
                 expect(if (key == 10) "Hello world" else null) { map.find(key.toLong()) }
             }
             expectList(10L) { map.keyIterator(0L..10000L).asSequence().toList() }
+            expect(false) { map.isEmpty() }
         }
 
         test("Adding one item and removing it falls back to empty map") {
@@ -102,6 +104,7 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             map.clear()
             expect(null) { map.getLargestKey() }
             expect(null) { map.getSmallestKey() }
+            expect(true) { map.isEmpty() }
         }
 
         test("iterating values works even if the mappings are meanwhile deleted") {

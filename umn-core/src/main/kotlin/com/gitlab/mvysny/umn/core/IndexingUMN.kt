@@ -215,6 +215,11 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         internal fun onUpdate(id: UUID, newDoc: Any, oldDoc: Any) {
             registerUnregisterIndices(id, def.indicesFor(newDoc), def.indicesFor(oldDoc))
         }
+
+        /**
+         * Checks whether there are no documents in this index.
+         */
+        fun isEmpty(): Boolean = indexStore.isEmpty()
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)

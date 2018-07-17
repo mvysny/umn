@@ -142,6 +142,27 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             expectList() { umn.getIndex(idxLength).allDocumentIdSequence().toList() }
         }
     }
+
+    group("isEmpty()") {
+        test("initially the index is empty") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            expect(true) { umn.getIndex(idxIdentity).isEmpty() }
+            expect(true) { umn.getIndex(idxLength).isEmpty() }
+        }
+        test("not empty when there are indexed documents") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val ids: Set<UUID> = (0..100).map { umn.create("$it") } .toSet()
+            expect(false) { umn.getIndex(idxIdentity).isEmpty() }
+            expect(false) { umn.getIndex(idxLength).isEmpty() }
+        }
+        test("empty when all documents has been deleted") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
+            ids.forEach { umn.delete(it, String::class) }
+            expect(true) { umn.getIndex(idxIdentity).isEmpty() }
+            expect(true) { umn.getIndex(idxLength).isEmpty() }
+        }
+    }
 }
 
 /**

@@ -71,4 +71,6 @@ class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
     override fun clear() {
         map.clear()
     }
+
+    override fun isEmpty(): Boolean = map.isEmpty()
 }

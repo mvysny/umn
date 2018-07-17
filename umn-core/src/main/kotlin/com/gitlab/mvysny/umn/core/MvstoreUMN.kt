@@ -109,4 +109,6 @@ class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : Uti
     override fun clear() {
         map.clear()
     }
+
+    override fun isEmpty(): Boolean = map.isEmpty()
 }

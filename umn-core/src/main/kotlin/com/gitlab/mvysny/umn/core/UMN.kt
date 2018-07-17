@@ -137,4 +137,9 @@ interface UtilityMap<K: Comparable<K>, V> {
      * Clears the map and removes all keys and values.
      */
     fun clear()
+
+    /**
+     * Checks if there are no entries in the map.
+     */
+    fun isEmpty(): Boolean
 }
