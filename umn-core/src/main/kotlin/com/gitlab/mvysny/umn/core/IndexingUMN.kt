@@ -2,7 +2,6 @@ package com.gitlab.mvysny.umn.core
 
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.collections.LinkedHashMap
 import kotlin.concurrent.withLock
 import kotlin.reflect.KClass
 

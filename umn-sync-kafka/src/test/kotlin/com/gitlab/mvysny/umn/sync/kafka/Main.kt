@@ -11,9 +11,9 @@ fun main(args: Array<String>) {
 
     KafkaClient("127.0.0.1:9092", TopicPartition("test", 0),
         JavaDocumentSerializer).use { client ->
-        client.setAddCallback { println("SENT: $it") }
-        client.setReceiverCallback(0L) { log, offset ->
-            println("RECEIVED: $offset - $log")
+        client.setAddCallback { println("SENT") }
+        client.setReceiverCallback(0L) { log->
+            println("RECEIVED: $log")
         }
         client.start()
         client.addAsync(LogRecord.DocumentCreated("foo", UUID.randomUUID()))
