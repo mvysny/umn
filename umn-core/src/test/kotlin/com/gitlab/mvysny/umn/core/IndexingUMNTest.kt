@@ -56,6 +56,20 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
+    group("findOneByKeys()") {
+        test("returns null on empty map") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            expect(null) { umn.getIndex(idxIdentity).findOneByKeys(setOf("", "foo", "bar", "baz")) }
+        }
+
+        test("correctly finds the document") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val id = umn.create("kvak")
+            expect(id to "kvak") { umn.getIndex(idxIdentity).findOneByKeys(setOf("", "foo", "kvak")) }
+            expect(id to "kvak") { umn.getIndex(idxIdentity).findOneByKeys(setOf("kvak", "foo", "")) }
+        }
+    }
+
     group("findAllByKey()") {
         test("returns empty list on empty map") {
             val umn = IndexingUMN(storageProvider(), indices)

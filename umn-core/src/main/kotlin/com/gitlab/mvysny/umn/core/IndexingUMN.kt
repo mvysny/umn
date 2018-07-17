@@ -140,6 +140,11 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         }
 
         /**
+         * Finds one document matching random key from given set of [keys]. If there are multiple documents, one is picked arbitrarily.
+         */
+        fun findOneByKeys(keys: Set<I>): Pair<UUID, D>? = keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
+
+        /**
          * Finds ID of one document matching given [key]. If there are multiple documents, one is picked arbitrarily. If no such document
          * exists, returns null.
          */
