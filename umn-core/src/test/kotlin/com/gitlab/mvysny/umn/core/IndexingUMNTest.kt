@@ -128,8 +128,17 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
         test("iterator doesn't list removed documents") {
             val umn = IndexingUMN(storageProvider(), indices)
-            val ids: Set<UUID> = (0..1).map { umn.create("$it") } .toSet()
+            val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
             ids.forEach { umn.delete(it, String::class) }
+            expect(null) { umn.getIndex<String>("identity").findOneByKey("0", String::class) }
+            expectList() { umn.getIndex<String>("identity").documentIdIterator().asSequence().toList() }
+            expect(null) { umn.getIndex<Int>("length").findOneByKey(1, String::class) }
+            expectList() { umn.getIndex<Int>("length").documentIdIterator().asSequence().toList() }
+        }
+        test("iterating IDs doesn't fail even when the documents are being deleted") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            (0..10).map { umn.create("$it") } .toSet()
+            umn.getIndex<String>("identity").documentIdIterator().forEach { umn.delete(it, String::class) }
             expect(null) { umn.getIndex<String>("identity").findOneByKey("0", String::class) }
             expectList() { umn.getIndex<String>("identity").documentIdIterator().asSequence().toList() }
             expect(null) { umn.getIndex<Int>("length").findOneByKey(1, String::class) }
