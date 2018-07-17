@@ -16,9 +16,10 @@ import kotlin.test.expect
  */
 fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN, clientProducer: ()-> GlobalLogClient) {
     require(readerCount >= 1) { "$readerCount must be 1 or higher" }
+    val idx = IndexingUMN.IndexDef("length", { setOf(it.length) }, String::class)
     fun createUMN(): UMN {
         val storage = umnStorageProducer()
-        val indexing = IndexingUMN(storage, setOf(IndexingUMN.IndexDef("length", { setOf((it as String).length) })))
+        val indexing = IndexingUMN(storage, setOf(idx))
         val syncing = indexing.syncing(clientProducer())
         return syncing
     }
@@ -53,7 +54,7 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             val id = writer.create("askdj124389akj")
             allClients().forEach { umn ->
                 expectAsync(true) { umn.exists(id) }
-                expect(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(14, String::class) }
+                expect(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(14) }
             }
         }
         test("create()+update() propagates properly") {
@@ -61,8 +62,8 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             writer.update(id, "foo", String::class)
             allClients().forEach { umn ->
                 expectAsync("foo") { umn.find(id, String::class) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(14, String::class) }
-                expect(id to "foo") { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(3, String::class) }
+                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(14) }
+                expect(id to "foo") { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(3) }
             }
         }
         test("create()+update()+delete() propagates properly") {
@@ -71,8 +72,8 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             writer.delete(id, String::class)
             allClients().forEach { umn ->
                 expectAsync(null) { umn.find(id, String::class) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(14, String::class) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex<Int>("length").findOneByKey(3, String::class) }
+                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(14) }
+                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(3) }
             }
         }
     }
