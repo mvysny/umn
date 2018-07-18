@@ -153,13 +153,6 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             expectList("52", "53") { umn.getIndex(idxToLong).findAllByKeyRange(50L..55L, String::class, 2..3).values.toList() }
         }
 
-        test("check count") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
-            (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expect(6) { umn.getIndex(idxToLong).getCountByKeyRange(50L..55L) }
-            expect(100) { umn.getIndex(idxToLong).getCountByKeyRange(0L..99L) }
-        }
-
         test("multiple values mapping to a Long key") {
             val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
             (0..1000).forEach { umn.create(it.toString()) }
