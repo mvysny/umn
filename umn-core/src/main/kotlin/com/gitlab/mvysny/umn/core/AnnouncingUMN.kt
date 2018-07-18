@@ -65,6 +65,9 @@ sealed class LogRecord(open val id: UUID) {
         }
 
         companion object {
+            /**
+             * @param din must be buffered or backed by a [java.io.ByteArrayInputStream]!
+             */
             internal fun readFrom(id: UUID, din: DataInputStream, serializer: DocumentSerializer): DocumentCreated {
                 val clazz = Class.forName(din.readUTF()).asSubclass(Any::class.java)
                 val doc = serializer.deserialize(clazz.kotlin, din)
@@ -97,11 +100,6 @@ sealed class LogRecord(open val id: UUID) {
         override fun applyTo(umn: UMN) {
             if (umn.exists(id)) {
                 umn.update(id, document, document.javaClass.kotlin)
-                println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UPDATING $id to $document")
-                Exception("Stacktrace").printStackTrace()
-                println("UMN=$umn")
-            } else {
-                println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! document $id does not exist!")
             }
         }
 
@@ -114,6 +112,9 @@ sealed class LogRecord(open val id: UUID) {
         }
 
         companion object {
+            /**
+             * @param din must be buffered or backed by a [java.io.ByteArrayInputStream]!
+             */
             internal fun readFrom(id: UUID, din: DataInputStream, serializer: DocumentSerializer): DocumentUpdated {
                 val clazz = Class.forName(din.readUTF()).asSubclass(Any::class.java)
                 val doc = serializer.deserialize(clazz.kotlin, din)
@@ -127,7 +128,10 @@ sealed class LogRecord(open val id: UUID) {
         private val TYPE_DOCUMENT_DELETED = 1
         private val TYPE_DOCUMENT_UPDATED = 2
 
-        fun readFrom(din: DataInputStream, serializer: DocumentSerializer): LogRecord {
+        /**
+         * @param din must be buffered or backed by [java.io.ByteArrayInputStream].
+         */
+        private fun readFrom(din: DataInputStream, serializer: DocumentSerializer): LogRecord {
             val type = din.readByte().toInt()
             val lsb = din.readLong()
             val msb = din.readLong()

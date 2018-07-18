@@ -15,12 +15,17 @@ import kotlin.reflect.KClass
 interface DocumentSerializer {
     /**
      * Serializes the [document] into the [dout] stream. Don't close the stream - it is automatically closed afterwards.
+     * @param document the document to write to the stream.
+     * @param dout write the document data here. Don't close. The stream is buffered or backed by a [ByteArrayOutputStream] so there is no
+     * need to buffer it.
      */
     fun serialize(document: Any, dout: DataOutputStream)
 
     /**
      * Deserializes the object of given [clazz] from given [din] input stream.
      * We need to know the class upfront: it is needed both by the JSON Serializer, and possibly by custom serializers.
+     * @param din read the document data from here. No need to close. The stream is buffered or backed by a [ByteArrayInputStream] so
+     * there is no need to buffer it.
      */
     fun <T: Any> deserialize(clazz: KClass<T>, din: DataInputStream): T
 
