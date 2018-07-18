@@ -92,22 +92,80 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("findAllByKeyRange()") {
-        test("on simple Long key") {
+    group("getSize()") {
+        test("empty UMN has 0 size") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            expect(0) { umn.getIndex(idxToLong).getSize() }
+        }
+
+        test("simple test") {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expectList("50", "51", "52", "53", "54", "55") { umn.getIndex(idxToLong).findAllByKeyRange(50L..55L, String::class).values.sorted() }
-            expectList("1000") { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1001L..2000L, String::class).values.sorted() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
+            expect(1001) { umn.getIndex(idxToLong).getSize() }
+        }
+
+        test("multiple documents with the same key") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxLength))
+            (0..1000).shuffled().forEach { umn.create(it.toString()) }
+            expect(1001) { umn.getIndex(idxLength).getSize() }
+        }
+    }
+
+    group("getCountByKeyRange()") {
+        test("empty UMN has 0 size") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            expect(0) { umn.getIndex(idxToLong).getCountByKeyRange(0L..1000L) }
+        }
+
+        test("simple test") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            (0..1000).shuffled().forEach { umn.create(it.toString()) }
+            expect(6) { umn.getIndex(idxToLong).getCountByKeyRange(50L..55L) }
+            expect(100) { umn.getIndex(idxToLong).getCountByKeyRange(0L..99L) }
+        }
+
+        test("multiple documents with the same key") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxLength))
+            (0..1000).shuffled().forEach { umn.create(it.toString()) }
+            expect(0) { umn.getIndex(idxLength).getCountByKeyRange(0..0) }
+            expect(10) { umn.getIndex(idxLength).getCountByKeyRange(1..1) }
+            expect(100) { umn.getIndex(idxLength).getCountByKeyRange(1..2) }
+            expect(1000) { umn.getIndex(idxLength).getCountByKeyRange(1..3) }
+            expect(90) { umn.getIndex(idxLength).getCountByKeyRange(2..2) }
+            expect(990) { umn.getIndex(idxLength).getCountByKeyRange(2..3) }
+            expect(900) { umn.getIndex(idxLength).getCountByKeyRange(3..3) }
+        }
+    }
+
+    group("findAllByKeyRange()") {
+        test("check that the result documents are returned in a correct order") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            (0..1000).shuffled().forEach { umn.create(it.toString()) }
+            expectList("50", "51", "52", "53", "54", "55") { umn.getIndex(idxToLong).findAllByKeyRange(50L..55L, String::class).values.toList() }
+            expectList("1000") { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L, String::class).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1001L..2000L, String::class).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L, String::class).values.toList() }
+        }
+
+        test("check offset") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            (0..1000).shuffled().forEach { umn.create(it.toString()) }
+            expectList("52", "53") { umn.getIndex(idxToLong).findAllByKeyRange(50L..55L, String::class, 2..3).values.toList() }
+        }
+
+        test("check count") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            (0..1000).shuffled().forEach { umn.create(it.toString()) }
+            expect(6) { umn.getIndex(idxToLong).getCountByKeyRange(50L..55L) }
+            expect(100) { umn.getIndex(idxToLong).getCountByKeyRange(0L..99L) }
         }
 
         test("multiple values mapping to a Long key") {
             val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
             (0..1000).forEach { umn.create(it.toString()) }
             expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.getIndex(idxToLong).findAllByKeyRange(16L..18L, String::class).values.sorted() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L, String::class).values.sorted() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L, String::class).values.sorted() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L, String::class).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L, String::class).values.toList() }
         }
 
         test("using CKey") {

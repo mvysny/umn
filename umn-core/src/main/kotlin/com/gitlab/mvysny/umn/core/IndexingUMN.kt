@@ -172,22 +172,49 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         }
 
         /**
-         * Returns all documents matching given key [range].
+         * Returns all documents matching given key [range]. The returned map is ordered - the keys are enumerated in increasing order.
          * @param clazz deserialize the documents to this class, using [UMN.find].
+         * @param page the offset and the limit. By default retrieves all matching documents.
+         * @return a map of documents and their respective IDs. The map is ordered by the matching keys, ascending. May be empty.
          */
-        fun <V: Any> findAllByKeyRange(range: ClosedRange<I>, clazz: KClass<V>): Map<UUID, V> {
+        fun <V: Any> findAllByKeyRange(range: ClosedRange<I>, clazz: KClass<V>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
             val result = mutableMapOf<UUID, V>()
+            var currentIndex = 0
             indexStore.keyIterator(range).forEach { key ->
                 val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
                 ids.forEach { id ->
-                    if (!result.containsKey(id)) {
-                        val doc = delegate.find(id, clazz)
-                        if (doc != null) result[id] = doc
+                    if (!result.containsKey(id) && delegate.exists(id)) {
+                        if (currentIndex in page) {
+                            val doc = delegate.find(id, clazz)
+                            if (doc != null) result[id] = doc
+                        }
+                        currentIndex++
                     }
                 }
             }
             return result
         }
+
+        /**
+         * Counts all documents keyed with keys matching given [range].
+         * @return count of matching documents, 0 or greater.
+         */
+        fun getCountByKeyRange(range: ClosedRange<I>): Int {
+            val encountered = mutableSetOf<UUID>()
+            var count = 0
+            indexStore.keyIterator(range).forEach { key ->
+                val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
+                ids.forEach { id ->
+                    if (encountered.add(id) && delegate.exists(id)) {
+                        count++
+                    }
+                }
+            }
+            return count
+        }
+
+        // @todo mavi unique index size can simply be computed as indexStore.size()
+        fun getSize(): Int = indexStore.values().asSequence().sumBy { it.size }
 
         /**
          * Iterates all UUIDs of all indexed documents (documents for which the indexing function returned a non-null non-empty set).
