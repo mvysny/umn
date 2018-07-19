@@ -176,6 +176,42 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
+    group("findAllIDsByKeyRange()") {
+        test("check that the result documents are returned in a correct order") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
+            expect(ids.subList(50, 56)) { umn.getIndex(idxToLong).findAllIDsByKeyRange(50L..55L).toList() }
+            expectList(ids.last()) { umn.getIndex(idxToLong).findAllIDsByKeyRange(1000L..2000L).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(1001L..2000L).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(-1000L..-10L).toList() }
+        }
+
+        test("check offset") {
+            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+            val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
+            expect(ids.subList(52, 54)) { umn.getIndex(idxToLong).findAllIDsByKeyRange(50L..55L, 2..3).toList() }
+        }
+
+        test("multiple values mapping to a Long key") {
+            val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
+            val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
+            expect(ids.subList(48, 57).toSet()) { umn.getIndex(idxToLong).findAllIDsByKeyRange(16L..18L).toSet() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(1000L..2000L).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(-1000L..-10L).toList() }
+        }
+
+        test("using CKey") {
+            val idx = IndexingUMN.IndexDef("index", { doc -> setOf(doc) }, CKey::class)
+            val umn = IndexingUMN(storageProvider(), setOf(idx))
+
+            (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
+            (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
+            (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
+            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("kvak", 0f)..CKey("kvak", 10f), CKey::class).values.sorted() }
+            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("bar", 2000f)..CKey("bar", 3000f), CKey::class).values.sorted() }
+        }
+    }
+
     group("allDocumentIdSequence()") {
         test("initially the iterator is empty") {
             val umn = IndexingUMN(storageProvider(), indices)

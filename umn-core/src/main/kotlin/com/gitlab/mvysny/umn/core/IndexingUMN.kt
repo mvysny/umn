@@ -201,13 +201,13 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a set of document IDs. The set is ordered by the matching keys, ascending. May be empty.
          */
-        fun <V: Any> findAllIDsByKeyRange(range: ClosedRange<I>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
+        fun findAllIDsByKeyRange(range: ClosedRange<I>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
             val result = mutableSetOf<UUID>()
             var currentIndex = 0
             indexStore.keyIterator(range).forEach { key ->
                 val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
                 ids.forEach { id ->
-                    if (!result.contains(id) && delegate.exists(id)) {
+                    if (!result.contains(id)) {
                         if (currentIndex in page) {
                             result.add(id)
                         }
