@@ -22,7 +22,7 @@ defaultTasks 'clean', 'build'
 
 allprojects {
     group 'com.gitlab.mvysny.umn'
-    version '0.5-SNAPSHOT'
+    version '0.5'
 }
 
 sourceCompatibility = 1.6
