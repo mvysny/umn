@@ -16,7 +16,7 @@ import kotlin.test.expect
  */
 fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN, clientProducer: ()-> GlobalLogClient) {
     require(readerCount >= 1) { "$readerCount must be 1 or higher" }
-    val idx = IndexingUMN.IndexDef("length", { setOf(it.length) }, String::class)
+    val idx = IndexingUMN.IndexDef.simple("length", { setOf(it.length) }, String::class)
     fun createUMN(): UMN {
         val storage = umnStorageProducer()
         val indexing = IndexingUMN(storage, setOf(idx))
