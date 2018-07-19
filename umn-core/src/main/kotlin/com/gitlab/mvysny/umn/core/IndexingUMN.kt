@@ -16,8 +16,8 @@ import kotlin.reflect.KClass
  * supported. For example you can have a key with two parts: the `key` itself which is used to range-select the values, and the `ordering`
  * part which is then used to order the paged results.
  *
- * The indices are never re-generated on function change; it is imperative that the [IndexDef.indexGenerator] function is stable and always returns
- * the same set for given document. It is currently not possible to update an index for all documents; any changes to the [IndexDef.indexGenerator]
+ * The indices are never re-generated on function change; it is imperative that the [IndexDef.keyGetter] function is stable and always returns
+ * the same set for given document. It is currently not possible to update an index for all documents; any changes to the [IndexDef.keyGetter]
  * function will be applied to newly inserted or updated documents only. You can not currently create a new index over a database with
  * existing documents.
  *
@@ -29,12 +29,12 @@ import kotlin.reflect.KClass
  * in the database will not reindex existing documents to build the index and searches will not find those documents. Changing the indexing
  * function will not reindex existing documents. Removing an index will not clear the associated index map.
  */
-class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UMN {
+class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) : UMN {
 
     /**
      * Maps index name to the index implementor.
      */
-    private val indexMap: Map<String, IndexImpl<*, *>> = indices.associate { it.name to it.toImpl(this) }
+    private val indexMap: Map<String, IndexImpl<*, *, *>> = indices.associate { it.name to it.toImpl(this) }
 
     override fun create(document: Any, id: UUID): Boolean {
         return indexUpdaterGlobalLock.withLock {
@@ -55,23 +55,38 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
     }
 
     /**
-     * An index definition.
+     * An index definition. Index provides very quick lookup of a document for given key.
+     *
+     * Typically, index retrieves keys for a document and then maintains the mapping of a key to its document. That's the simple use-case,
+     * simply use [simple] to produce indices of this type. That is the most common usage.
+     *
+     * However, sometimes you don't want to map keys to the document being indexed, but to something else, say to some kind of its parent.
+     * This would save you the time which would be otherwise wasted by loading of the document, retrieving its parent ID from the document,
+     * and loading the parent.
+     *
      * @property K the type of keys. Consult the underlying storage for [UtilityMap] key types. Yet, at least [String] and [Long] must always
      * be supported. The type must be comparable and must properly implement [Any.equals] and [Any.hashCode]. Often the key is just a String,
      * but sometimes it's more complex comparable so that we can select a range of keys and have the values sorted.
-     * @property D the type of documents indexed by this index.
+     * @property D the type of documents indexed by this index. The indexing function is run on these documents as they are created or updated
+     * within the [UMN].
+     * @property V the type of values associated with the keys. Typically it's the same as [D]. It's the type of documents for which the
+     * [valueIdGetter] provides IDs for.
      * @property name the unique name of the index
-     * @property indexGenerator generates indices for documents. If no indices are required for this document or if the document is not indexed
+     * @property keyGetter computes keys for given document. If no indices are required for this document or if the document is not indexed
      * by this index, just return an empty set.
      * The function must run quick, must be pure and must be consistent in computing the same set of keys for a particular document.
-     * @property documentType the type of documents indexed by this index. The [indexGenerator] will only be called for documents of this type -
+     * @property documentType the type of documents indexed by this index. The [keyGetter] will only be called for documents of this type -
      * all other document types will be ignored and will not be indexed by this index.
+     * @property valueType the type of documents associated with the keys. Typically equal to [documentType] for simple indices.
+     * @property valueIdGetter which ID to actually associate with the key. Receives the document ID and the document itself. By default simply
+     * returns the ID
      */
-    class IndexDef<K: Comparable<K>, D: Any>(val name: String, val indexGenerator: (D) -> Set<K>, val documentType: KClass<D>) {
+    class IndexDef<K: Comparable<K>, D: Any, V: Any>(val name: String, val keyGetter: (D) -> Set<K>, val documentType: KClass<D>,
+                                             val valueType: KClass<V>, val valueIdGetter: (UUID, D) -> UUID) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (javaClass != other?.javaClass) return false
-            other as IndexDef<*, *>
+            other as IndexDef<*, *, *>
             if (name != other.name) return false
             return true
         }
@@ -79,11 +94,25 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         override fun hashCode(): Int = name.hashCode()
         override fun toString(): String = "IndexDef(name='$name')"
 
-        internal fun toImpl(umn: IndexingUMN): IndexImpl<K, D> = umn.IndexImpl(this)
+        internal fun toImpl(umn: IndexingUMN): IndexImpl<K, D, V> = umn.IndexImpl(this)
 
         internal fun indicesFor(document: Any): Set<K> {
             if (!documentType.java.isInstance(document)) return setOf()
-            return indexGenerator(documentType.java.cast(document))
+            return keyGetter(documentType.java.cast(document))
+        }
+
+        companion object {
+            /**
+             * Creates a simple index which simply maps keys to the ID of the document.
+             * @param name the unique name of the index
+             * @param keyGetter computes keys for given document. If no indices are required for this document or if the document is not indexed
+             * by this index, just return an empty set.
+             * The function must run quick, must be pure and must be consistent in computing the same set of keys for a particular document.
+             * @property documentType the type of documents indexed by this index. The [keyGetter] will only be called for documents of this type -
+             * all other document types will be ignored and will not be indexed by this index.
+             */
+            fun <K: Comparable<K>, D: Any> simple(name: String, keyGetter: (D) -> Set<K>, documentType: KClass<D>) : IndexDef<K, D, D> =
+                    IndexDef(name, keyGetter, documentType, documentType, { id, _ -> id })
         }
     }
 
@@ -98,11 +127,12 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
     /**
      * @property K the type of keys (objects acting as index)
      * @property D the type of documents indexed by this index.
+     * @property V the type of documents referenced by the keys.
      */
-    inner class IndexImpl<K: Comparable<K>, D: Any>(val def: IndexDef<K, D>) {
+    inner class IndexImpl<K: Comparable<K>, D: Any, V: Any>(val def: IndexDef<K, D, V>) {
 
         /**
-         * Maps String index to a set of documents. Don't use Set since that's serialized using Java serialization; use Arrays
+         * Maps key to a set of documents IDs (the [V] documents). Don't use Set since that's serialized using Java serialization; use Arrays
          * since that's serialized more effectively; see [ObjectDataType#TYPE_ARRAY] for more info.
          */
         private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap("INDEX2_${def.name}")
@@ -133,16 +163,16 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         /**
          * Finds one document matching given [key]. If there are multiple documents, one is picked arbitrarily.
          */
-        fun findOneByKey(key: K): Pair<UUID, D>? {
+        fun findOneByKey(key: K): Pair<UUID, V>? {
             val id: UUID = findOneIDByKey(key) ?: return null
-            val doc = delegate.find(id, def.documentType)
+            val doc = delegate.find(id, def.valueType)
             return if (doc == null) null else id to doc
         }
 
         /**
          * Finds one document matching random key from given set of [keys]. If there are multiple documents, one is picked arbitrarily.
          */
-        fun findOneByKeys(keys: Set<K>): Pair<UUID, D>? = keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
+        fun findOneByKeys(keys: Set<K>): Pair<UUID, V>? = keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
 
         /**
          * Finds ID of one document matching given [key]. If there are multiple documents, one is picked arbitrarily. If no such document
@@ -159,12 +189,12 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
          * Finds all documents matching given [key].
          * @param clazz deserialize the document to this class, using [UMN.find].
          */
-        fun findAllByKey(key: K): Map<UUID, D> {
+        fun findAllByKey(key: K): Map<UUID, V> {
             val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
-            val map = mutableMapOf<UUID, D>()
+            val map = mutableMapOf<UUID, V>()
             ids.forEach { id ->
                 if (!map.containsKey(id)) {
-                    val doc = delegate.find(id, def.documentType)
+                    val doc = delegate.find(id, def.valueType)
                     if (doc != null) map[id] = doc
                 }
             }
@@ -173,11 +203,10 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
 
         /**
          * Returns all documents matching given key [range]. The returned map is ordered - the keys are enumerated in increasing order.
-         * @param clazz deserialize the documents to this class, using [UMN.find].
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a map of documents and their respective IDs. The map is ordered by the matching keys, ascending. May be empty.
          */
-        fun <V: Any> findAllByKeyRange(range: ClosedRange<K>, clazz: KClass<V>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
+        fun findAllByKeyRange(range: ClosedRange<K>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
             val result = mutableMapOf<UUID, V>()
             var currentIndex = 0
             indexStore.keyIterator(range).forEach { key ->
@@ -185,7 +214,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
                 ids.forEach { id ->
                     if (!result.containsKey(id) && delegate.exists(id)) {
                         if (currentIndex in page) {
-                            val doc = delegate.find(id, clazz)
+                            val doc = delegate.find(id, def.valueType)
                             if (doc != null) result[id] = doc
                         }
                         currentIndex++
@@ -261,8 +290,8 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
          *
          * This function has higher overhead than [allDocumentIdSequence] since this function also loads the documents.
          */
-        fun <V: Any> allDocumentSequence(clazz: KClass<V>): Sequence<Pair<UUID, V>> = allDocumentIdSequence().mapNotNull { id ->
-            val doc = delegate.find(id, clazz)
+        fun allDocumentSequence(): Sequence<Pair<UUID, V>> = allDocumentIdSequence().mapNotNull { id ->
+            val doc = delegate.find(id, def.valueType)
             if (doc == null) null else id to doc
         }
 
@@ -315,13 +344,13 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
      * Returns a particular index with given [name], failing if no such index was provided to the constructor.
      */
     @Suppress("UNCHECKED_CAST")
-    fun <I: Comparable<I>, D: Any> getIndex(name: String): IndexImpl<I, D> {
-        return indexMap[name] as IndexImpl<I, D>? ?: throw IllegalStateException("Unknown index name $name, available indices: ${indexMap.keys}")
+    fun <I: Comparable<I>, D: Any, V: Any> getIndex(name: String): IndexImpl<I, D, V> {
+        return indexMap[name] as IndexImpl<I, D, V>? ?: throw IllegalStateException("Unknown index name $name, available indices: ${indexMap.keys}")
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <I: Comparable<I>, D: Any> getIndex(index: IndexDef<I, D>): IndexImpl<I, D> {
-        return indexMap[index.name] as IndexImpl<I, D>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
+    fun <I: Comparable<I>, D: Any, V: Any> getIndex(index: IndexDef<I, D, V>): IndexImpl<I, D, V> {
+        return indexMap[index.name] as IndexImpl<I, D, V>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
     }
 
 
