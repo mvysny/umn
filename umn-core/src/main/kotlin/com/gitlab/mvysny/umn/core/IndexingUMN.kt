@@ -96,11 +96,6 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
 
         internal fun toImpl(umn: IndexingUMN): IndexImpl<K, D, V> = umn.IndexImpl(this)
 
-        internal fun indicesFor(document: Any): Set<K> {
-            if (!documentType.java.isInstance(document)) return setOf()
-            return keyGetter(documentType.java.cast(document))
-        }
-
         companion object {
             /**
              * Creates a simple index which simply maps keys to the ID of the document.
@@ -296,16 +291,52 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         }
 
         internal fun onCreated(id: UUID, document: Any) {
-            registerUnregisterIndices(id, def.indicesFor(document), setOf())
+            val docType = def.documentType.java
+            if (!docType.isInstance(document)) return
+            val doc = docType.cast(document)
+            val valueId = def.valueIdGetter(id, doc)
+            registerUnregisterIndices(valueId, def.keyGetter(doc), setOf())
         }
 
         internal fun onDeleted(id: UUID, document: Any) {
-            val indices = def.indicesFor(document)
-            registerUnregisterIndices(id, setOf(), indices)
+            val docType = def.documentType.java
+            if (!docType.isInstance(document)) return
+            val doc = docType.cast(document)
+            val unregisterIndices: Set<K> = def.keyGetter(doc)
+            val valueId = def.valueIdGetter(id, doc)
+            registerUnregisterIndices(valueId, setOf(), unregisterIndices)
         }
 
         internal fun onUpdate(id: UUID, newDoc: Any, oldDoc: Any) {
-            registerUnregisterIndices(id, def.indicesFor(newDoc), def.indicesFor(oldDoc))
+            val docType = def.documentType.java
+            val newDocOfCorrectType = docType.isInstance(newDoc)
+            val oldDocOfCorrectType = docType.isInstance(oldDoc)
+            if (!newDocOfCorrectType && !oldDocOfCorrectType) {
+                // do nothing
+            } else if (newDocOfCorrectType && !oldDocOfCorrectType) {
+                val doc = docType.cast(newDoc)
+                val registerIndices = def.keyGetter(doc)
+                val valueId = def.valueIdGetter(id, doc)
+                registerUnregisterIndices(valueId, registerIndices, setOf())
+            } else if (!newDocOfCorrectType && oldDocOfCorrectType) {
+                val doc = docType.cast(oldDoc)
+                val unregisterIndices = def.keyGetter(doc)
+                val valueId = def.valueIdGetter(id, doc)
+                registerUnregisterIndices(valueId, setOf(), unregisterIndices)
+            } else {
+                val oldDocD = docType.cast(oldDoc)
+                val newDocD = docType.cast(newDoc)
+                val oldValueId = def.valueIdGetter(id, oldDocD)
+                val newValueId = def.valueIdGetter(id, newDocD)
+                val unregisterIndices = def.keyGetter(oldDocD)
+                val registerIndices = def.keyGetter(newDocD)
+                if (oldValueId == newValueId) {
+                    registerUnregisterIndices(newValueId, registerIndices, unregisterIndices)
+                } else {
+                    registerUnregisterIndices(oldValueId, setOf(), unregisterIndices)
+                    registerUnregisterIndices(newValueId, registerIndices, setOf())
+                }
+            }
         }
 
         /**

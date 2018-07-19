@@ -282,6 +282,16 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
+    test("Indices should ignore incompatible documents") {
+        // all indices expect Strings. Let's feed them Long, they should ignore it.
+        val umn = IndexingUMN(storageProvider(), indices)
+        val id = umn.create(25L)
+        umn.update(id, 45L as java.lang.Long, java.lang.Long::class)
+        expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
+        umn.delete(id, java.lang.Long::class)
+        expect(null) { umn.find(id, java.lang.Long::class) }
+    }
+
     group("isEmpty()") {
         test("initially the index is empty") {
             val umn = IndexingUMN(storageProvider(), indices)
@@ -300,6 +310,64 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             ids.forEach { umn.delete(it, String::class) }
             expect(true) { umn.getIndex(idxIdentity).isEmpty() }
             expect(true) { umn.getIndex(idxLength).isEmpty() }
+        }
+    }
+
+    group("complex index") {
+        test("fast parent retrieval") {
+            // in this example we're going to store the parent IDs instead of IDs of the children, to allow fast parent retrieval.
+            // Key will be the name of the child.
+            data class Parent(val name: String) : Serializable
+            data class Child(val name: String, val parentId: UUID) : Serializable
+
+            val idxParent = IndexingUMN.IndexDef<String, Child, Parent>("quick_parent_lookup",
+                { doc -> setOf(doc.name) }, Child::class, Parent::class, { _, doc -> doc.parentId })
+            val umn = IndexingUMN(storageProvider(), setOf(idxParent))
+            val parentIDs = listOf("a", "b", "c").map { umn.create(Parent(it)) }
+            val childrenOfA = listOf("a1", "a2", "a3").map { umn.create(Child(it, parentIDs[0])) }
+            listOf("b1").forEach { umn.create(Child(it, parentIDs[1])) }
+            listOf("c1", "c2").forEach { umn.create(Child(it, parentIDs[2])) }
+            val idx = umn.getIndex(idxParent)
+
+            // now the index only indexes Children so Parent lookup should return null
+            expect(null) { idx.findOneByKey("a") }
+            expect(0) { idx.findAllByKey("a").size }
+
+            // lookup of "a1" should yield the parent "a"
+            expect("a") { idx.findOneByKey("a1")!!.second.name }
+            expect("a") { idx.findOneByKey("a2")!!.second.name }
+            expect("a") { idx.findOneByKey("a3")!!.second.name }
+            expect("b") { idx.findOneByKey("b1")!!.second.name }
+            expect("c") { idx.findOneByKey("c2")!!.second.name }
+            expect("c") { idx.findOneByKey("c1")!!.second.name }
+
+            // now update a1 to be c3
+            umn.update(childrenOfA[0], Child("c3", parentIDs[2]), Child::class)
+            expect("c") { idx.findOneByKey("c3")!!.second.name }
+            expect(null) { idx.findOneByKey("a1") }
+
+            // now rename a2 to a4, but keep the same parent
+            umn.update(childrenOfA[1], Child("a4", parentIDs[0]), Child::class)
+            expect("a") { idx.findOneByKey("a4")!!.second.name }
+            expect(null) { idx.findOneByKey("a2") }
+        }
+
+        test("Indices should ignore incompatible documents") {
+            // in this example we're going to store the parent IDs instead of IDs of the children, to allow fast parent retrieval.
+            // Key will be the name of the child.
+            data class Parent(val name: String) : Serializable
+            data class Child(val name: String, val parentId: UUID) : Serializable
+
+            val idxParent = IndexingUMN.IndexDef<String, Child, Parent>("quick_parent_lookup",
+                { doc -> setOf(doc.name) }, Child::class, Parent::class, { _, doc -> doc.parentId })
+
+            // all indices expect Child. Let's feed them Long, they should ignore it.
+            val umn = IndexingUMN(storageProvider(), indices)
+            val id = umn.create(25L)
+            umn.update(id, 45L as java.lang.Long, java.lang.Long::class)
+            expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
+            umn.delete(id, java.lang.Long::class)
+            expect(null) { umn.find(id, java.lang.Long::class) }
         }
     }
 }
