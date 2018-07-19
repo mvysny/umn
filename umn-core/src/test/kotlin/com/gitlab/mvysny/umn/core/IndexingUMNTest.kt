@@ -176,7 +176,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("documentIdIterator()") {
+    group("allDocumentIdSequence()") {
         test("initially the iterator is empty") {
             val umn = IndexingUMN(storageProvider(), indices)
             expectList() { umn.getIndex(idxIdentity).allDocumentIdSequence().toList() }
@@ -205,6 +205,44 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             expectList() { umn.getIndex(idxIdentity).allDocumentIdSequence().toList() }
             expect(null) { umn.getIndex(idxLength).findOneByKey(1) }
             expectList() { umn.getIndex(idxLength).allDocumentIdSequence().toList() }
+        }
+    }
+
+    group("documentIdSequenceByKeyRange()") {
+        test("initially the iterator is empty") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            expectList() { umn.getIndex(idxIdentity).documentIdSequenceByKeyRange("0".."20").toList() }
+            expectList() { umn.getIndex(idxLength).documentIdSequenceByKeyRange(0..3).toList() }
+        }
+        test("iterator lists all documents") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val ids: Set<UUID> = (0..11).map { umn.create("$it") } .toSet()
+            expect(ids) { umn.getIndex(idxIdentity).documentIdSequenceByKeyRange("".."9999").toSet() }
+            expect(ids) { umn.getIndex(idxLength).documentIdSequenceByKeyRange(0..10).toSet() }
+        }
+        test("iterator lists only matching documents") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
+            expect(ids.toList().subList(0, 10)) { umn.getIndex(idxLength).documentIdSequenceByKeyRange(0..1).toList() }
+            expect(ids.toList().subList(10, 11)) { umn.getIndex(idxLength).documentIdSequenceByKeyRange(2..2).toList() }
+        }
+        test("iterator doesn't list removed documents") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
+            ids.forEach { umn.delete(it, String::class) }
+            expect(null) { umn.getIndex(idxIdentity).findOneByKey("0") }
+            expectList() { umn.getIndex(idxIdentity).documentIdSequenceByKeyRange("0".."1000").toList() }
+            expect(null) { umn.getIndex(idxLength).findOneByKey(1) }
+            expectList() { umn.getIndex(idxLength).documentIdSequenceByKeyRange(0..10).toList() }
+        }
+        test("iterating IDs doesn't fail even when the documents are being deleted") {
+            val umn = IndexingUMN(storageProvider(), indices)
+            (0..10).map { umn.create("$it") } .toSet()
+            umn.getIndex(idxIdentity).allDocumentIdSequence().forEach { umn.delete(it, String::class) }
+            expect(null) { umn.getIndex(idxIdentity).findOneByKey("0") }
+            expectList() { umn.getIndex(idxIdentity).documentIdSequenceByKeyRange("0".."1000").toList() }
+            expect(null) { umn.getIndex(idxLength).findOneByKey(1) }
+            expectList() { umn.getIndex(idxLength).documentIdSequenceByKeyRange(0..10).toList() }
         }
     }
 

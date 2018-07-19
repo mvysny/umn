@@ -189,6 +189,30 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
                             if (doc != null) result[id] = doc
                         }
                         currentIndex++
+                        if (currentIndex > page.last) return result
+                    }
+                }
+            }
+            return result
+        }
+
+        /**
+         * Returns all document IDs matching given key [range]. The returned map is ordered - the keys are enumerated in increasing order.
+         * @param page the offset and the limit. By default retrieves all matching documents.
+         * @return a set of document IDs. The set is ordered by the matching keys, ascending. May be empty.
+         */
+        fun <V: Any> findAllIDsByKeyRange(range: ClosedRange<I>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
+            val result = mutableSetOf<UUID>()
+            var currentIndex = 0
+            indexStore.keyIterator(range).forEach { key ->
+                val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
+                ids.forEach { id ->
+                    if (!result.contains(id) && delegate.exists(id)) {
+                        if (currentIndex in page) {
+                            result.add(id)
+                        }
+                        currentIndex++
+                        if (currentIndex > page.last) return result
                     }
                 }
             }
@@ -217,12 +241,19 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         fun getSize(): Int = indexStore.values().asSequence().sumBy { it.size }
 
         /**
+         * Returns a sequence which lazily iterates over given range of keys. Does not support paging but has lower memory footprint than
+         * [findAllIDsByKeyRange].
+         */
+        fun documentIdSequenceByKeyRange(range: ClosedRange<I>): Sequence<UUID> =
+            indexStore.keyIterator(range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
+
+        /**
          * Iterates all UUIDs of all indexed documents (documents for which the indexing function returned a non-null non-empty set).
          * It is safe to modify the index (e.g. deleting documents) while iterating.
          *
          * This function is faster than [allDocumentSequence] since it doesn't load the documents.
          */
-        fun allDocumentIdSequence(): Sequence<UUID> = indexStore.values().asSequence().flatMap { it -> it.asSequence() } .asSequence()
+        fun allDocumentIdSequence(): Sequence<UUID> = indexStore.values().asSequence().flatMap { it.asSequence() }
 
         /**
          * Returns a sequence which returns all indexed documents (documents for which the indexing function returned a non-null non-empty set)
