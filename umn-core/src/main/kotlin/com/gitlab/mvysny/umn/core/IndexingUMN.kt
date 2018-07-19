@@ -56,7 +56,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
 
     /**
      * An index definition.
-     * @property I the type of the index values. Consult the underlying storage for [UtilityMap] key types. Yet, at least [String] and [Long] must always
+     * @property K the type of keys. Consult the underlying storage for [UtilityMap] key types. Yet, at least [String] and [Long] must always
      * be supported. The type must be comparable and must properly implement [Any.equals] and [Any.hashCode]. Often the key is just a String,
      * but sometimes it's more complex comparable so that we can select a range of keys and have the values sorted.
      * @property D the type of documents indexed by this index.
@@ -67,7 +67,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
      * @property documentType the type of documents indexed by this index. The [indexGenerator] will only be called for documents of this type -
      * all other document types will be ignored and will not be indexed by this index.
      */
-    class IndexDef<I: Comparable<I>, D: Any>(val name: String, val indexGenerator: (D) -> Set<I>, val documentType: KClass<D>) {
+    class IndexDef<K: Comparable<K>, D: Any>(val name: String, val indexGenerator: (D) -> Set<K>, val documentType: KClass<D>) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (javaClass != other?.javaClass) return false
@@ -79,9 +79,9 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         override fun hashCode(): Int = name.hashCode()
         override fun toString(): String = "IndexDef(name='$name')"
 
-        internal fun toImpl(umn: IndexingUMN): IndexImpl<I, D> = umn.IndexImpl(this)
+        internal fun toImpl(umn: IndexingUMN): IndexImpl<K, D> = umn.IndexImpl(this)
 
-        internal fun indicesFor(document: Any): Set<I> {
+        internal fun indicesFor(document: Any): Set<K> {
             if (!documentType.java.isInstance(document)) return setOf()
             return indexGenerator(documentType.java.cast(document))
         }
@@ -96,21 +96,21 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
     private val indexUpdaterGlobalLock = ReentrantLock()
 
     /**
-     * @property I the type of objects acting as index
+     * @property K the type of keys (objects acting as index)
      * @property D the type of documents indexed by this index.
      */
-    inner class IndexImpl<I: Comparable<I>, D: Any>(val def: IndexDef<I, D>) {
+    inner class IndexImpl<K: Comparable<K>, D: Any>(val def: IndexDef<K, D>) {
 
         /**
          * Maps String index to a set of documents. Don't use Set since that's serialized using Java serialization; use Arrays
          * since that's serialized more effectively; see [ObjectDataType#TYPE_ARRAY] for more info.
          */
-        private val indexStore: UtilityMap<I, Array<UUID>> = delegate.openUtilityMap("INDEX2_${def.name}")
+        private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap("INDEX2_${def.name}")
 
-        private fun registerUnregisterIndices(id: UUID, register: Set<I>, unregister: Set<I>) {
+        private fun registerUnregisterIndices(id: UUID, register: Set<K>, unregister: Set<K>) {
             check(indexUpdaterGlobalLock.isHeldByCurrentThread) { "lock not held!" }
-            val indicesToRegister: Set<I> = register - unregister
-            val indicesToUnregister: Set<I> = unregister - register
+            val indicesToRegister: Set<K> = register - unregister
+            val indicesToUnregister: Set<K> = unregister - register
             indicesToRegister.forEach { index ->
                 var array: Array<UUID>? = indexStore.find(index)
                 if (array == null) {
@@ -133,7 +133,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         /**
          * Finds one document matching given [key]. If there are multiple documents, one is picked arbitrarily.
          */
-        fun findOneByKey(key: I): Pair<UUID, D>? {
+        fun findOneByKey(key: K): Pair<UUID, D>? {
             val id: UUID = findOneIDByKey(key) ?: return null
             val doc = delegate.find(id, def.documentType)
             return if (doc == null) null else id to doc
@@ -142,24 +142,24 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
         /**
          * Finds one document matching random key from given set of [keys]. If there are multiple documents, one is picked arbitrarily.
          */
-        fun findOneByKeys(keys: Set<I>): Pair<UUID, D>? = keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
+        fun findOneByKeys(keys: Set<K>): Pair<UUID, D>? = keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
 
         /**
          * Finds ID of one document matching given [key]. If there are multiple documents, one is picked arbitrarily. If no such document
          * exists, returns null.
          */
-        fun findOneIDByKey(key: I): UUID? = indexStore.find(key)?.firstOrNull()
+        fun findOneIDByKey(key: K): UUID? = indexStore.find(key)?.firstOrNull()
 
         /**
          * Finds all document IDs matching given [key].
          */
-        fun findAllIDByKey(key: I): Set<UUID> = indexStore.find(key)?.toSet() ?: setOf()
+        fun findAllIDByKey(key: K): Set<UUID> = indexStore.find(key)?.toSet() ?: setOf()
 
         /**
          * Finds all documents matching given [key].
          * @param clazz deserialize the document to this class, using [UMN.find].
          */
-        fun findAllByKey(key: I): Map<UUID, D> {
+        fun findAllByKey(key: K): Map<UUID, D> {
             val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
             val map = mutableMapOf<UUID, D>()
             ids.forEach { id ->
@@ -177,7 +177,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a map of documents and their respective IDs. The map is ordered by the matching keys, ascending. May be empty.
          */
-        fun <V: Any> findAllByKeyRange(range: ClosedRange<I>, clazz: KClass<V>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
+        fun <V: Any> findAllByKeyRange(range: ClosedRange<K>, clazz: KClass<V>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
             val result = mutableMapOf<UUID, V>()
             var currentIndex = 0
             indexStore.keyIterator(range).forEach { key ->
@@ -201,7 +201,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a set of document IDs. The set is ordered by the matching keys, ascending. May be empty.
          */
-        fun findAllIDsByKeyRange(range: ClosedRange<I>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
+        fun findAllIDsByKeyRange(range: ClosedRange<K>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
             val result = mutableSetOf<UUID>()
             var currentIndex = 0
             indexStore.keyIterator(range).forEach { key ->
@@ -223,7 +223,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
          * Counts all documents keyed with keys matching given [range].
          * @return count of matching documents, 0 or greater.
          */
-        fun getCountByKeyRange(range: ClosedRange<I>): Int {
+        fun getCountByKeyRange(range: ClosedRange<K>): Int {
             val encountered = mutableSetOf<UUID>()
             var count = 0
             indexStore.keyIterator(range).forEach { key ->
@@ -244,7 +244,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *>>) : UM
          * Returns a sequence which lazily iterates over given range of keys. Does not support paging but has lower memory footprint than
          * [findAllIDsByKeyRange].
          */
-        fun documentIdSequenceByKeyRange(range: ClosedRange<I>): Sequence<UUID> =
+        fun documentIdSequenceByKeyRange(range: ClosedRange<K>): Sequence<UUID> =
             indexStore.keyIterator(range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
 
         /**
