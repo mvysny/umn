@@ -166,8 +166,12 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
 
         /**
          * Finds one document matching random key from given set of [keys]. If there are multiple documents, one is picked arbitrarily.
+         * @param keys the keys, must not be empty
          */
-        fun findOneByKeys(keys: Set<K>): Pair<UUID, V>? = keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
+        fun findOneByKeys(keys: Set<K>): Pair<UUID, V>? {
+            require(keys.isNotEmpty()) { "keys is empty" }
+            return keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
+        }
 
         /**
          * Finds ID of one document matching given [key]. If there are multiple documents, one is picked arbitrarily. If no such document
@@ -202,6 +206,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * @return a map of documents and their respective IDs. The map is ordered by the matching keys, ascending. May be empty.
          */
         fun findAllByKeyRange(range: ClosedRange<K>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
+            if (page.isEmpty() || range.isEmpty()) return mapOf()
             val result = mutableMapOf<UUID, V>()
             var currentIndex = 0
             indexStore.keyIterator(range).forEach { key ->
@@ -226,6 +231,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * @return a set of document IDs. The set is ordered by the matching keys, ascending. May be empty.
          */
         fun findAllIDsByKeyRange(range: ClosedRange<K>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
+            if (page.isEmpty() || range.isEmpty()) return setOf()
             val result = mutableSetOf<UUID>()
             var currentIndex = 0
             indexStore.keyIterator(range).forEach { key ->
@@ -248,6 +254,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * @return count of matching documents, 0 or greater.
          */
         fun getCountByKeyRange(range: ClosedRange<K>): Int {
+            if (range.isEmpty()) return 0
             val encountered = mutableSetOf<UUID>()
             var count = 0
             indexStore.keyIterator(range).forEach { key ->
@@ -268,8 +275,10 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * Returns a sequence which lazily iterates over given range of keys. Does not support paging but has lower memory footprint than
          * [findAllIDsByKeyRange].
          */
-        fun documentIdSequenceByKeyRange(range: ClosedRange<K>): Sequence<UUID> =
-            indexStore.keyIterator(range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
+        fun documentIdSequenceByKeyRange(range: ClosedRange<K>): Sequence<UUID> {
+            if (range.isEmpty()) return listOf<UUID>().asSequence()
+            return indexStore.keyIterator(range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
+        }
 
         /**
          * Iterates all UUIDs of all indexed documents (documents for which the indexing function returned a non-null non-empty set).
