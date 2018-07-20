@@ -116,7 +116,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
     /**
      * Prevents multiple threads from updating indices of a particular document at the same time.
      *
-     * Pozor! Nestaci zamknut lock iba v [registerUnregisterIndices]: ak naraz updatuje jeden dokument viacero threadov,
+     * Pozor! Nestaci zamknut lock iba v [IndexImpl.registerUnregisterIndices]: ak naraz updatuje jeden dokument viacero threadov,
      * operacie zapisu mozu bezat v inom poradi ako update indexov! Preto treba zamknut komplet cele metody.
      */
     private val indexUpdaterGlobalLock = ReentrantLock()
@@ -344,6 +344,47 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
             val doc = delegate.find(id, def.valueType)
             if (doc == null) null else id to doc
         }
+
+        /**
+         * Private since the sequence reflects modifications.
+         */
+        private fun getDescSequenceOfDocs(forKeys: For<K>): Sequence<Pair<UUID, V>> = getDescSequenceOfIDs(forKeys).mapNotNull { id ->
+            val doc = delegate.find(id, def.valueType)
+            if (doc == null) null else id to doc
+        }
+
+        /**
+         * Private since the sequence reflects modifications.
+         */
+        private fun getDescSequenceOfAllDocIDs(maxKey: K? = indexStore.getLargestKey()): Sequence<UUID> =
+            generateSequence(maxKey) { id -> indexStore.lowerKey(id) }
+                .mapNotNull { key -> indexStore.find(key) }
+                .flatMap { it.asSequence() }
+
+        /**
+         * Private since the sequence reflects modifications.
+         */
+        private fun getDescSequenceOfIDs(forKeys: For<K>): Sequence<UUID> {
+            if (forKeys.isEmpty) return emptySequence()
+            return when (forKeys) {
+                is For.All -> getDescSequenceOfAllDocIDs()
+                is For.Key -> indexStore.find(forKeys.key)?.asSequence() ?: emptySequence()
+                is For.KeySet -> forKeys.set.sorted().asReversed().asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
+                is For.KeyRange -> getDescSequenceOfAllDocIDs(forKeys.range.endInclusive)
+            }
+        }
+
+        /**
+         * Finds document matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
+         * @param forKeys only consider documents mapped to these keys.
+         */
+        fun findLastDoc(forKeys: For<K>): Pair<UUID, V>? = getDescSequenceOfDocs(forKeys).firstOrNull()
+
+        /**
+         * Finds document ID matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
+         * @param forKeys only consider documents mapped to these keys.
+         */
+        fun findLastID(forKeys: For<K>): UUID? = getDescSequenceOfIDs(forKeys).firstOrNull()
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)

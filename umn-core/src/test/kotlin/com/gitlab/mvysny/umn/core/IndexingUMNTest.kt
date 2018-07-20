@@ -21,52 +21,165 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
     val idxToLong = IndexingUMN.IndexDef.simple<Long, String>("toLong", { doc -> setOf(doc.toLong()) }, String::class)
     val indices: Set<IndexingUMN.IndexDef<*, *, *>> = setOf(idxIdentity, idxLength)
 
-    group("findFirstDocForKey()") {
-        test("returns null on empty map") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("")) }
-            expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("foo")) }
+    group("findFirstDoc()") {
+        group("For.Key") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("")) }
+                expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("foo")) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
+            }
+
+            test("correctly updates the indices on update()") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                umn.update(id, "foo", String::class)
+                expect(id to "foo") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("foo")) }
+                expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
+            }
+
+            test("correctly updates the length-indices on update()") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                umn.update(id, "foo", String::class)
+                expect(id to "foo") { umn.getIndex(idxLength).findFirstDoc(For.Key(3)) }
+                expect(null) { umn.getIndex(idxLength).findFirstDoc(For.Key(4)) }
+                // now simulate the Sync as it replays actions as they come from the log
+                umn.create("kvak", id)
+                umn.update(id, "foo", String::class)
+                expect(id to "foo") { umn.getIndex(idxLength).findFirstDoc(For.Key(3)) }
+                expect(null) { umn.getIndex(idxLength).findFirstDoc(For.Key(4)) }
+            }
         }
 
-        test("correctly finds the document") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            val id = umn.create("kvak")
-            expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
+        group("For.KeySet()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("", "foo", "bar", "baz")) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("", "foo", "kvak")) }
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("kvak", "foo", "")) }
+            }
         }
 
-        test("correctly updates the indices on update()") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            val id = umn.create("kvak")
-            umn.update(id, "foo", String::class)
-            expect(id to "foo") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("foo")) }
-            expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
+        group("For.all()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.all()) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.all()) }
+            }
         }
 
-        test("correctly updates the length-indices on update()") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            val id = umn.create("kvak")
-            umn.update(id, "foo", String::class)
-            expect(id to "foo") { umn.getIndex(idxLength).findFirstDoc(For.Key(3)) }
-            expect(null) { umn.getIndex(idxLength).findFirstDoc(For.Key(4)) }
-            // now simulate the Sync as it replays actions as they come from the log
-            umn.create("kvak", id)
-            umn.update(id, "foo", String::class)
-            expect(id to "foo") { umn.getIndex(idxLength).findFirstDoc(For.Key(3)) }
-            expect(null) { umn.getIndex(idxLength).findFirstDoc(For.Key(4)) }
+        group("For.KeyRange()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.KeyRange("a".."z")) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.KeyRange("a".."zzzzz")) }
+            }
         }
     }
 
-    group("findFirstByKeys()") {
-        test("returns null on empty map") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("", "foo", "bar", "baz")) }
+    group("findLastDoc()") {
+        group("For.Key") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.Key("")) }
+                expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.Key("foo")) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findLastDoc(For.Key("kvak")) }
+            }
+
+            test("correctly updates the indices on update()") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                umn.update(id, "foo", String::class)
+                expect(id to "foo") { umn.getIndex(idxIdentity).findLastDoc(For.Key("foo")) }
+                expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.Key("kvak")) }
+            }
+
+            test("correctly updates the length-indices on update()") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                umn.update(id, "foo", String::class)
+                expect(id to "foo") { umn.getIndex(idxLength).findLastDoc(For.Key(3)) }
+                expect(null) { umn.getIndex(idxLength).findLastDoc(For.Key(4)) }
+                // now simulate the Sync as it replays actions as they come from the log
+                umn.create("kvak", id)
+                umn.update(id, "foo", String::class)
+                expect(id to "foo") { umn.getIndex(idxLength).findLastDoc(For.Key(3)) }
+                expect(null) { umn.getIndex(idxLength).findLastDoc(For.Key(4)) }
+            }
         }
 
-        test("correctly finds the document") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            val id = umn.create("kvak")
-            expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("", "foo", "kvak")) }
-            expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("kvak", "foo", "")) }
+        group("For.KeySet()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("", "foo", "bar", "baz")) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("", "foo", "kvak")) }
+                expect(id to "kvak") { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("kvak", "foo", "")) }
+                val id2 = umn.create("zzz")
+                expect(id2 to "zzz") { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("", "zzz", "kvak")) }
+                expect(id2 to "zzz") { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("kvak", "zzz", "")) }
+            }
+        }
+
+        group("For.all()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.all()) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expect(id2 to "zzz") { umn.getIndex(idxIdentity).findLastDoc(For.all()) }
+            }
+        }
+
+        group("For.KeyRange()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.KeyRange("a".."z")) }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expect(id2 to "zzz") { umn.getIndex(idxIdentity).findLastDoc(For.KeyRange("a".."zzzzz")) }
+            }
         }
     }
 
