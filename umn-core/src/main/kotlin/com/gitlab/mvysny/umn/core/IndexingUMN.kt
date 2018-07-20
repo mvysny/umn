@@ -1,5 +1,7 @@
 package com.gitlab.mvysny.umn.core
 
+import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
+import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -272,29 +274,12 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         fun getSize(): Int = indexStore.values().asSequence().sumBy { it.size }
 
         /**
-         * Returns a sequence which lazily iterates over given range of keys. Does not support paging but has lower memory footprint than
-         * [findAllIDsByKeyRange].
-         */
-        fun documentIdSequenceByKeyRange(range: ClosedRange<K>): Sequence<UUID> {
-            if (range.isEmpty()) return listOf<UUID>().asSequence()
-            return indexStore.keyIterator(range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
-        }
-
-        /**
-         * Iterates all UUIDs of all indexed documents (documents for which the indexing function returned a non-null non-empty set).
-         * It is safe to modify the index (e.g. deleting documents) while iterating.
-         *
-         * This function is faster than [allDocumentSequence] since it doesn't load the documents.
-         */
-        fun allDocumentIdSequence(): Sequence<UUID> = indexStore.values().asSequence().flatMap { it.asSequence() }
-
-        /**
          * Returns a sequence which returns all indexed documents (documents for which the indexing function returned a non-null non-empty set)
          * and their IDs. It is safe to modify the index (e.g. deleting documents) while iterating.
          *
          * This function has higher overhead than [allDocumentIdSequence] since this function also loads the documents.
          */
-        fun allDocumentSequence(): Sequence<Pair<UUID, V>> = allDocumentIdSequence().mapNotNull { id ->
+        fun allDocumentSequence(): Sequence<Pair<UUID, V>> = getSequenceOfIDs(For.all()).mapNotNull { id ->
             val doc = delegate.find(id, def.valueType)
             if (doc == null) null else id to doc
         }
@@ -352,6 +337,26 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * Checks whether there are no documents in this index.
          */
         fun isEmpty(): Boolean = indexStore.isEmpty()
+
+        /**
+         * Returns a lazily evaluated sequence of document IDs stored under given [forKeys].
+         *
+         * This function is faster than [getSequenceOfDocuments] since it doesn't load the documents.
+         *
+         * It is safe to modify the index (e.g. deleting documents) while iterating.
+         * The sequence must not reflect further modifications; the sequence may thus return documents that were meanwhile deleted.
+         *
+         * Note: only IDs of indexed documents (documents for which the indexing function returned a non-null non-empty set) are returned.
+         */
+        fun getSequenceOfIDs(forKeys: For<K>): Sequence<UUID> {
+            if (forKeys.isEmpty) return emptySequence()
+            return when (forKeys) {
+                is For.All -> indexStore.values().asSequence().flatMap { it.asSequence() }
+                is For.Key -> (indexStore.find(forKeys.key) ?: arrayOf()).asSequence()
+                is For.KeySet -> forKeys.set.asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
+                is For.KeyRange -> indexStore.keyIterator(forKeys.range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
+            }
+        }
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)
@@ -384,17 +389,52 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
      * Returns a particular index with given [name], failing if no such index was provided to the constructor.
      */
     @Suppress("UNCHECKED_CAST")
-    fun <I: Comparable<I>, D: Any, V: Any> getIndex(name: String): IndexImpl<I, D, V> {
-        return indexMap[name] as IndexImpl<I, D, V>? ?: throw IllegalStateException("Unknown index name $name, available indices: ${indexMap.keys}")
+    fun <K: Comparable<K>, D: Any, V: Any> getIndex(name: String): IndexImpl<K, D, V> {
+        return indexMap[name] as IndexImpl<K, D, V>? ?: throw IllegalStateException("Unknown index name $name, available indices: ${indexMap.keys}")
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <I: Comparable<I>, D: Any, V: Any> getIndex(index: IndexDef<I, D, V>): IndexImpl<I, D, V> {
-        return indexMap[index.name] as IndexImpl<I, D, V>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
+    fun <K: Comparable<K>, D: Any, V: Any> getIndex(index: IndexDef<K, D, V>): IndexImpl<K, D, V> {
+        return indexMap[index.name] as IndexImpl<K, D, V>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
     }
 
 
     // @todo implement paged document range retrieval
 
     // @todo implement unique index
+}
+
+/**
+ * The key matching criteria. There are four criteria:
+ * * [Key] - a single key
+ * * [All] - all possible keys
+ * * [KeySet] - a set of keys
+ * * [KeyRange] - a range of keys
+ */
+sealed class For<K: Comparable<K>> {
+    abstract val isEmpty: Boolean
+
+    data class KeyRange<K: Comparable<K>>(val range: ClosedRange<K>) : For<K>() {
+        override val isEmpty: Boolean
+            get() = range.isEmpty()
+    }
+
+    data class KeySet<K: Comparable<K>>(val set: Set<K>) : For<K>() {
+        override val isEmpty: Boolean
+            get() = set.isEmpty()
+    }
+
+    data class Key<K: Comparable<K>>(val key: K) : For<K>() {
+        override val isEmpty: Boolean
+            get() = false
+    }
+
+    companion object {
+        fun <K: Comparable<K>> all(): For<K> = All()
+    }
+
+    class All<K: Comparable<K>>: For<K>() {
+        override val isEmpty: Boolean
+            get() = false
+    }
 }

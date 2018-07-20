@@ -66,7 +66,7 @@ class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
 
     override fun getLargestKey(): K? = map.keys.max()
 
-    override fun values(): Iterator<V> = map.values.iterator()
+    override fun values(): Iterator<V> = map.entries.sortedBy { it.key } .map { it.value } .iterator()
 
     override fun clear() {
         map.clear()
