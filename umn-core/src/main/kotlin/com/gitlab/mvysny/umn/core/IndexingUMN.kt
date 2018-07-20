@@ -273,17 +273,6 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         // @todo mavi unique index size can simply be computed as indexStore.size()
         fun getSize(): Int = indexStore.values().asSequence().sumBy { it.size }
 
-        /**
-         * Returns a sequence which returns all indexed documents (documents for which the indexing function returned a non-null non-empty set)
-         * and their IDs. It is safe to modify the index (e.g. deleting documents) while iterating.
-         *
-         * This function has higher overhead than [allDocumentIdSequence] since this function also loads the documents.
-         */
-        fun allDocumentSequence(): Sequence<Pair<UUID, V>> = getSequenceOfIDs(For.all()).mapNotNull { id ->
-            val doc = delegate.find(id, def.valueType)
-            if (doc == null) null else id to doc
-        }
-
         internal fun onCreated(id: UUID, document: Any) {
             val docType = def.documentType.java
             if (!docType.isInstance(document)) return
@@ -341,7 +330,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         /**
          * Returns a lazily evaluated sequence of document IDs stored under given [forKeys].
          *
-         * This function is faster than [getSequenceOfDocuments] since it doesn't load the documents.
+         * This function is faster than [getSequenceOfDocs] since it doesn't load the documents.
          *
          * It is safe to modify the index (e.g. deleting documents) while iterating.
          * The sequence must not reflect further modifications; the sequence may thus return documents that were meanwhile deleted.
@@ -356,6 +345,21 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
                 is For.KeySet -> forKeys.set.asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
                 is For.KeyRange -> indexStore.keyIterator(forKeys.range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
             }
+        }
+
+        /**
+         * Returns a lazily evaluated sequence of documents and their IDs stored under given [forKeys].
+         *
+         * This function is slower than [getSequenceOfIDs] since it doesn't load the documents.
+         *
+         * It is safe to modify the index (e.g. deleting documents) while iterating.
+         * The sequence must not reflect further modifications; however the sequence will only return documents that are still available.
+         *
+         * Note: only IDs of indexed documents (documents for which the indexing function returned a non-null non-empty set) are returned.
+         */
+        fun getSequenceOfDocs(forKeys: For<K>): Sequence<Pair<UUID, V>> = getSequenceOfIDs(forKeys).mapNotNull { id ->
+            val doc = delegate.find(id, def.valueType)
+            if (doc == null) null else id to doc
         }
     }
 
