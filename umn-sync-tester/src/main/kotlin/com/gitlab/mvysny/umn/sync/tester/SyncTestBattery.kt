@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.sync.tester
 
 import com.github.mvysny.dynatest.DynaNodeGroup
+import com.gitlab.mvysny.umn.core.For
 import com.gitlab.mvysny.umn.core.IndexingUMN
 import com.gitlab.mvysny.umn.core.UMN
 import com.gitlab.mvysny.umn.core.facet
@@ -54,7 +55,7 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             val id = writer.create("askdj124389akj")
             allClients().forEach { umn ->
                 expectAsync(true) { umn.exists(id) }
-                expect(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(14) }
+                expect(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
             }
         }
         test("create()+update() propagates properly") {
@@ -62,8 +63,8 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             writer.update(id, "foo", String::class)
             allClients().forEach { umn ->
                 expectAsync("foo") { umn.find(id, String::class) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(14) }
-                expect(id to "foo") { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(3) }
+                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
+                expect(id to "foo") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
             }
         }
         test("create()+update()+delete() propagates properly") {
@@ -72,8 +73,8 @@ fun DynaNodeGroup.syncTestBattery(readerCount: Int, umnStorageProducer: ()->UMN,
             writer.delete(id, String::class)
             allClients().forEach { umn ->
                 expectAsync(null) { umn.find(id, String::class) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(14) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findOneByKey(3) }
+                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
+                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
             }
         }
     }

@@ -125,13 +125,16 @@ interface UtilityMap<K: Comparable<K>, V> {
 
     /**
      * Returns an iterator which walks over keys in given range in ascending order.
+     *
      * The iterator must not throw [ConcurrentModificationException]
      * and must not be affected by any further modifications to the map.
      */
     fun keyIterator(range: ClosedRange<K>): Iterator<K>
 
     /**
-     * Iterates over all values present in this map, in no particular order. The iterator must not throw [ConcurrentModificationException]
+     * Iterates over all values present in this map. The iteration follows the key order, ascending.
+     *
+     * The iterator must not throw [ConcurrentModificationException]
      * and must not be affected by any further modifications to the map.
      */
     fun values(): Iterator<V>

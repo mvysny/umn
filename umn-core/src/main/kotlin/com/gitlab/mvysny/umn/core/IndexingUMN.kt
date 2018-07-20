@@ -158,49 +158,28 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         }
 
         /**
-         * Finds one document matching given [key]. If there are multiple documents, one is picked arbitrarily.
+         * Finds document matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
+         * @param forKeys only consider documents mapped to these keys.
          */
-        fun findOneByKey(key: K): Pair<UUID, V>? {
-            val id: UUID = findOneIDByKey(key) ?: return null
-            val doc = delegate.find(id, def.valueType)
-            return if (doc == null) null else id to doc
-        }
+        fun findFirstDoc(forKeys: For<K>): Pair<UUID, V>? = getSequenceOfDocs(forKeys).firstOrNull()
 
         /**
-         * Finds one document matching random key from given set of [keys]. If there are multiple documents, one is picked arbitrarily.
-         * @param keys the keys, must not be empty
+         * Finds document ID matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
+         * @param forKeys only consider documents mapped to these keys.
          */
-        fun findOneByKeys(keys: Set<K>): Pair<UUID, V>? {
-            require(keys.isNotEmpty()) { "keys is empty" }
-            return keys.asSequence().mapNotNull { key -> findOneByKey(key) } .firstOrNull()
-        }
+        fun findFirstID(forKeys: For<K>): UUID? = getSequenceOfIDs(forKeys).firstOrNull()
 
         /**
-         * Finds ID of one document matching given [key]. If there are multiple documents, one is picked arbitrarily. If no such document
-         * exists, returns null.
+         * Finds all document IDs matching given keys. Returns an ordered set of IDs, documents with lower keys appearing sooner in the set.
+         * @param forKeys only consider documents mapped to these keys.
          */
-        fun findOneIDByKey(key: K): UUID? = indexStore.find(key)?.firstOrNull()
+        fun findAllIDs(forKeys: For<K>): Set<UUID> = getSequenceOfIDs(forKeys).toSet()
 
         /**
-         * Finds all document IDs matching given [key].
+         * Finds all documents matching given keys. Returns an ordered set of IDs, documents with lower keys appearing sooner in the set.
+         * @param forKeys only consider documents mapped to these keys.
          */
-        fun findAllIDByKey(key: K): Set<UUID> = indexStore.find(key)?.toSet() ?: setOf()
-
-        /**
-         * Finds all documents matching given [key].
-         * @param clazz deserialize the document to this class, using [UMN.find].
-         */
-        fun findAllByKey(key: K): Map<UUID, V> {
-            val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
-            val map = mutableMapOf<UUID, V>()
-            ids.forEach { id ->
-                if (!map.containsKey(id)) {
-                    val doc = delegate.find(id, def.valueType)
-                    if (doc != null) map[id] = doc
-                }
-            }
-            return map
-        }
+        fun findAllDocs(forKeys: For<K>): Map<UUID, V> = getSequenceOfDocs(forKeys).toMap()
 
         /**
          * Returns all documents matching given key [range]. The returned map is ordered - the keys are enumerated in increasing order.
@@ -252,26 +231,23 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         }
 
         /**
-         * Counts all documents keyed with keys matching given [range].
+         * Counts all documents keyed with given keys.
+         *
+         * May count in non-existing documents if the documents were deleted during the run
+         * of this function.
          * @return count of matching documents, 0 or greater.
          */
-        fun getCountByKeyRange(range: ClosedRange<K>): Int {
-            if (range.isEmpty()) return 0
-            val encountered = mutableSetOf<UUID>()
-            var count = 0
-            indexStore.keyIterator(range).forEach { key ->
-                val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
-                ids.forEach { id ->
-                    if (encountered.add(id) && delegate.exists(id)) {
-                        count++
-                    }
-                }
+        fun getCount(forKeys: For<K>): Int {
+            // @todo mavi unique index size can simply be computed as indexStore.size()
+            if (forKeys.isEmpty) return 0
+            return when (forKeys) {
+                is For.Key -> indexStore.find(forKeys.key)?.size ?: 0
+
+                else -> getSequenceOfIDs(forKeys).distinct().count()
             }
-            return count
         }
 
-        // @todo mavi unique index size can simply be computed as indexStore.size()
-        fun getSize(): Int = indexStore.values().asSequence().sumBy { it.size }
+        fun getSize(): Int = getCount(For.all())
 
         internal fun onCreated(id: UUID, document: Any) {
             val docType = def.documentType.java
@@ -328,7 +304,8 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         fun isEmpty(): Boolean = indexStore.isEmpty()
 
         /**
-         * Returns a lazily evaluated sequence of document IDs stored under given [forKeys].
+         * Returns a lazily evaluated sequence of document IDs stored under given [forKeys]. The sequence will follow key ordering:
+         * it will return documents mapped to lower keys sooner.
          *
          * This function is faster than [getSequenceOfDocs] since it doesn't load the documents.
          *
@@ -336,19 +313,23 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * The sequence must not reflect further modifications; the sequence may thus return documents that were meanwhile deleted.
          *
          * Note: only IDs of indexed documents (documents for which the indexing function returned a non-null non-empty set) are returned.
+         *
+         * Note: the returned IDs may not be unique and may repeat in the sequence.
+         * @param forKeys only consider documents mapped to these keys.
          */
         fun getSequenceOfIDs(forKeys: For<K>): Sequence<UUID> {
             if (forKeys.isEmpty) return emptySequence()
             return when (forKeys) {
                 is For.All -> indexStore.values().asSequence().flatMap { it.asSequence() }
                 is For.Key -> (indexStore.find(forKeys.key) ?: arrayOf()).asSequence()
-                is For.KeySet -> forKeys.set.asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
+                is For.KeySet -> forKeys.set.sorted().asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
                 is For.KeyRange -> indexStore.keyIterator(forKeys.range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
             }
         }
 
         /**
-         * Returns a lazily evaluated sequence of documents and their IDs stored under given [forKeys].
+         * Returns a lazily evaluated sequence of documents and their IDs stored under given [forKeys]. The sequence will follow key ordering:
+         * it will return documents mapped to lower keys sooner.
          *
          * This function is slower than [getSequenceOfIDs] since it doesn't load the documents.
          *
@@ -356,6 +337,9 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * The sequence must not reflect further modifications; however the sequence will only return documents that are still available.
          *
          * Note: only IDs of indexed documents (documents for which the indexing function returned a non-null non-empty set) are returned.
+         *
+         * Note: the returned IDs may not be unique and may repeat in the sequence.
+         * @param forKeys only consider documents mapped to these keys.
          */
         fun getSequenceOfDocs(forKeys: For<K>): Sequence<Pair<UUID, V>> = getSequenceOfIDs(forKeys).mapNotNull { id ->
             val doc = delegate.find(id, def.valueType)
@@ -414,6 +398,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
  * * [All] - all possible keys
  * * [KeySet] - a set of keys
  * * [KeyRange] - a range of keys
+ * @param K the type of the key.
  */
 sealed class For<K: Comparable<K>> {
     abstract val isEmpty: Boolean
@@ -424,6 +409,7 @@ sealed class For<K: Comparable<K>> {
     }
 
     data class KeySet<K: Comparable<K>>(val set: Set<K>) : For<K>() {
+        constructor(vararg set: K) : this(set.toSet())
         override val isEmpty: Boolean
             get() = set.isEmpty()
     }
