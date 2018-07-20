@@ -242,7 +242,6 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
             if (forKeys.isEmpty) return 0
             return when (forKeys) {
                 is For.Key -> indexStore.find(forKeys.key)?.size ?: 0
-
                 else -> getSequenceOfIDs(forKeys).distinct().count()
             }
         }
@@ -321,7 +320,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
             if (forKeys.isEmpty) return emptySequence()
             return when (forKeys) {
                 is For.All -> indexStore.values().asSequence().flatMap { it.asSequence() }
-                is For.Key -> (indexStore.find(forKeys.key) ?: arrayOf()).asSequence()
+                is For.Key -> indexStore.find(forKeys.key)?.asSequence() ?: emptySequence()
                 is For.KeySet -> forKeys.set.sorted().asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
                 is For.KeyRange -> indexStore.keyIterator(forKeys.range).asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
             }
