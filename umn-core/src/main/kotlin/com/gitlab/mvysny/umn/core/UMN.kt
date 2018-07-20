@@ -129,7 +129,7 @@ interface UtilityMap<K: Comparable<K>, V> {
      * The iterator must not throw [ConcurrentModificationException]
      * and must not be affected by any further modifications to the map.
      */
-    fun keyIterator(range: ClosedRange<K>): Iterator<K>
+    fun keyIterator(range: ClosedRange<K>): Sequence<K>
 
     /**
      * Iterates over all values present in this map. The iteration follows the key order, ascending.
@@ -148,4 +148,10 @@ interface UtilityMap<K: Comparable<K>, V> {
      * Checks if there are no entries in the map.
      */
     fun isEmpty(): Boolean
+
+    /**
+     * Get the largest key that is smaller than the given [key], or null if no
+     * such key exists.
+     */
+    fun lowerKey(key: K): K?
 }

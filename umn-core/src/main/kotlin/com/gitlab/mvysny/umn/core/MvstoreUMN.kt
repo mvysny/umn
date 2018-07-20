@@ -97,10 +97,10 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
  * Thread-safe.
  */
 class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : UtilityMap<K, V> {
-    override fun keyIterator(range: ClosedRange<K>): Iterator<K> {
-        if (range.isEmpty()) return emptySequence<K>().iterator()
+    override fun keyIterator(range: ClosedRange<K>): Sequence<K> {
+        if (range.isEmpty()) return emptySequence()
         val keySequence = map.keyIterator(range.start).asSequence()
-        return keySequence.takeWhile { key -> key in range } .iterator()
+        return keySequence.takeWhile { key -> key in range }
     }
 
     private val map: MVMap<K, V> = store.openMap("__$name")
@@ -118,4 +118,6 @@ class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : Uti
     }
 
     override fun isEmpty(): Boolean = map.isEmpty()
+
+    override fun lowerKey(key: K): K? = map.lowerKey(key)
 }

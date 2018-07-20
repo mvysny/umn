@@ -118,5 +118,14 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             expect(null) { map.getSmallestKey() }
             expect((0..10L).toList()) { encountered.toList() }
         }
+
+        test("lowerKey()") {
+            (0..9L).forEach { map.put(it, "$it") }
+            expect(7) { map.lowerKey(8) }
+            expect(8) { map.lowerKey(9) }
+            expect(1) { map.lowerKey(2) }
+            expect(0) { map.lowerKey(1) }
+            expect(null) { map.lowerKey(0) }
+        }
     }
 }

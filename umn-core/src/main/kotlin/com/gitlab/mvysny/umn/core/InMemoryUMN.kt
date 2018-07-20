@@ -54,7 +54,7 @@ class InMemoryUMN : UMN {
 class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
     private val map = ConcurrentHashMap<K, V>()
 
-    override fun keyIterator(range: ClosedRange<K>): Iterator<K> = map.keys.filter { key -> key in range }.sorted().iterator()
+    override fun keyIterator(range: ClosedRange<K>): Sequence<K> = map.keys.filter { key -> key in range }.sorted().asSequence()
 
     override fun find(key: K): V? = map[key]
 
@@ -73,4 +73,6 @@ class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
     }
 
     override fun isEmpty(): Boolean = map.isEmpty()
+
+    override fun lowerKey(key: K): K? = map.keys.asSequence().filter { it < key } .max()
 }
