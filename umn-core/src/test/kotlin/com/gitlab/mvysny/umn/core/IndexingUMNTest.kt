@@ -254,24 +254,26 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         test("check that the result documents are returned in a correct order") {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expectList("50", "51", "52", "53", "54", "55") { umn.getIndex(idxToLong).findAllByKeyRange(50L..55L).values.toList() }
-            expectList("1000") { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1001L..2000L).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L).values.toList() }
+            expectList("50", "51", "52", "53", "54", "55") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L)).values.toList() }
+            expectList("1000") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L)).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1001L..2000L)).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(-1000L..-10L)).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeySet()).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L), 5..4).values.toList() }
         }
 
         test("check offset") {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expectList("52", "53") { umn.getIndex(idxToLong).findAllByKeyRange(50L..55L, 2..3).values.toList() }
+            expectList("52", "53") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 2..3).values.toList() }
         }
 
         test("multiple values mapping to a Long key") {
             val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef.simple("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
             (0..1000).forEach { umn.create(it.toString()) }
-            expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.getIndex(idxToLong).findAllByKeyRange(16L..18L).values.sorted() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(1000L..2000L).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllByKeyRange(-1000L..-10L).values.toList() }
+            expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(16L..18L)).values.sorted() }
+            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L)).values.toList() }
+            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(-1000L..-10L)).values.toList() }
         }
 
         test("using CKey") {
@@ -281,10 +283,10 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
-            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("kvak", 0f)..CKey("kvak", 10f)).values.sorted() }
-            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("bar", 2000f)..CKey("bar", 3000f)).values.sorted() }
+            expectList() { umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("kvak", 0f)..CKey("kvak", 10f))).values.sorted() }
+            expectList() { umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("bar", 2000f)..CKey("bar", 3000f))).values.sorted() }
             expect((0..10).map { it.toFloat() }) {
-                umn.getIndex(idx).findAllByKeyRange(CKey("foo", 0f)..CKey("foo", 10f)).values.map { it.ordering }
+                umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("foo", 0f)..CKey("foo", 10f))).values.map { it.ordering }
             }
         }
     }
@@ -293,24 +295,26 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         test("check that the result documents are returned in a correct order") {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
-            expect(ids.subList(50, 56)) { umn.getIndex(idxToLong).findAllIDsByKeyRange(50L..55L).toList() }
-            expectList(ids.last()) { umn.getIndex(idxToLong).findAllIDsByKeyRange(1000L..2000L).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(1001L..2000L).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(-1000L..-10L).toList() }
+            expect(ids.subList(50, 56)) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L)).toList() }
+            expectList(ids.last()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L)).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1001L..2000L)).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(-1000L..-10L)).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeySet()).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L), 5..4).toList() }
         }
 
         test("check offset") {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
-            expect(ids.subList(52, 54)) { umn.getIndex(idxToLong).findAllIDsByKeyRange(50L..55L, 2..3).toList() }
+            expect(ids.subList(52, 54)) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L), 2..3).toList() }
         }
 
         test("multiple values mapping to a Long key") {
             val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef.simple("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
-            expect(ids.subList(48, 57).toSet()) { umn.getIndex(idxToLong).findAllIDsByKeyRange(16L..18L).toSet() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(1000L..2000L).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsByKeyRange(-1000L..-10L).toList() }
+            expect(ids.subList(48, 57).toSet()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(16L..18L)).toSet() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L)).toList() }
+            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(-1000L..-10L)).toList() }
         }
 
         test("using CKey") {
@@ -320,8 +324,8 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
-            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("kvak", 0f)..CKey("kvak", 10f)).values.sorted() }
-            expectList() { umn.getIndex(idx).findAllByKeyRange(CKey("bar", 2000f)..CKey("bar", 3000f)).values.sorted() }
+            expectList() { umn.getIndex(idx).findAllIDsPaged(For.KeyRange(CKey("kvak", 0f)..CKey("kvak", 10f))).toList() }
+            expectList() { umn.getIndex(idx).findAllIDsPaged(For.KeyRange(CKey("bar", 2000f)..CKey("bar", 3000f))).toList() }
         }
     }
 

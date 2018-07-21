@@ -170,61 +170,60 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         fun findFirstID(forKeys: For<K>): UUID? = getSequenceOfIDs(forKeys).firstOrNull()
 
         /**
-         * Finds all document IDs matching given keys. Returns an ordered set of IDs, documents with lower keys appearing sooner in the set.
+         * Finds all document IDs matching given keys. Returns an ordered set of IDs; documents with lower keys appearing sooner in the set.
          * @param forKeys only consider documents mapped to these keys.
          */
         fun findAllIDs(forKeys: For<K>): Set<UUID> = getSequenceOfIDs(forKeys).toSet()
 
         /**
-         * Finds all documents matching given keys. Returns an ordered set of IDs, documents with lower keys appearing sooner in the set.
+         * Finds all documents matching given keys. Returns an ordered map of IDs mapped to documents;
+         * documents with lower keys appearing sooner in the set.
          * @param forKeys only consider documents mapped to these keys.
          */
         fun findAllDocs(forKeys: For<K>): Map<UUID, V> = getSequenceOfDocs(forKeys).toMap()
 
         /**
-         * Returns all documents matching given key [range]. The returned map is ordered - the keys are enumerated in increasing order.
+         * Returns all documents matching given keys. The returned map is ordered - the keys are enumerated in increasing order.
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a map of documents and their respective IDs. The map is ordered by the matching keys, ascending. May be empty.
          */
-        fun findAllByKeyRange(range: ClosedRange<K>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
-            if (page.isEmpty() || range.isEmpty()) return mapOf()
+        fun findAllDocsPaged(forKeys: For<K>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
+            if (page.isEmpty() || forKeys.isEmpty) return mapOf()
+            if (page == 0..Int.MAX_VALUE) return findAllDocs(forKeys)
+
             val result = mutableMapOf<UUID, V>()
             var currentIndex = 0
-            indexStore.keyIterator(range).forEach { key ->
-                val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
-                ids.forEach { id ->
-                    if (!result.containsKey(id) && delegate.exists(id)) {
-                        if (currentIndex in page) {
-                            val doc = delegate.find(id, def.valueType)
-                            if (doc != null) result[id] = doc
-                        }
-                        currentIndex++
-                        if (currentIndex > page.last) return result
+            getSequenceOfIDs(forKeys).forEach { id ->
+                if (!result.containsKey(id) && delegate.exists(id)) {
+                    if (currentIndex in page) {
+                        val doc = delegate.find(id, def.valueType)
+                        if (doc != null) result[id] = doc
                     }
+                    currentIndex++
+                    if (currentIndex > page.last) return result
                 }
             }
             return result
         }
 
         /**
-         * Returns all document IDs matching given key [range]. The returned map is ordered - the keys are enumerated in increasing order.
+         * Returns all document IDs matching given keys. The returned map is ordered - the keys are enumerated in increasing order.
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a set of document IDs. The set is ordered by the matching keys, ascending. May be empty.
          */
-        fun findAllIDsByKeyRange(range: ClosedRange<K>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
-            if (page.isEmpty() || range.isEmpty()) return setOf()
+        fun findAllIDsPaged(forKeys: For<K>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
+            if (page.isEmpty() || forKeys.isEmpty) return setOf()
+            if (page == 0..Int.MAX_VALUE) return findAllIDs(forKeys)
+
             val result = mutableSetOf<UUID>()
             var currentIndex = 0
-            indexStore.keyIterator(range).forEach { key ->
-                val ids: Array<UUID> = indexStore.find(key) ?: arrayOf()
-                ids.forEach { id ->
-                    if (!result.contains(id)) {
-                        if (currentIndex in page) {
-                            result.add(id)
-                        }
-                        currentIndex++
-                        if (currentIndex > page.last) return result
+            getSequenceOfIDs(forKeys).forEach { id ->
+                if (!result.contains(id)) {
+                    if (currentIndex in page) {
+                        result.add(id)
                     }
+                    currentIndex++
+                    if (currentIndex > page.last) return result
                 }
             }
             return result
