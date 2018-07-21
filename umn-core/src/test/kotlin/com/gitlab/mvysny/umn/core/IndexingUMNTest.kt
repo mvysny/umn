@@ -250,7 +250,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("findAllByKeyRange()") {
+    group("findAllDocsPaged()") {
         test("check that the result documents are returned in a correct order") {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
@@ -266,6 +266,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
             expectList("52", "53") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 2..3).values.toList() }
+            expectList("50", "51") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 0..1).values.toList() }
         }
 
         test("multiple values mapping to a Long key") {
@@ -291,7 +292,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("findAllIDsByKeyRange()") {
+    group("findAllIDsPaged()") {
         test("check that the result documents are returned in a correct order") {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
@@ -307,6 +308,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
             expect(ids.subList(52, 54)) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L), 2..3).toList() }
+            expect(ids.subList(50, 52)) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L), 0..1).toList() }
         }
 
         test("multiple values mapping to a Long key") {
