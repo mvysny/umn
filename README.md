@@ -117,7 +117,7 @@ In UMN, Index serves two purposes (which may be used separately, or combined):
 Say that we want to look up personnel by first name (doesn't really make sense but let's go with this :)
 You need to register an index to the UMN to do that. An index is generally a function that takes
 a document and returns a set of keys under which the document needs to be accessible quickly.
-In this case, it's a surname:
+In this case, it's the first name:
 
 ```kotlin
 val index = IndexingUMN.IndexDef.simple<String, Person>("person_firstname", 
@@ -125,8 +125,8 @@ val index = IndexingUMN.IndexDef.simple<String, Person>("person_firstname",
 ```
 
 This is an index definition that says that we are going to have a String index (e.g. `"Martin"`)
-generated for every document that's a `Person` (remember, the map is generally a goulash of
-objects of various types; in UMN terms Java object is the same as document).
+generated for every document that's a `Person` (remember, the UMN is just a single map which is
+a goulash of objects of various types; in UMN terms Java object is the same as document).
 
 Now you need to tell UMN to use this index. That's easy:
 
@@ -208,6 +208,14 @@ val personnel: Sequence<Pair<UUID, Person>> =
     umn.facet<IndexingUMN>().getIndex(idxSurnameFirstname).findAllDocs(KeySurnameFirstname.allWithSurname("Vysny"))
 personnel.forEach { person -> println(person) }
 ```
+
+### Multiple types of objects
+
+Note that the above indices only consider documents of type `Person` - they will ignore any other types
+of documents. In the database there are typically lots of different document types - say
+`Department`, `Ticket` etc. To look up instances of those documents, simply define separate indices
+for them. This way, even though all documents will be stored in one map, you will be able to look
+them up by using appropriate indices.
 
 ## Facet / Layouts
 
