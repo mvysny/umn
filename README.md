@@ -205,8 +205,8 @@ iterator which will lazily fetch the guys for us from the database:
 
 ```kotlin
 val personnel: Sequence<Pair<UUID, Person>> =
-    umn.facet<IndexingUMN>().getIndex(idxSurnameFirstname).findAllDocs(KeySurnameFirstname.allWithSurname("Vysny"))
-personnel.forEach { person -> println(person) }
+    umn.facet<IndexingUMN>().getIndex(idxSurnameFirstname).getSequenceOfDocs(KeySurnameFirstname.allWithSurname("Vysny"))
+personnel.forEach { (_, person) -> println(person) }
 ```
 
 ### Multiple types of objects
