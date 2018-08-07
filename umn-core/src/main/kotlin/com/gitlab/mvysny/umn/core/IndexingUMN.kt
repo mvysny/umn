@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.core
 
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
+import java.io.ByteArrayInputStream
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -390,18 +391,18 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
 
     override fun exists(id: UUID) = delegate.exists(id)
 
-    override fun delete(id: UUID, clazz: KClass<out Any>) {
+    override fun delete(id: UUID) {
         indexUpdaterGlobalLock.withLock {
-            val document: Any = find(id, clazz) ?: return
-            delegate.delete(id, clazz)
+            val document: Any = find(id, Any::class) ?: return
+            delegate.delete(id)
             indexMap.values.forEach { it.onDeleted(id, document) }
         }
     }
 
-    override fun <V: Any> update(id: UUID, document: V, clazz: KClass<V>) {
+    override fun update(id: UUID, document: Any) {
         indexUpdaterGlobalLock.withLock {
-            val oldDoc: V = get(id, clazz)
-            delegate.update(id, document, clazz)
+            val oldDoc: Any = get(id, Any::class)
+            delegate.update(id, document)
             indexMap.values.forEach { it.onUpdate(id, document, oldDoc) }
         }
     }
@@ -425,8 +426,12 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         return indexMap[index.name] as IndexImpl<K, D, V>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
     }
 
+    override val typeToClassResolver: TypeToClassResolver
+        get() = delegate.typeToClassResolver
 
-    // @todo implement paged document range retrieval
+    override fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>? = delegate.findSerialized(id)
+
+    override fun getSequenceOfIDs(): Sequence<UUID> = delegate.getSequenceOfIDs()
 
     // @todo implement unique index
 }

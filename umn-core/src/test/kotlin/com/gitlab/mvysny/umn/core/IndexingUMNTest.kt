@@ -3,7 +3,6 @@ package com.gitlab.mvysny.umn.core
 import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.DynaTest
 import com.github.mvysny.dynatest.expectList
-import org.h2.mvstore.MVStore
 import java.io.Serializable
 import java.util.*
 import kotlin.test.expect
@@ -38,7 +37,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             test("correctly updates the indices on update()") {
                 val umn = IndexingUMN(storageProvider(), indices)
                 val id = umn.create("kvak")
-                umn.update(id, "foo", String::class)
+                umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("foo")) }
                 expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
             }
@@ -46,12 +45,12 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             test("correctly updates the length-indices on update()") {
                 val umn = IndexingUMN(storageProvider(), indices)
                 val id = umn.create("kvak")
-                umn.update(id, "foo", String::class)
+                umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxLength).findFirstDoc(For.Key(3)) }
                 expect(null) { umn.getIndex(idxLength).findFirstDoc(For.Key(4)) }
                 // now simulate the Sync as it replays actions as they come from the log
                 umn.create("kvak", id)
-                umn.update(id, "foo", String::class)
+                umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxLength).findFirstDoc(For.Key(3)) }
                 expect(null) { umn.getIndex(idxLength).findFirstDoc(For.Key(4)) }
             }
@@ -118,7 +117,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             test("correctly updates the indices on update()") {
                 val umn = IndexingUMN(storageProvider(), indices)
                 val id = umn.create("kvak")
-                umn.update(id, "foo", String::class)
+                umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxIdentity).findLastDoc(For.Key("foo")) }
                 expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.Key("kvak")) }
             }
@@ -126,12 +125,12 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             test("correctly updates the length-indices on update()") {
                 val umn = IndexingUMN(storageProvider(), indices)
                 val id = umn.create("kvak")
-                umn.update(id, "foo", String::class)
+                umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxLength).findLastDoc(For.Key(3)) }
                 expect(null) { umn.getIndex(idxLength).findLastDoc(For.Key(4)) }
                 // now simulate the Sync as it replays actions as they come from the log
                 umn.create("kvak", id)
-                umn.update(id, "foo", String::class)
+                umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxLength).findLastDoc(For.Key(3)) }
                 expect(null) { umn.getIndex(idxLength).findLastDoc(For.Key(4)) }
             }
@@ -199,7 +198,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         test("correctly updates the indices on update()") {
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create("kvak")
-            umn.update(id, "foo", String::class)
+            umn.update(id, "foo")
             expect(mapOf(id to "foo")) { umn.getIndex(idxIdentity).findAllDocs(For.Key("foo")) }
             expect(mapOf()) { umn.getIndex(idxIdentity).findAllDocs(For.Key("kvak")) }
         }
@@ -346,7 +345,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         test("iterator doesn't list removed documents") {
             val umn = IndexingUMN(storageProvider(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
-            ids.forEach { umn.delete(it, String::class) }
+            ids.forEach { umn.delete(it) }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
             expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toList() }
             expect(null) { umn.getIndex(idxLength).findFirstID(For.Key(1)) }
@@ -356,7 +355,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             val umn = IndexingUMN(storageProvider(), indices)
             val ids = (0..9).map { umn.create("$it") } .toSet()
             val collected = umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).onEach {
-                ids.forEach { id -> umn.delete(id, String::class) }
+                ids.forEach { id -> umn.delete(id) }
             } .toList()
             expect(ids.toList()) { collected }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
@@ -387,7 +386,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         test("iterator doesn't list removed documents") {
             val umn = IndexingUMN(storageProvider(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
-            ids.forEach { umn.delete(it, String::class) }
+            ids.forEach { umn.delete(it) }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
             expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("0".."1000")).toList() }
             expect(null) { umn.getIndex(idxLength).findFirstID(For.Key(1)) }
@@ -397,7 +396,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             val umn = IndexingUMN(storageProvider(), indices)
             val ids = (0..9).map { umn.create("$it") } .toSet()
             val collected = umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).onEach {
-                ids.forEach { id -> umn.delete(id, String::class) }
+                ids.forEach { id -> umn.delete(id) }
             } .toList()
             expect(ids.toList()) { collected }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
@@ -411,9 +410,9 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         // all indices expect Strings. Let's feed them Long, they should ignore it.
         val umn = IndexingUMN(storageProvider(), indices)
         val id = umn.create(25L)
-        umn.update(id, 45L as java.lang.Long, java.lang.Long::class)
+        umn.update(id, 45L as java.lang.Long)
         expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
-        umn.delete(id, java.lang.Long::class)
+        umn.delete(id)
         expect(null) { umn.find(id, java.lang.Long::class) }
     }
 
@@ -432,7 +431,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         test("empty when all documents has been deleted") {
             val umn = IndexingUMN(storageProvider(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
-            ids.forEach { umn.delete(it, String::class) }
+            ids.forEach { umn.delete(it) }
             expect(true) { umn.getIndex(idxIdentity).isEmpty() }
             expect(true) { umn.getIndex(idxLength).isEmpty() }
         }
@@ -467,12 +466,12 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             expect("c") { idx.findFirstDoc(For.Key("c1"))!!.second.name }
 
             // now update a1 to be c3
-            umn.update(childrenOfA[0], Child("c3", parentIDs[2]), Child::class)
+            umn.update(childrenOfA[0], Child("c3", parentIDs[2]))
             expect("c") { idx.findFirstDoc(For.Key("c3"))!!.second.name }
             expect(null) { idx.findFirstDoc(For.Key("a1")) }
 
             // now rename a2 to a4, but keep the same parent
-            umn.update(childrenOfA[1], Child("a4", parentIDs[0]), Child::class)
+            umn.update(childrenOfA[1], Child("a4", parentIDs[0]))
             expect("a") { idx.findFirstDoc(For.Key("a4"))!!.second.name }
             expect(null) { idx.findFirstDoc(For.Key("a2")) }
         }
@@ -489,9 +488,9 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             // all indices expect Child. Let's feed them Long, they should ignore it.
             val umn = IndexingUMN(storageProvider(), indices)
             val id = umn.create(25L)
-            umn.update(id, 45L as java.lang.Long, java.lang.Long::class)
+            umn.update(id, 45L as java.lang.Long)
             expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
-            umn.delete(id, java.lang.Long::class)
+            umn.delete(id)
             expect(null) { umn.find(id, java.lang.Long::class) }
         }
     }
@@ -513,13 +512,13 @@ class IndexingUMNTest : DynaTest({
         group("in-memory") {
             genericUmnTestBattery {
                 val indices = setOf(IndexingUMN.IndexDef.simple("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }, Any::class))
-                IndexingUMN(InMemoryUMN(), indices)
+                IndexingUMN(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), indices)
             }
         }
         group("on mvstore") {
             genericUmnTestBattery {
                 val indices = setOf(IndexingUMN.IndexDef.simple("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }, Any::class))
-                val mvstore = MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer)
+                val mvstore = createMvstoreUMN()
                 IndexingUMN(mvstore, indices)
             }
         }
@@ -528,7 +527,7 @@ class IndexingUMNTest : DynaTest({
     // tests the indexing capabilities of the IndexingUMN
     group("index tests") {
         group("in-memory") {
-            indexingUmnTestBattery { InMemoryUMN() }
+            indexingUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }
         }
         group("on mvstore") {
             indexingUmnTestBattery { createMvstoreUMN() }

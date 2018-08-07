@@ -7,7 +7,8 @@ import com.github.mvysny.dynatest.expectList
 /**
  * Thread-safe.
  */
-internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, private val serializer: DocumentSerializer) {
+internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, private val serializer: DocumentSerializer,
+                           val typeToClassResolver: TypeToClassResolver) {
     /**
      * Logs this mutation [record].
      */
@@ -20,7 +21,7 @@ internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, private va
      * threads.
      */
     fun drain(): List<LogRecord> =
-        generateSequence { buffer.poll() } .map { LogRecord.fromByteArray(it, serializer) } .toList()
+        generateSequence { buffer.poll() } .map { LogRecord.fromByteArray(it, serializer, typeToClassResolver) } .toList()
 }
 
 /**
@@ -28,7 +29,7 @@ internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, private va
  * which hosts the mutation events (in the form of [LogRecord]s).
  */
 internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<UMN, MutationLog> {
-    val log = MutationLog(FIFOBuffer(openUtilityMap("MUTATION_LOG")), serializer)
+    val log = MutationLog(FIFOBuffer(openUtilityMap("MUTATION_LOG")), serializer, typeToClassResolver)
     val umn = AnnouncingUMN(this, { log.log(it) })
     return umn to log
 }
@@ -52,13 +53,14 @@ internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN
         }
         test("creating+updating document produces two log entries") {
             val id = umn.create("kvak")
-            umn.update(id, "foo", String::class)
-            expectList(LogRecord.DocumentCreated("kvak", id), LogRecord.DocumentUpdated("foo", id)) { log.drain() }
+            umn.update(id, "foo")
+            expectList(LogRecord.DocumentCreated("kvak", id),
+                LogRecord.DocumentUpdated("foo", AutoTypeResolver.toType(String::class), id)) { log.drain() }
         }
         test("creating+deleting document produces two log entries") {
             val id = umn.create("kvak")
-            umn.delete(id, String::class)
-            expectList(LogRecord.DocumentCreated("kvak", id), LogRecord.DocumentDeleted(id, String::class)) { log.drain() }
+            umn.delete(id)
+            expectList(LogRecord.DocumentCreated("kvak", id), LogRecord.DocumentDeleted(id)) { log.drain() }
         }
     }
 }
@@ -70,7 +72,7 @@ class AnnouncingUMNTest : DynaTest({
     // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
     group("basic tests") {
         group("in-memory") {
-            genericUmnTestBattery { InMemoryUMN().mutationLog(JavaDocumentSerializer).first }
+            genericUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).mutationLog(JavaDocumentSerializer).first }
         }
         group("on mvstore") {
             genericUmnTestBattery { createMvstoreUMN().mutationLog(JavaDocumentSerializer).first }
@@ -79,7 +81,7 @@ class AnnouncingUMNTest : DynaTest({
 
     group("replay log specific tests") {
         group("in-memory") {
-            announcingTestBattery { InMemoryUMN().mutationLog(JavaDocumentSerializer) }
+            announcingTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).mutationLog(JavaDocumentSerializer) }
         }
         group("on mvstore") {
             announcingTestBattery { createMvstoreUMN().mutationLog(JavaDocumentSerializer) }

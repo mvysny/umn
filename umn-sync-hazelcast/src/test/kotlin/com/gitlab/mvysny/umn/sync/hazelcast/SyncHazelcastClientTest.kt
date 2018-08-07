@@ -4,7 +4,7 @@ import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.InMemoryUMN
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.sync.tester.globalLogClientTestBattery
-import com.gitlab.mvysny.umn.sync.tester.syncTestBattery
+import com.gitlab.mvysny.umn.sync.tester.writerReaderTestBattery
 import com.hazelcast.config.Config
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
@@ -28,7 +28,7 @@ class SyncHazelcastClientTest : DynaTest({
 
     globalLogClientTestBattery { newClient() }
 
-    syncTestBattery(1, { InMemoryUMN() }, { newClient() })
+    writerReaderTestBattery(1, { InMemoryUMN() }, { newClient() })
 
-    syncTestBattery(10, { InMemoryUMN() }, { newClient() })
+    writerReaderTestBattery(10, { InMemoryUMN() }, { newClient() })
 })

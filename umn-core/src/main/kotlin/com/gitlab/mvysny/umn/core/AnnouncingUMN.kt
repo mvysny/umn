@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -27,14 +28,14 @@ class AnnouncingUMN(override val delegate: UMN, private val listener: (LogRecord
 
     override fun exists(id: UUID): Boolean = delegate.exists(id)
 
-    override fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>) {
-        delegate.update(id, document, clazz)
-        listener(LogRecord.DocumentUpdated(document, id))
+    override fun update(id: UUID, document: Any) {
+        delegate.update(id, document)
+        listener(LogRecord.DocumentUpdated(document, typeToClassResolver.toType(document.javaClass.kotlin), id))
     }
 
-    override fun delete(id: UUID, clazz: KClass<out Any>) {
-        delegate.delete(id, clazz)
-        listener(LogRecord.DocumentDeleted(id, clazz))
+    override fun delete(id: UUID) {
+        delegate.delete(id)
+        listener(LogRecord.DocumentDeleted(id))
     }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)
@@ -42,6 +43,13 @@ class AnnouncingUMN(override val delegate: UMN, private val listener: (LogRecord
     override fun close() {
         delegate.close()
     }
+
+    override fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>? = delegate.findSerialized(id)
+
+    override val typeToClassResolver: TypeToClassResolver
+        get() = delegate.typeToClassResolver
+
+    override fun getSequenceOfIDs(): Sequence<UUID> = delegate.getSequenceOfIDs()
 }
 
 sealed class LogRecord(open val id: UUID) {
@@ -76,30 +84,45 @@ sealed class LogRecord(open val id: UUID) {
         }
     }
 
-    data class DocumentDeleted(override val id: UUID, val clazz: KClass<*>) : LogRecord(id) {
+    /**
+     * Optimizes initial log population of the SyncingUMN.
+     */
+    data class DocumentCreated2(val serializedDocument: ByteArray, val type: String, override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
-            umn.delete(id, clazz)
+            throw IllegalStateException("Should not be called")
+        }
+
+        override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
+            dout.writeByte(TYPE_DOCUMENT_CREATED)
+            dout.writeLong(id.leastSignificantBits)
+            dout.writeLong(id.mostSignificantBits)
+            dout.writeUTF(type)
+            // @todo write payload size so that we can analyze log items server-side without reading the actual document
+            // this will allow us to purge the server-side log by removing of the deleted documents
+            dout.write(serializedDocument)
+        }
+    }
+
+    data class DocumentDeleted(override val id: UUID) : LogRecord(id) {
+        override fun applyTo(umn: UMN) {
+            umn.delete(id)
         }
 
         override fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer) {
             dout.writeByte(TYPE_DOCUMENT_DELETED)
             dout.writeLong(id.leastSignificantBits)
             dout.writeLong(id.mostSignificantBits)
-            dout.writeUTF(clazz.java.name)
         }
 
         companion object {
-            internal fun readFrom(id: UUID, din: DataInputStream): DocumentDeleted {
-                val clazz = Class.forName(din.readUTF()).asSubclass(Any::class.java)
-                return DocumentDeleted(id, clazz.kotlin)
-            }
+            internal fun readFrom(id: UUID, din: DataInputStream) = DocumentDeleted(id)
         }
     }
 
-    data class DocumentUpdated(val document: Any, override val id: UUID) : LogRecord(id) {
+    data class DocumentUpdated(val document: Any, val type: Short, override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             if (umn.exists(id)) {
-                umn.update(id, document, document.javaClass.kotlin)
+                umn.update(id, document)
             }
         }
 
@@ -107,7 +130,7 @@ sealed class LogRecord(open val id: UUID) {
             dout.writeByte(TYPE_DOCUMENT_UPDATED)
             dout.writeLong(id.leastSignificantBits)
             dout.writeLong(id.mostSignificantBits)
-            dout.writeUTF(document.javaClass.name)
+            dout.writeShort(type.toInt())
             serializer.serialize(document, dout)
         }
 
@@ -115,10 +138,11 @@ sealed class LogRecord(open val id: UUID) {
             /**
              * @param din must be buffered or backed by a [java.io.ByteArrayInputStream]!
              */
-            internal fun readFrom(id: UUID, din: DataInputStream, serializer: DocumentSerializer): DocumentUpdated {
-                val clazz = Class.forName(din.readUTF()).asSubclass(Any::class.java)
-                val doc = serializer.deserialize(clazz.kotlin, din)
-                return DocumentUpdated(doc, id)
+            internal fun readFrom(id: UUID, din: DataInputStream, serializer: DocumentSerializer, typeToClassResolver: TypeToClassResolver): DocumentUpdated {
+                val type = din.readShort()
+                val clazz = typeToClassResolver.toClass(type)
+                val doc = serializer.deserialize(clazz, din)
+                return DocumentUpdated(doc, type, id)
             }
         }
     }
@@ -131,7 +155,8 @@ sealed class LogRecord(open val id: UUID) {
         /**
          * @param din must be buffered or backed by [java.io.ByteArrayInputStream].
          */
-        private fun readFrom(din: DataInputStream, serializer: DocumentSerializer): LogRecord {
+        private fun readFrom(din: DataInputStream, serializer: DocumentSerializer,
+                             typeToClassResolver: TypeToClassResolver): LogRecord {
             val type = din.readByte().toInt()
             val lsb = din.readLong()
             val msb = din.readLong()
@@ -139,12 +164,13 @@ sealed class LogRecord(open val id: UUID) {
             return when (type) {
                 TYPE_DOCUMENT_CREATED -> DocumentCreated.readFrom(id, din, serializer)
                 TYPE_DOCUMENT_DELETED -> DocumentDeleted.readFrom(id, din)
-                TYPE_DOCUMENT_UPDATED -> DocumentUpdated.readFrom(id, din, serializer)
+                TYPE_DOCUMENT_UPDATED -> DocumentUpdated.readFrom(id, din, serializer, typeToClassResolver)
                 else -> throw RuntimeException("Unsupported document type: $type")
             }
         }
 
-        fun fromByteArray(bytes: ByteArray, serializer: DocumentSerializer): LogRecord =
-                readFrom(DataInputStream(bytes.inputStream()), serializer)
+        fun fromByteArray(bytes: ByteArray, serializer: DocumentSerializer,
+                          typeToClassResolver: TypeToClassResolver): LogRecord =
+                readFrom(DataInputStream(bytes.inputStream()), serializer, typeToClassResolver)
     }
 }

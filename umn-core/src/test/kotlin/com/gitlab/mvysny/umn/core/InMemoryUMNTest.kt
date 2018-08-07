@@ -6,5 +6,5 @@ import com.github.mvysny.dynatest.DynaTest
  * Tests the [InMemoryUMN] implementation.
  */
 class InMemoryUMNTest : DynaTest({
-    genericUmnTestBattery { InMemoryUMN() }
+    genericUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }
 })

@@ -6,7 +6,8 @@ import java.io.File
 
 class MvstoreUMNTest : DynaTest({
     group("in-memory tests") {
-        genericUmnTestBattery { MvstoreUMN(MVStore.open(null), JavaDocumentSerializer) }
+        genericUmnTestBattery { MvstoreUMN(MVStore.open(null), JavaDocumentSerializer, AutoTypeResolver,
+            { id -> throw RuntimeException("db should be empty")}) }
     }
 
     group("file-based tests") {

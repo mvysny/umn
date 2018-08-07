@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import java.io.ByteArrayInputStream
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
@@ -9,7 +10,8 @@ import kotlin.reflect.KClass
  *
  * Since it's in-memory only, it supports all key types: any class classes can act as a key.
  */
-class InMemoryUMN : UMN {
+class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
+                  private val serializer: DocumentSerializer) : UMN {
     override val delegate: UMN?
         get() = null
 
@@ -35,17 +37,24 @@ class InMemoryUMN : UMN {
 
     override fun exists(id: UUID): Boolean = map.containsKey(id)
 
-    override fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>) {
-        map.computeIfPresent(id, { _, _ -> document }) ?: throw IllegalArgumentException("The document with id $id does not exist")
+    override fun update(id: UUID, document: Any) {
+        map.computeIfPresent(id) { _, _ -> document } ?: throw IllegalArgumentException("The document with id $id does not exist")
     }
 
-    override fun delete(id: UUID, clazz: KClass<out Any>) {
+    override fun delete(id: UUID) {
         map.remove(id)
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> =
         utilityMaps.getOrPut(name, { InMemoryUtilityMap<K, V>() }) as UtilityMap<K, V>
+
+    override fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>? {
+        val doc = find(id, Any::class) ?: return null
+        return serializer.serialize(doc).inputStream() to typeToClassResolver.toType(doc.javaClass.kotlin)
+    }
+
+    override fun getSequenceOfIDs(): Sequence<UUID> = map.keys.toList().asSequence()
 }
 
 /**

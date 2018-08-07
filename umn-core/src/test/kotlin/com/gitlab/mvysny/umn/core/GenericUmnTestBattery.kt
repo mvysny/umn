@@ -40,18 +40,18 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
     group("update") {
         test("created document should be updatable") {
             val id = umn.create("testing document")
-            umn.update(id, "foo", String::class)
+            umn.update(id, "foo")
             expect("foo") { umn.get(id, String::class) }
         }
         test("update of non-existing document should fail") {
             expectThrows(IllegalArgumentException::class) {
-                umn.update(UUID.randomUUID(), "foo", String::class)
+                umn.update(UUID.randomUUID(), "foo")
             }
         }
     }
     test("document no longer exists after delete") {
         val id = umn.create("testing document")
-        umn.delete(id, String::class)
+        umn.delete(id)
         expect(false) { umn.exists(id) }
         expect(null) { umn.find(id, String::class) }
     }

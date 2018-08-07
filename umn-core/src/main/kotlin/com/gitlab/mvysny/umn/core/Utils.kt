@@ -1,7 +1,9 @@
 package com.gitlab.mvysny.umn.core
 
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.DataOutputStream
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -82,3 +84,6 @@ fun <T: Closeable> T.tryInit(block: ()->Unit): T {
     }
     return this
 }
+
+fun serializeData(block: DataOutputStream.()->Unit): ByteArray =
+    ByteArrayOutputStream().apply { DataOutputStream(this).block() } .toByteArray()

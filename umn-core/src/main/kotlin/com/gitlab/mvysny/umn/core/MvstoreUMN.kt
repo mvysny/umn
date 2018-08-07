@@ -37,6 +37,15 @@ interface DocumentSerializer {
 }
 
 /**
+ * Every document stored has a type associated. This resolver is able to provide a [KClass] for document type,
+ * so that we can load and deserialize the document properly.
+ */
+interface TypeToClassResolver {
+    fun toClass(type: Short): KClass<*>
+    fun toType(clazz: KClass<*>): Short
+}
+
+/**
  * Uses standard Java Serialization to serialize/deserialize objects. Slow, should only be used for testing purposes.
  */
 object JavaDocumentSerializer : DocumentSerializer {
@@ -54,43 +63,80 @@ object JavaDocumentSerializer : DocumentSerializer {
  * Supports all [Serializable]/[Externalizable] keys; for more info please consult the documentation for H2 MV Store.
  *
  * @property store the underlying store to use, closed when this UMN is closed.
+ * @param typeResolver used once, when the mvstore is migrated from v1 to v2.
  */
-class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer) : UMN {
+class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer,
+                 override val typeToClassResolver: TypeToClassResolver,
+                 val typeResolver: (UUID)->Short) : UMN {
     override val delegate: UMN?
         get() = null
 
-    override fun create(document: Any, id: UUID): Boolean {
-        return map.putIfAbsent(id, serializer.serialize(document)) == null
-    }
+    override fun create(document: Any, id: UUID): Boolean
+            = map.putIfAbsent(id, serializer.serialize(document)) == null
 
     override fun close() {
         store.close()
     }
 
-    private val map: MVMap<UUID, ByteArray> = store.openMap("ROOT")
+    private val map: MVMap<UUID, ByteArray> = store.openMap("ROOT2")
+
+    init {
+        // migrate to v2 with types
+        val oldMap: MVMap<UUID, ByteArray> = store.openMap("ROOT")
+        if (oldMap.isNotEmpty()) {
+            map.clear()
+            oldMap.keyIterator(null).forEach { id ->
+                val clazz = typeToClassResolver.toClass(typeResolver(id))
+                val doc = serializer.deserialize(clazz, oldMap[id]!!)
+                map[id] = serialize(doc)
+            }
+            oldMap.clear()
+        }
+    }
+
+    private fun serialize(doc: Any): ByteArray = serializeData {
+        writeShort(typeToClassResolver.toType(doc.javaClass.kotlin).toInt())
+        serializer.serialize(doc, this)
+    }
+
+    private fun deserialize(bytes: ByteArray): Pair<Any, Short> {
+        val din = DataInputStream(ByteArrayInputStream(bytes))
+        val type = din.readShort()
+        return serializer.deserialize(typeToClassResolver.toClass(type), din) to type
+    }
 
     override fun create(document: Any): UUID {
         val id = UUID.randomUUID()
-        map[id] = serializer.serialize(document)
+        map[id] = serialize(document)
         return id
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? {
         val bytes = map[id]
-        return if (bytes == null) null else serializer.deserialize(clazz, bytes)
+        return if (bytes == null) null else clazz.java.cast(deserialize(bytes).first)
     }
 
     override fun exists(id: UUID): Boolean = map.containsKey(id)
 
-    override fun <V: Any> update(id: UUID, document: V, clazz: KClass<V>) {
-        map.computeIfPresent(id, { _, _ -> serializer.serialize(document) }) ?: throw IllegalArgumentException("Document with $id does not exist" )
+    override fun update(id: UUID, document: Any) {
+        map.computeIfPresent(id) { _, _ -> serialize(document) } ?: throw IllegalArgumentException("Document with $id does not exist" )
     }
 
-    override fun delete(id: UUID, clazz: KClass<out Any>) {
+    override fun delete(id: UUID) {
         map.remove(id)
     }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = MvstoreUtilityMap(store, name)
+
+    override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
+
+    override fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>? {
+        val bytes = map[id] ?: return null
+        val bin = bytes.inputStream()
+        val din = DataInputStream(bin)
+        val type = din.readShort()
+        return bin to type
+    }
 }
 
 /**

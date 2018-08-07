@@ -31,7 +31,7 @@ internal fun DynaNodeGroup.fifoBufferTestBattery(bufferProducer: () -> FIFOBuffe
 class FIFOBufferTest : DynaTest({
     group("in-memory tests") {
         fifoBufferTestBattery {
-            val map: UtilityMap<Long, String> = InMemoryUMN().openUtilityMap("Foo")
+            val map: UtilityMap<Long, String> = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).openUtilityMap("Foo")
             FIFOBuffer(map)
         }
     }

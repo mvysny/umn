@@ -108,8 +108,9 @@ internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: Global
 
 /**
  * Wraps given receiver and syncs all changes to the global log through given [client].
- * To correctly propagate changes you must use the [UMN] returned by this function, otherwise
- * nothing will be synced.
+ *
+ * Adding syncing aspect to already existing UMN database works, but in that case this function blocks until the
+ * `changes` buffer is built.
  *
  * Warning: never use more than one sync on an UMN storage since they will use the same buffer
  * and will replicate different pieces of data!
@@ -120,7 +121,13 @@ internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: Global
 fun UMN.syncing(client: GlobalLogClient): UMN {
     // buffer which stores outgoing changes until they are correctly transmitted over given
     // client to the global log
-    val changes = FIFOBuffer<LogRecord>(this.openUtilityMap("OUTGOING_BUFFER"))
+    val map = this.openUtilityMap<Long, LogRecord>("OUTGOING_BUFFER")
+    val changes = FIFOBuffer<LogRecord>(map)
+    if (map.isEmpty()) {
+        // this UMN has not been synced yet. We need to iterate all existing documents and create a LogRecord.DocumentCreated
+        // log record for them.
+
+    }
 
     GlobalLogPuller(this, client)
     // also starts the client in the background

@@ -1,7 +1,9 @@
 package com.gitlab.mvysny.umn.sync
 
 import com.github.mvysny.dynatest.DynaTest
+import com.gitlab.mvysny.umn.core.AutoTypeResolver
 import com.gitlab.mvysny.umn.core.InMemoryUMN
+import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.genericUmnTestBattery
 
 class InMemorySyncingUMNTest : DynaTest({
@@ -10,6 +12,6 @@ class InMemorySyncingUMNTest : DynaTest({
 
     // run the basic test battery on the replicating UMN
     group("basic test battery on replicating UMN") {
-        genericUmnTestBattery { InMemoryUMN().syncing(log.newClient()) }
+        genericUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing(log.newClient()) }
     }
 })

@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import java.io.ByteArrayInputStream
 import java.io.Closeable
 import java.util.*
 import kotlin.reflect.KClass
@@ -26,10 +27,15 @@ interface UMN : Closeable {
     /**
      * Finds a document with given [id] and converts it to given [clazz]. If there is no such document or it has been deleted, returns null.
      *
-     * The [clazz] parameter is necessary for, say, JSON converters which do not know the exact class
-     * of the expected document.
+     * The [clazz] parameter is only for casting purposes - the actual document type is stored in the database.
      */
     fun <V : Any> find(id: UUID, clazz: KClass<V>): V?
+
+    /**
+     * Finds a document with given [id] and returns its serialized form. If there is no such document or it has been deleted, returns null.
+     * [Pair.second] is the type of the document.
+     */
+    fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>?
 
     /**
      * Checks whether a document with given [id] exists.
@@ -44,17 +50,14 @@ interface UMN : Closeable {
 
     /**
      * Overwrites a [document] with given [id]. The document must exist!
-     * @param clazz needed by the indexing UMN to retrieve the old copy of the document to remove its indices.
      * @throws IllegalArgumentException if no document with given ID exists.
      */
-    fun <V : Any> update(id: UUID, document: V, clazz: KClass<V>)
+    fun update(id: UUID, document: Any)
 
     /**
      * Deletes the document with given [id]. Does nothing if the document does not exist.
-     * @param clazz this is used for e.g. [IndexingUMN] when the document must be loaded before deleting, so that its indices will be deleted
-     * properly.
      */
-    fun delete(id: UUID, clazz: KClass<out Any>)
+    fun delete(id: UUID)
 
     /**
      * Opens an utility map, creating it if it doesn't exist. Various layers of document storage use the utility map to store various
@@ -68,16 +71,41 @@ interface UMN : Closeable {
     fun <K: Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V>
 
     /**
-     * INTERNAL USE ONLY!!! Puts a [document] with given [id] to the database.
+     * INTERNAL USE ONLY. Puts a [document] with given [id] to the database.
      * Does nothing if there already is a document with given ID.
      *
-     * Never use! Only used by [GlobalLogPuller] to apply changes. This function breaks the guarantee that a document
-     * delete with given id is permanent and irreversible. @todo mavi what may this cause?
+     * Never use directly! Only used by [GlobalLogPuller] to apply changes. This function breaks the guarantee that a document
+     * delete with given id is permanent and irreversible. @todo mavi why is this guarantee important and what would breaking of this cause?
      * @return true if the document was non-existent and was created, false if it already existed and nothing was done
      */
     fun create(document: Any, id: UUID): Boolean
 
     val delegate: UMN?
+
+    val typeToClassResolver: TypeToClassResolver
+
+    /**
+     * Returns a lazily evaluated sequence of all document IDs. No specific order is imposed.
+     *
+     * This function is faster than [getSequenceOfDocs] since it doesn't load the documents.
+     *
+     * It is safe to modify the UMN database (e.g. deleting documents) while iterating.
+     * The sequence must not reflect further modifications; the sequence may thus return IDs of documents that were meanwhile deleted.
+     */
+    fun getSequenceOfIDs(): Sequence<UUID>
+
+    /**
+     * Returns a lazily evaluated sequence of documents and their IDs present in the UMN. The documents are returned in no specific order.
+     *
+     * This function is slower than [getSequenceOfIDs] since it doesn't load the documents.
+     *
+     * It is safe to modify the UMN (e.g. deleting documents) while iterating.
+     * The sequence must not reflect further modifications; however the sequence will only return documents that are still available.
+     */
+    fun getSequenceOfSerializedDocs(): Sequence<Triple<UUID, ByteArrayInputStream, Short>> = getSequenceOfIDs().mapNotNull { id ->
+        val doc = findSerialized(id)
+        if (doc == null) null else Triple(id, doc.first, doc.second)
+    }
 }
 
 fun <T: UMN> umnfacet(this_: UMN, clazz: KClass<T>): T {
