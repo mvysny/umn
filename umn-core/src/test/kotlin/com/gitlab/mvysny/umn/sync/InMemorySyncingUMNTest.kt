@@ -12,6 +12,6 @@ class InMemorySyncingUMNTest : DynaTest({
 
     // run the basic test battery on the replicating UMN
     group("basic test battery on replicating UMN") {
-        genericUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing(log.newClient(), JavaDocumentSerializer) }
+        genericUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ log.newClient() }, JavaDocumentSerializer, true) }
     }
 })

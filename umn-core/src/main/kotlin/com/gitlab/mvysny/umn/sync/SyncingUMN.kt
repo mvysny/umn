@@ -4,6 +4,8 @@ import com.gitlab.mvysny.umn.core.*
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.ConnectException
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import kotlin.concurrent.thread
 
 /**
@@ -19,8 +21,10 @@ import kotlin.concurrent.thread
  *
  * @param globalLogClient not closed by this class
  */
-internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, private val buffer: FIFOBuffer<SerializedLogRecord>,
-                               private val serializer: DocumentSerializer) : Closeable {
+internal class GlobalLogPusher(
+    private val globalLogClient: GlobalLogClient,
+    private val buffer: FIFOBuffer<SerializedLogRecord>
+) : Closeable {
     init {
         globalLogClient.setAddCallback {
             // when the remote log ACKs that the item has been added, remove it from the buffer
@@ -115,14 +119,14 @@ internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: Global
  * @receiver wrap this UMN
  * @return a wrapped receiver which syncs all changes to the global log.
  */
-fun UMN.syncing(client: GlobalLogClient, serializer: DocumentSerializer): UMN {
+private fun UMN.syncingOld(client: GlobalLogClient, serializer: DocumentSerializer): UMN {
     // buffer which stores outgoing changes until they are correctly transmitted over given
     // client to the global log
     val log = MutationLog(this, "OUTGOING_BUFFER", serializer)
 
     GlobalLogPuller(this, client)
     // also starts the client in the background
-    val pusher = GlobalLogPusher(client, log.log, serializer)
+    val pusher = GlobalLogPusher(client, log.log)
 
     try {
         val announcingUMN = AnnouncingUMN(this, log)
@@ -137,6 +141,31 @@ fun UMN.syncing(client: GlobalLogClient, serializer: DocumentSerializer): UMN {
 }
 
 /**
+ * Wraps given receiver and syncs all changes to the global log through given [client].
+ *
+ * Adding syncing aspect to already existing UMN database works, but in that case this function blocks until the
+ * `changes` buffer is built.
+ *
+ * Warning: never use more than one sync on an UMN storage since they will use the same buffer
+ * and will replicate different pieces of data!
+ *
+ * You need to call `SyncingUMN.syncer.start()` to actually start syncing.
+ *
+ * @param clientProvider creates new clients. The client produced must not be started yet. Closed when the [SyncingUMN] is closed or when
+ * the [Syncer] is [Syncer.stop]ped.
+ * @receiver wrap this UMN
+ * @param autoStart if true the syncer is started automatically. Defaults to false.
+ * @return a wrapped receiver which syncs all changes to the global log.
+ */
+fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSerializer, autoStart: Boolean = false): SyncingUMN {
+    val syncingUMN = Syncer(this, serializer, clientProvider).syncingUMN
+    if (autoStart) {
+        syncingUMN.syncer.start()
+    }
+    return syncingUMN
+}
+
+/**
  * Properly closes [pusher], [client] and [delegate] when [close]d.
  */
 internal class SyncCloserUMN(override val delegate: UMN, private val client: GlobalLogClient,
@@ -146,5 +175,75 @@ internal class SyncCloserUMN(override val delegate: UMN, private val client: Glo
         pusher.closeQuietly()
         client.closeQuietly()
         delegate.close()
+    }
+}
+
+/**
+ * Syncs all documents as they are modified in this UMN. To start the synchronization, call [Syncer.start].
+ */
+class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val syncer: Syncer) : UMN by delegate {
+    override fun close() {
+        syncer.close()
+        delegate.close()
+    }
+}
+
+class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, private val clientProvider: ()->GlobalLogClient) : Closeable {
+    /*
+     * buffer which stores outgoing changes until they are correctly transmitted over given
+      */
+    private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer)
+
+    private val eventLoop = Executors.newSingleThreadExecutor()
+    //guarded-by: run in eventLoop
+    private var client: GlobalLogClient? = null
+    private var pusher: GlobalLogPusher? = null
+
+    private val announcingUMN = AnnouncingUMN(underlyingUMN, mutationLog)
+    /**
+     * Use this UMN to interact with the database. All actions done on this UMN will be synced (once the syncing is [start]ed).
+     */
+    val syncingUMN = SyncingUMN(announcingUMN, this)
+
+    fun start() = event {
+        if (client == null) {
+            client = clientProvider()
+            GlobalLogPuller(underlyingUMN, client!!)
+            // also starts the client in the background
+            pusher = GlobalLogPusher(client!!, mutationLog.log)
+        }
+    }
+
+    private fun event(block: ()->Unit) {
+        eventLoop.submit {
+            try {
+                if (!eventLoop.isShutdown) {
+                    block()
+                }
+            } catch (t: Throwable) {
+                log.error("Syncer failed", t)
+            }
+        }
+    }
+
+    fun stop() = event {
+        pusher?.closeQuietly()
+        pusher = null
+        client?.closeQuietly()
+        client = null
+    }
+
+    override fun close() {
+        try {
+            stop()
+        } catch (e: RejectedExecutionException) {
+            // already shut down, do nothing
+        }
+        eventLoop.shutdown()
+    }
+
+    companion object {
+        @JvmStatic
+        private val log = LoggerFactory.getLogger(Syncer::class.java)
     }
 }

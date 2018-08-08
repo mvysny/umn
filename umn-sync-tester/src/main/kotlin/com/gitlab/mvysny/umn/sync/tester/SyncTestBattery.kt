@@ -19,7 +19,7 @@ fun DynaNodeGroup.writerReaderTestBattery(umnType: String, readerCount: Int, umn
     fun createUMN(): UMN {
         val storage = umnStorageProducer()
         val indexing = IndexingUMN(storage, setOf(idx))
-        val syncing = indexing.syncing(clientProducer(), JavaDocumentSerializer)
+        val syncing = indexing.syncing(clientProducer, JavaDocumentSerializer, true)
         return syncing
     }
 
@@ -95,7 +95,7 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
         afterEach { nodes.forEach { it.close() } }
 
         fun startSync() {
-            nodes = nodes.map { it.syncing(clientProducer(), JavaDocumentSerializer) }
+            nodes = nodes.map { it.syncing(clientProducer, JavaDocumentSerializer, true) }
         }
 
         test("create() propagates properly") {
