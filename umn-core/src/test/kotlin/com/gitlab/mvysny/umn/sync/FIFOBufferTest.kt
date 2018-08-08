@@ -1,7 +1,8 @@
-package com.gitlab.mvysny.umn.core
+package com.gitlab.mvysny.umn.sync
 
 import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.DynaTest
+import com.gitlab.mvysny.umn.core.*
 import kotlin.test.expect
 
 internal fun DynaNodeGroup.fifoBufferTestBattery(bufferProducer: () -> FIFOBuffer<String>) {
@@ -31,7 +32,10 @@ internal fun DynaNodeGroup.fifoBufferTestBattery(bufferProducer: () -> FIFOBuffe
 class FIFOBufferTest : DynaTest({
     group("in-memory tests") {
         fifoBufferTestBattery {
-            val map: UtilityMap<Long, String> = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).openUtilityMap("Foo")
+            val map: UtilityMap<Long, String> = InMemoryUMN(
+                AutoTypeResolver,
+                JavaDocumentSerializer
+            ).openUtilityMap("Foo")
             FIFOBuffer(map)
         }
     }

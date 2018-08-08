@@ -3,34 +3,15 @@ package com.gitlab.mvysny.umn.core
 import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.DynaTest
 import com.github.mvysny.dynatest.expectList
-
-/**
- * Thread-safe.
- */
-internal class MutationLog(private val buffer: FIFOBuffer<ByteArray>, private val serializer: DocumentSerializer,
-                           val typeToClassResolver: TypeToClassResolver) {
-    /**
-     * Logs this mutation [record].
-     */
-    fun log(record: LogRecord) {
-        buffer.append(record.toByteArray(serializer))
-    }
-
-    /**
-     * Empties this log. Warning! This operation is NOT atomic - if multiple threads call this, items are randomly drained to both
-     * threads.
-     */
-    fun drain(): List<LogRecord> =
-        generateSequence { buffer.poll() } .map { LogRecord.fromByteArray(it, serializer, typeToClassResolver) } .toList()
-}
+import com.gitlab.mvysny.umn.sync.MutationLog
 
 /**
  * Wraps this UMN in a capturing UMN which sends all mutation events to a log. Returns both the new capturing UMN and the log
  * which hosts the mutation events (in the form of [LogRecord]s).
  */
 internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<UMN, MutationLog> {
-    val log = MutationLog(FIFOBuffer(openUtilityMap("MUTATION_LOG")), serializer, typeToClassResolver)
-    val umn = AnnouncingUMN(this, { log.log(it) })
+    val log = MutationLog(this, "MUTATION_LOG", serializer)
+    val umn = AnnouncingUMN(this, log)
     return umn to log
 }
 

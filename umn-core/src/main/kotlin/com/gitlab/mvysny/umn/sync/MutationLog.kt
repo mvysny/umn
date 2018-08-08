@@ -29,7 +29,7 @@ private object FailingSerializer : DocumentSerializer {
  * @param bufferName to which [UtilityMap] the mutation log will be stored.
  * @param serializer used to serialize documents to the log.
  */
-class MutationLog(umn: UMN, bufferName: String, val serializer: DocumentSerializer) : AnnouncingUMN.Listener {
+class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSerializer) : AnnouncingUMN.Listener {
     val log: FIFOBuffer<SerializedLogRecord>
 
     init {
@@ -51,6 +51,13 @@ class MutationLog(umn: UMN, bufferName: String, val serializer: DocumentSerializ
     override fun onRecord(logRecord: LogRecord) {
         log.append(logRecord.toByteArray(serializer))
     }
+
+    /**
+     * Empties this log. Warning! This operation is NOT atomic - if multiple threads call this, items are randomly drained to both
+     * threads.
+     */
+    fun drain(): List<LogRecord> =
+        generateSequence { log.poll() } .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver) } .toList()
 }
 
 /**
