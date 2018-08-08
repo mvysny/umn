@@ -1,7 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
-import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.*
@@ -12,15 +11,30 @@ import kotlin.reflect.KClass
  * The operation takes effect even if the listener fails.
  *
  * Thread-safe.
- *
- * @property listener notified of mutate operations. May be called from multiple threads at once.
+ * @property listener notified of mutate operations.
  */
-class AnnouncingUMN(override val delegate: UMN, private val listener: (LogRecord)->Unit = {}) : UMN {
+class AnnouncingUMN(override val delegate: UMN, val listener: Listener) : UMN {
+    /**
+     * Listens on log events (on all mutation operations). May be called from multiple threads at once.
+     */
+    interface Listener {
+        /**
+         * Invoked for all mutation operations performed on the UMN. The UMN operation blocks until the listener is done;
+         * it's therefore important that the listener runs quickly.
+         *
+         * The operation has already been performed. If listener fails, the exception is propagated outwards, but that won't
+         * rollback the operation itself.
+         * @param logRecord the record containing all info about the mutation. Only the following record types are reported:
+         * [LogRecord.DocumentCreated], [LogRecord.DocumentUpdated], [LogRecord.DocumentDeleted].
+         */
+        fun onRecord(logRecord: LogRecord)
+    }
+
     override fun create(document: Any, id: UUID) = delegate.create(document, id)
 
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
-        listener(LogRecord.DocumentCreated(document, typeToClassResolver.toType(document.javaClass.kotlin), id))
+        listener.onRecord(LogRecord.DocumentCreated(document, typeToClassResolver.toType(document.javaClass.kotlin), id))
         return id
     }
 
@@ -30,12 +44,12 @@ class AnnouncingUMN(override val delegate: UMN, private val listener: (LogRecord
 
     override fun update(id: UUID, document: Any) {
         delegate.update(id, document)
-        listener(LogRecord.DocumentUpdated(document, typeToClassResolver.toType(document.javaClass.kotlin), id))
+        listener.onRecord(LogRecord.DocumentUpdated(document, typeToClassResolver.toType(document.javaClass.kotlin), id))
     }
 
     override fun delete(id: UUID) {
         delegate.delete(id)
-        listener(LogRecord.DocumentDeleted(id))
+        listener.onRecord(LogRecord.DocumentDeleted(id))
     }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)

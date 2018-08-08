@@ -7,11 +7,6 @@ import java.net.ConnectException
 import kotlin.concurrent.thread
 
 /**
- * A [LogRecord], serialized using [LogRecord.toByteArray]. Deserialize using [LogRecord.fromByteArray].
- */
-typealias SerializedLogRecord = ByteArray
-
-/**
  * Asynchronously pushes contents of the [buffer] to the [globalLogClient]. Only removes the item from the buffer
  * when the [GlobalLogClient.addAsync] has been ACKed; that means that double-sending may occur on
  * failures or when this class is closed while the item is being sent. This is however okay
@@ -70,10 +65,6 @@ internal class GlobalLogPusher(private val globalLogClient: GlobalLogClient, pri
         }
     }
 
-    fun addAsync(record: LogRecord) {
-        buffer.append(record.toByteArray(serializer))
-    }
-
     override fun close() {
         closed = true
         pusherThread.join()
@@ -127,22 +118,14 @@ internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: Global
 fun UMN.syncing(client: GlobalLogClient, serializer: DocumentSerializer): UMN {
     // buffer which stores outgoing changes until they are correctly transmitted over given
     // client to the global log
-    val map = this.openUtilityMap<Long, SerializedLogRecord>("OUTGOING_BUFFER")
-    val changes = FIFOBuffer(map)
-    if (map.isEmpty()) {
-        // this UMN has not been synced yet. We need to iterate all existing documents and create a LogRecord.DocumentCreated
-        // log record for them.
-        getSequenceOfSerializedDocs().forEach {
-            changes.append(LogRecord.DocumentCreated2(it.second, it.first).toByteArray(serializer))
-        }
-    }
+    val log = MutationLog(this, "OUTGOING_BUFFER", serializer)
 
     GlobalLogPuller(this, client)
     // also starts the client in the background
-    val pusher = GlobalLogPusher(client, changes, serializer)
+    val pusher = GlobalLogPusher(client, log.log, serializer)
 
     try {
-        val announcingUMN = AnnouncingUMN(this) { item -> pusher.addAsync(item) }
+        val announcingUMN = AnnouncingUMN(this, log)
         val replicatingUMN = SyncCloserUMN(announcingUMN, client, pusher)
         return replicatingUMN
     } catch (t: Throwable) {
