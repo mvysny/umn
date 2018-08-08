@@ -6,6 +6,7 @@ import java.io.Closeable
 import java.net.ConnectException
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
@@ -21,7 +22,7 @@ import kotlin.concurrent.thread
  *
  * @param globalLogClient not closed by this class
  */
-internal class GlobalLogPusher(
+private class GlobalLogPusher(
     private val globalLogClient: GlobalLogClient,
     private val buffer: FIFOBuffer<SerializedLogRecord>
 ) : Closeable {
@@ -96,7 +97,7 @@ internal class GlobalLogPusher(
  *
  * @param globalLogClient not closed by this class
  */
-internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient) {
+private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
     init {
         var currentPtr = currentLogPointer.find(false) ?: 0L
@@ -104,39 +105,6 @@ internal class GlobalLogPuller(val umn: UMN, private val globalLogClient: Global
             item.applyTo(umn)
             currentLogPointer.put(false, ++currentPtr)
         }
-    }
-}
-
-/**
- * Wraps given receiver and syncs all changes to the global log through given [client].
- *
- * Adding syncing aspect to already existing UMN database works, but in that case this function blocks until the
- * `changes` buffer is built.
- *
- * Warning: never use more than one sync on an UMN storage since they will use the same buffer
- * and will replicate different pieces of data!
- * @param client the client, must not be started yet. Closed when the UMN is closed.
- * @receiver wrap this UMN
- * @return a wrapped receiver which syncs all changes to the global log.
- */
-private fun UMN.syncingOld(client: GlobalLogClient, serializer: DocumentSerializer): UMN {
-    // buffer which stores outgoing changes until they are correctly transmitted over given
-    // client to the global log
-    val log = MutationLog(this, "OUTGOING_BUFFER", serializer)
-
-    GlobalLogPuller(this, client)
-    // also starts the client in the background
-    val pusher = GlobalLogPusher(client, log.log)
-
-    try {
-        val announcingUMN = AnnouncingUMN(this, log)
-        val replicatingUMN = SyncCloserUMN(announcingUMN, client, pusher)
-        return replicatingUMN
-    } catch (t: Throwable) {
-        // if anything fails, clean up
-        pusher.closeQuietly()
-        client.closeQuietly()
-        throw t
     }
 }
 
@@ -166,24 +134,12 @@ fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSeria
 }
 
 /**
- * Properly closes [pusher], [client] and [delegate] when [close]d.
- */
-internal class SyncCloserUMN(override val delegate: UMN, private val client: GlobalLogClient,
-                             private val pusher: GlobalLogPusher
-) : UMN by delegate {
-    override fun close() {
-        pusher.closeQuietly()
-        client.closeQuietly()
-        delegate.close()
-    }
-}
-
-/**
  * Syncs all documents as they are modified in this UMN. To start the synchronization, call [Syncer.start].
  */
 class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val syncer: Syncer) : UMN by delegate {
     override fun close() {
         syncer.close()
+        syncer.awaitClose()
         delegate.close()
     }
 }
@@ -214,10 +170,10 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
         }
     }
 
-    private fun event(block: ()->Unit) {
+    private fun event(forceRun: Boolean = false, block: ()->Unit) {
         eventLoop.submit {
             try {
-                if (!eventLoop.isShutdown) {
+                if (forceRun || !eventLoop.isShutdown) {
                     block()
                 }
             } catch (t: Throwable) {
@@ -226,7 +182,10 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
         }
     }
 
-    fun stop() = event {
+    // tu musim dat forceRun=true, inak close() by nefungoval:
+    // lebo close() zavola stop() a hned shutdowne eventLoop, co je race condition, lebo ked je stop kod konecne zavolany,
+    // zisti ze eventLoop je shutdownuty a nic neurobi.
+    fun stop() = event(true) {
         pusher?.closeQuietly()
         pusher = null
         client?.closeQuietly()
@@ -240,6 +199,10 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
             // already shut down, do nothing
         }
         eventLoop.shutdown()
+    }
+
+    fun awaitClose() {
+        eventLoop.awaitTermination(1, TimeUnit.SECONDS)
     }
 
     companion object {
