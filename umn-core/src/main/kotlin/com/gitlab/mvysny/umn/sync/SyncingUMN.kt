@@ -126,7 +126,9 @@ fun UMN.syncing(client: GlobalLogClient): UMN {
     if (map.isEmpty()) {
         // this UMN has not been synced yet. We need to iterate all existing documents and create a LogRecord.DocumentCreated
         // log record for them.
-
+        getSequenceOfSerializedDocs().forEach {
+            changes.append(LogRecord.DocumentCreated2(it.second, it.first))
+        }
     }
 
     GlobalLogPuller(this, client)

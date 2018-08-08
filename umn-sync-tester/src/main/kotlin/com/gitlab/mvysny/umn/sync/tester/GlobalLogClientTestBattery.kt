@@ -5,7 +5,6 @@ import com.github.mvysny.dynatest.expectThrows
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
-import java.io.Closeable
 import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
@@ -32,20 +31,20 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
         }
         test("calling addAsync() on unstarted client fails") {
             expectThrows(IllegalStateException::class) {
-                client.addAsync(LogRecord.DocumentCreated("foo", UUID.randomUUID()))
+                client.addAsync(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID()))
             }
         }
         test("calling addAsync() on closed client fails") {
             client.close()
             expectThrows(IllegalStateException::class) {
-                client.addAsync(LogRecord.DocumentCreated("foo", UUID.randomUUID()))
+                client.addAsync(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID()))
             }
         }
         test("calling addAsync() on started+closed client fails") {
             client.start()
             client.close()
             expectThrows(IllegalStateException::class) {
-                client.addAsync(LogRecord.DocumentCreated("foo", UUID.randomUUID()))
+                client.addAsync(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID()))
             }
         }
         test("calling start() multiple times fails") {
@@ -79,7 +78,7 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
         afterEach { client.close() }
 
         test("publishing item calls both listeners") {
-            val item = LogRecord.DocumentCreated("foo", UUID.randomUUID())
+            val item = LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID())
             var addCallbackCalled = false
             client.setAddCallback { addCallbackCalled = true }
             var receiverCallbackCalled = false
@@ -112,7 +111,7 @@ private fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProd
         afterEach { clients.forEach { it.closeQuietly() } }
 
         test("addAsync() broadcasts one message to all other clients") {
-            val item = LogRecord.DocumentCreated("foo", UUID.randomUUID())
+            val item = LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID())
             val cts = clients.map { ClientTester(0L, it) }
             clients[0].addAsync(item)
             cts.forEach {
@@ -125,7 +124,9 @@ private fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProd
         }
 
         test("addAsync() preserves message order") {
-            val items = (0..100).map { LogRecord.DocumentUpdated("foo$it", UUID.randomUUID()) }
+            val items = (0..100).map {
+                LogRecord.DocumentUpdated("foo$it", AutoTypeResolver.toType(String::class), UUID.randomUUID())
+            }
             val cts = clients.map { ClientTester(0L, it) }
             for (item in items) {
                 clients[0].addAsync(item)
@@ -141,7 +142,7 @@ private fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProd
     }
 }
 
-private class ClientTester(offset: Long, val client: GlobalLogClient) {
+private class ClientTester(offset: Long, client: GlobalLogClient) {
     val addCallbackCalledCount = AtomicInteger()
     private val received = LinkedBlockingQueue<LogRecord>()
     fun getReceived(): List<LogRecord> = received.toList()

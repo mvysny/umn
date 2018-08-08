@@ -49,18 +49,18 @@ internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN
         }
         test("creating document produces one log entry") {
             val id = umn.create("kvak")
-            expectList(LogRecord.DocumentCreated("kvak", id)) { log.drain() }
+            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id)) { log.drain() }
         }
         test("creating+updating document produces two log entries") {
             val id = umn.create("kvak")
             umn.update(id, "foo")
-            expectList(LogRecord.DocumentCreated("kvak", id),
+            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id),
                 LogRecord.DocumentUpdated("foo", AutoTypeResolver.toType(String::class), id)) { log.drain() }
         }
         test("creating+deleting document produces two log entries") {
             val id = umn.create("kvak")
             umn.delete(id)
-            expectList(LogRecord.DocumentCreated("kvak", id), LogRecord.DocumentDeleted(id)) { log.drain() }
+            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id)) { log.drain() }
         }
     }
 }

@@ -78,7 +78,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
         store.close()
     }
 
-    private val map: MVMap<UUID, ByteArray> = store.openMap("ROOT2")
+    private val map: MVMap<UUID, SerializedDocument> = store.openMap("ROOT2")
 
     init {
         // migrate to v2 with types
@@ -94,12 +94,12 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
         }
     }
 
-    private fun serialize(doc: Any): ByteArray = serializeData {
+    private fun serialize(doc: Any): SerializedDocument = serializeData {
         writeShort(typeToClassResolver.toType(doc.javaClass.kotlin).toInt())
         serializer.serialize(doc, this)
     }
 
-    private fun deserialize(bytes: ByteArray): Pair<Any, Short> {
+    private fun deserialize(bytes: SerializedDocument): Pair<Any, Short> {
         val din = DataInputStream(ByteArrayInputStream(bytes))
         val type = din.readShort()
         return serializer.deserialize(typeToClassResolver.toClass(type), din) to type
@@ -130,13 +130,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
 
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
 
-    override fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>? {
-        val bytes = map[id] ?: return null
-        val bin = bytes.inputStream()
-        val din = DataInputStream(bin)
-        val type = din.readShort()
-        return bin to type
-    }
+    override fun findSerialized(id: UUID): SerializedDocument? = map[id]
 }
 
 /**

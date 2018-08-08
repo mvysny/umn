@@ -429,7 +429,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
     override val typeToClassResolver: TypeToClassResolver
         get() = delegate.typeToClassResolver
 
-    override fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>? = delegate.findSerialized(id)
+    override fun findSerialized(id: UUID): SerializedDocument? = delegate.findSerialized(id)
 
     override fun getSequenceOfIDs(): Sequence<UUID> = delegate.getSequenceOfIDs()
 

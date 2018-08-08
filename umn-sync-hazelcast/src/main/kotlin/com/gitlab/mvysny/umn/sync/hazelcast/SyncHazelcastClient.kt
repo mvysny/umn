@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.sync.hazelcast
 
 import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
+import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.hazelcast.client.HazelcastClient
 import com.hazelcast.client.config.ClientConfig
@@ -15,7 +16,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 class SyncHazelcastClient(val hostPort: String, val topic: String,
-                          val serializer: DocumentSerializer) : GlobalLogClient {
+                          val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) : GlobalLogClient {
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
@@ -61,7 +62,7 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
                 itemAddedQueue.add(item.item)
                 itemAddedLock.withLock {
                     val ba = itemAddedQueue.remove()
-                    val record = LogRecord.fromByteArray(ba, serializer)
+                    val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
                     receiveCallback(record)
                 }
             }
@@ -73,7 +74,7 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
             // preto my len prejdeme list a zavolame callback pre kazdy item.
             val size = list.size
             list.subList(offset.coerceAtMost(size), size).forEach { ba ->
-                val record = LogRecord.fromByteArray(ba, serializer)
+                val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
                 receiveCallback(record)
             }
         }

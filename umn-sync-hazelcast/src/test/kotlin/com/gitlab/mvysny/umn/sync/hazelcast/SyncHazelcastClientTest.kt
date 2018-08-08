@@ -3,6 +3,7 @@ package com.gitlab.mvysny.umn.sync.hazelcast
 import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.InMemoryUMN
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
+import com.gitlab.mvysny.umn.sync.tester.AutoTypeResolver
 import com.gitlab.mvysny.umn.sync.tester.globalLogClientTestBattery
 import com.gitlab.mvysny.umn.sync.tester.writerReaderTestBattery
 import com.hazelcast.config.Config
@@ -24,11 +25,11 @@ class SyncHazelcastClientTest : DynaTest({
     lateinit var topic: String
     beforeEach { topic = "topic-${UUID.randomUUID()}" }
 
-    fun newClient() = SyncHazelcastClient("127.0.0.1:5051", topic, JavaDocumentSerializer)
+    fun newClient() = SyncHazelcastClient("127.0.0.1:5051", topic, JavaDocumentSerializer, AutoTypeResolver)
 
     globalLogClientTestBattery { newClient() }
 
-    writerReaderTestBattery(1, { InMemoryUMN() }, { newClient() })
+    writerReaderTestBattery(1, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
 
-    writerReaderTestBattery(10, { InMemoryUMN() }, { newClient() })
+    writerReaderTestBattery(10, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
 })

@@ -1,6 +1,5 @@
 package com.gitlab.mvysny.umn.core
 
-import java.io.ByteArrayInputStream
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
@@ -49,9 +48,13 @@ class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> =
         utilityMaps.getOrPut(name, { InMemoryUtilityMap<K, V>() }) as UtilityMap<K, V>
 
-    override fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>? {
+    override fun findSerialized(id: UUID): SerializedDocument? {
         val doc = find(id, Any::class) ?: return null
-        return serializer.serialize(doc).inputStream() to typeToClassResolver.toType(doc.javaClass.kotlin)
+        val type = typeToClassResolver.toType(doc.javaClass.kotlin)
+        return serializeData {
+            writeShort(type.toInt())
+            serializer.serialize(doc, this)
+        }
     }
 
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keys.toList().asSequence()

@@ -32,10 +32,9 @@ interface UMN : Closeable {
     fun <V : Any> find(id: UUID, clazz: KClass<V>): V?
 
     /**
-     * Finds a document with given [id] and returns its serialized form. If there is no such document or it has been deleted, returns null.
-     * [Pair.second] is the type of the document.
+     * Low-level API, don't use. Finds a document with given [id] and returns its serialized form. If there is no such document or it has been deleted, returns null.
      */
-    fun findSerialized(id: UUID): Pair<ByteArrayInputStream, Short>?
+    fun findSerialized(id: UUID): SerializedDocument?
 
     /**
      * Checks whether a document with given [id] exists.
@@ -62,7 +61,7 @@ interface UMN : Closeable {
     /**
      * Opens an utility map, creating it if it doesn't exist. Various layers of document storage use the utility map to store various
      * stuff it needs:
-     * * [IndexedUmn] creates a table which stores indices;
+     * * [IndexingUMN] creates a table which stores indices;
      * * [ReplayLogUmn] stores the log entries there
      *
      * This map is for internal storage purposes for this device only and must not be synced over network to other clients.
@@ -101,12 +100,19 @@ interface UMN : Closeable {
      *
      * It is safe to modify the UMN (e.g. deleting documents) while iterating.
      * The sequence must not reflect further modifications; however the sequence will only return documents that are still available.
+     * @return a sequence of pairs; [Pair.first] is the document ID, [Pair.second] is the serialized document.
      */
-    fun getSequenceOfSerializedDocs(): Sequence<Triple<UUID, ByteArrayInputStream, Short>> = getSequenceOfIDs().mapNotNull { id ->
+    fun getSequenceOfSerializedDocs(): Sequence<Pair<UUID, SerializedDocument>> = getSequenceOfIDs().mapNotNull { id ->
         val doc = findSerialized(id)
-        if (doc == null) null else Triple(id, doc.first, doc.second)
+        if (doc == null) null else id to doc
     }
 }
+
+/**
+ * The serialized document itself. First two bytes are [Short] - the document type; remaining bytes is the
+ * serialized document itself, saved via the [DocumentSerializer].
+ */
+typealias SerializedDocument = ByteArray
 
 fun <T: UMN> umnfacet(this_: UMN, clazz: KClass<T>): T {
     if (clazz.java.isInstance(this_)) {
