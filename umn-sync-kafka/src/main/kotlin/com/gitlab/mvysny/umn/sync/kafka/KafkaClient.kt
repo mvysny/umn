@@ -2,8 +2,10 @@ package com.gitlab.mvysny.umn.sync.kafka
 
 import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
+import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.core.tryInit
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
@@ -37,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * they can be passed wrapped in [LogRecord]s to the Kafka topic.
  */
 class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartition,
-                  val serializer: DocumentSerializer) : GlobalLogClient {
+                  val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) : GlobalLogClient {
 
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
@@ -89,7 +91,7 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
             topicPartition,
             serializer,
             receiveCallback,
-            addCallback).apply { start() }
+            addCallback, typeToClassResolver).apply { start() }
     }
 
     override fun close() {
@@ -98,7 +100,7 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
         consumerThread!!.close()
     }
 
-    override fun addAsync(record: LogRecord) {
+    override fun addAsync(record: SerializedLogRecord) {
         checkNotClosed()
         check(started.get()) { "Not started" }
         consumerThread!!.addAsync(record)
@@ -110,7 +112,8 @@ private class KafkaConsumerThread(config: Map<String, Any>,
                                   val topicPartition: TopicPartition,
                                   val serializer: DocumentSerializer,
                                   val receiveCallback: (record: LogRecord)->Unit,
-                                  val addCallback: () -> Unit) :
+                                  val addCallback: () -> Unit,
+                                  val typeToClassResolver: TypeToClassResolver) :
     Thread("Kafka Client Consumer Thread"), Closeable {
     /**
      * The Kafka producer, initialized in [start].
@@ -146,7 +149,7 @@ private class KafkaConsumerThread(config: Map<String, Any>,
             while (!closed.get()) {
                 val records: ConsumerRecords<String, ByteArray> = consumer.poll(1000L)
                 records.forEach { record ->
-                    val rec = LogRecord.fromByteArray(record.value(), serializer)
+                    val rec = LogRecord.fromByteArray(record.value(), serializer, typeToClassResolver)
                     try {
                         receiveCallback(rec)
                     } catch (t: Throwable) {
@@ -175,10 +178,10 @@ private class KafkaConsumerThread(config: Map<String, Any>,
         private val log = LoggerFactory.getLogger(KafkaConsumerThread::class.java)
     }
 
-    fun addAsync(record: LogRecord) {
+    fun addAsync(record: SerializedLogRecord) {
         checkNotClosed()
         val producerRecord: ProducerRecord<String?, ByteArray> =
-            ProducerRecord(topicPartition.topic(), topicPartition.partition(), null, record.toByteArray(serializer))
+            ProducerRecord(topicPartition.topic(), topicPartition.partition(), null, record)
         producer.send(producerRecord) { _, exception: Exception? ->
             if (exception != null) {
                 if (!closed.get() && exception is TimeoutException) {
