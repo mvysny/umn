@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.sync.tester
 
 import com.github.mvysny.dynatest.DynaNodeGroup
+import com.github.mvysny.dynatest.expectList
 import com.gitlab.mvysny.umn.core.*
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.syncing
@@ -108,8 +109,8 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             // the sync runs in bg, wait a bit until all changes are distributed
             Thread.sleep(500)
             // check that the documents were propagated properly to all nodes
-            nodes.forEach {
-                uuids.forEach { id, doc -> expect(doc) { uuids[id] } }
+            nodes.forEach { node ->
+                uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
             }
         }
 
@@ -128,8 +129,8 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             // the sync runs in bg, wait a bit until all changes are distributed
             Thread.sleep(500)
             // check that the documents were propagated properly to all nodes
-            nodes.forEach {
-                uuids.forEach { id, doc -> expect(doc) { uuids[id] } }
+            nodes.forEach { node ->
+                uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
             }
         }
 
@@ -141,38 +142,10 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             // the sync runs in bg, wait a bit until all changes are distributed
             Thread.sleep(500)
             // check that the documents were propagated properly to all nodes
-            nodes.forEach {
-                expect(true) { nodes.isEmpty() }
+            nodes.forEach { node ->
+                expectList() { node.getSequenceOfIDs().toList() }
+                expect(true) { node.isEmpty() }
             }
         }
-
-/*
-        test("propagation creates indices properly") {
-            val id = writer.create("askdj124389akj")
-            allClients().forEach { umn ->
-                expectAsync(true) { umn.exists(id) }
-                expect(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
-            }
-        }
-        test("create()+update() propagates properly") {
-            val id = writer.create("askdj124389akj")
-            writer.update(id, "foo", String::class)
-            allClients().forEach { umn ->
-                expectAsync("foo") { umn.find(id, String::class) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
-                expect(id to "foo") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
-            }
-        }
-        test("create()+update()+delete() propagates properly") {
-            val id = writer.create("askdj124389akj")
-            writer.update(id, "foo", String::class)
-            writer.delete(id, String::class)
-            allClients().forEach { umn ->
-                expectAsync(null) { umn.find(id, String::class) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
-                expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
-            }
-        }
-*/
     }
 }
