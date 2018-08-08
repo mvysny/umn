@@ -106,6 +106,8 @@ interface UMN : Closeable {
         val doc = findSerialized(id)
         if (doc == null) null else id to doc
     }
+
+    fun isEmpty(): Boolean = !getSequenceOfIDs().any()
 }
 
 /**

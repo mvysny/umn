@@ -18,6 +18,7 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
         val id = UUID.randomUUID()
         expect(false) { umn.exists(id) }
         expect(null) { umn.find(id, String::class) }
+        expect(true) { umn.isEmpty() }
     }
     group("create") {
         test("create of document should succeed") {
@@ -26,6 +27,7 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
         test("created document should exist") {
             val id = umn.create("testing document")
             expect(true) { umn.exists(id) }
+            expect(false) { umn.isEmpty() }
         }
         test("re-creating same document does nothing") {
             val id = umn.create("testing document")
@@ -54,6 +56,7 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
         umn.delete(id)
         expect(false) { umn.exists(id) }
         expect(null) { umn.find(id, String::class) }
+        expect(true) { umn.isEmpty() }
     }
 
     group("UtilityMap tests") {
@@ -126,6 +129,21 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             expect(1) { map.lowerKey(2) }
             expect(0) { map.lowerKey(1) }
             expect(null) { map.lowerKey(0) }
+        }
+    }
+
+    group("getSequenceOfIDs()") {
+        test("initially it returns an empty value") {
+            expectList() { umn.getSequenceOfIDs().toList() }
+        }
+        test("creating document lists it in the sequence") {
+            val id = umn.create("any")
+            expectList(id) { umn.getSequenceOfIDs().toList() }
+        }
+        test("creating+deleting document does not lists it in the sequence") {
+            val id = umn.create("any")
+            umn.delete(id)
+            expectList() { umn.getSequenceOfIDs().toList() }
         }
     }
 }

@@ -132,6 +132,8 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
 
     override fun findSerialized(id: UUID): SerializedDocument? = map[id]
+
+    override fun isEmpty(): Boolean = map.isEmpty()
 }
 
 /**

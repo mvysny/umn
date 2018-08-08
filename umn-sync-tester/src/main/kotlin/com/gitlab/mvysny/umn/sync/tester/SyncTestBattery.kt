@@ -40,6 +40,7 @@ fun DynaNodeGroup.writerReaderTestBattery(umnType: String, readerCount: Int, umn
             allClients().forEach { reader ->
                 expect(false) { reader.exists(id) }
                 expect(null) { reader.find(id, String::class) }
+                expect(true) { reader.isEmpty() }
             }
         }
         test("create() propagates properly") {
@@ -111,6 +112,40 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
                 uuids.forEach { id, doc -> expect(doc) { uuids[id] } }
             }
         }
+
+        test("create()+update() propagates properly") {
+            val uuids = mutableMapOf<UUID, String>()
+            nodes.forEach { node ->
+                (0 until Random().nextInt(50)).forEach {
+                    val doc = "foo $it"
+                    val updated = "bar $it"
+                    val id = node.create(doc)
+                    node.update(id, updated)
+                    uuids.put(id, updated)
+                }
+            }
+            startSync()
+            // the sync runs in bg, wait a bit until all changes are distributed
+            Thread.sleep(500)
+            // check that the documents were propagated properly to all nodes
+            nodes.forEach {
+                uuids.forEach { id, doc -> expect(doc) { uuids[id] } }
+            }
+        }
+
+        test("deleted documents are not propagated") {
+            nodes.forEach { node ->
+                (0 until Random().nextInt(50)).forEach { node.delete(node.create("foo $it")) }
+            }
+            startSync()
+            // the sync runs in bg, wait a bit until all changes are distributed
+            Thread.sleep(500)
+            // check that the documents were propagated properly to all nodes
+            nodes.forEach {
+                expect(true) { nodes.isEmpty() }
+            }
+        }
+
 /*
         test("propagation creates indices properly") {
             val id = writer.create("askdj124389akj")
