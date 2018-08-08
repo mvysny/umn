@@ -12,7 +12,7 @@ import kotlin.test.expect
  */
 fun createMvstoreUMN(): MvstoreUMN = MvstoreUMN(
     MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer,
-    AutoTypeResolver, { id -> throw RuntimeException("We're starting with an empty database!") })
+    AutoTypeResolver)
 
 /**
  * Expects that a value provided by the [actual] closure eventually becomes as [expected].

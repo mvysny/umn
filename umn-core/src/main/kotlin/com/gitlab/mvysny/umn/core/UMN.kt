@@ -1,6 +1,5 @@
 package com.gitlab.mvysny.umn.core
 
-import java.io.ByteArrayInputStream
 import java.io.Closeable
 import java.util.*
 import kotlin.reflect.KClass
@@ -107,7 +106,7 @@ interface UMN : Closeable {
         if (doc == null) null else id to doc
     }
 
-    fun isEmpty(): Boolean = !getSequenceOfIDs().any()
+    fun isEmpty(): Boolean = getSequenceOfIDs().none()
 }
 
 /**

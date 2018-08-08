@@ -7,7 +7,7 @@ import kotlin.reflect.KClass
  * Creates an [UMN] backed by a file-based MV Store.
  */
 fun createMvstoreUMN(): MvstoreUMN = MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer,
-    AutoTypeResolver, { id -> throw RuntimeException("We're starting with an empty database!") })
+    AutoTypeResolver)
 
 /**
  * Dynamically assigns type to a class. Don't use for production!

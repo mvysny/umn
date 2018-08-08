@@ -63,11 +63,9 @@ object JavaDocumentSerializer : DocumentSerializer {
  * Supports all [Serializable]/[Externalizable] keys; for more info please consult the documentation for H2 MV Store.
  *
  * @property store the underlying store to use, closed when this UMN is closed.
- * @param typeResolver used once, when the mvstore is migrated from v1 to v2.
  */
 class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer,
-                 override val typeToClassResolver: TypeToClassResolver,
-                 val typeResolver: (UUID)->Short) : UMN {
+                 override val typeToClassResolver: TypeToClassResolver) : UMN {
     override val delegate: UMN?
         get() = null
 
@@ -80,7 +78,12 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
 
     private val map: MVMap<UUID, SerializedDocument> = store.openMap("ROOT2")
 
-    init {
+    /**
+     * Migrates v1 database to v2. Only needs to be run once. Warning: thread-unsafe! Needs to be run after this class
+     * is constructed, but before it is accessed by other parties.
+     * @param typeResolver used once, when the mvstore is migrated from v1 to v2.
+     */
+    fun migrateV1V2(typeResolver: (UUID)->Short) {
         // migrate to v2 with types
         val oldMap: MVMap<UUID, ByteArray> = store.openMap("ROOT")
         if (oldMap.isNotEmpty()) {
