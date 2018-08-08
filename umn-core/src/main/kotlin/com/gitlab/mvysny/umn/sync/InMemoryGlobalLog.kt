@@ -1,6 +1,8 @@
 package com.gitlab.mvysny.umn.sync
 
+import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
+import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,10 +51,10 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
         receiveCallback = callback
     }
 
-    override fun addAsync(record: LogRecord) {
+    override fun addAsync(record: SerializedLogRecord) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
-        owner.add(this, record)
+        owner.add(this, LogRecord.fromByteArray(record, owner.serializer, owner.typeToClassResolver))
     }
 
     override fun close() {
@@ -71,7 +73,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
 /**
  * Should be thread-safe :-D
  */
-class InMemoryGlobalLog {
+class InMemoryGlobalLog(val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) {
     private val clients = CopyOnWriteArrayList<InMemoryGlobalLogClient>()
     internal val log = CopyOnWriteArrayList<LogRecord>()
 

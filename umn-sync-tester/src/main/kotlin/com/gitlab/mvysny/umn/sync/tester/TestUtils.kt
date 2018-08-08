@@ -1,8 +1,18 @@
 package com.gitlab.mvysny.umn.sync.tester
 
-import com.gitlab.mvysny.umn.core.TypeToClassResolver
+import com.gitlab.mvysny.umn.core.*
+import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import org.h2.mvstore.MVStore
+import java.util.*
 import kotlin.reflect.KClass
 import kotlin.test.expect
+
+/**
+ * Creates an [UMN] backed by a file-based MV Store.
+ */
+fun createMvstoreUMN(): MvstoreUMN = MvstoreUMN(
+    MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer,
+    AutoTypeResolver, { id -> throw RuntimeException("We're starting with an empty database!") })
 
 /**
  * Expects that a value provided by the [actual] closure eventually becomes as [expected].
@@ -37,3 +47,9 @@ object AutoTypeResolver : TypeToClassResolver {
         return type
     }
 }
+
+fun GlobalLogClient.addLogCreated(doc: Any) {
+    val log = LogRecord.DocumentCreated(doc, AutoTypeResolver.toType(doc.javaClass.kotlin), UUID.randomUUID())
+    addAsync(log)
+}
+fun GlobalLogClient.addAsync(log: LogRecord) = addAsync(log.toByteArray(JavaDocumentSerializer))

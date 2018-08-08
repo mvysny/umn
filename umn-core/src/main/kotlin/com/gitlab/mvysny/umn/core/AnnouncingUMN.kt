@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -51,9 +52,12 @@ class AnnouncingUMN(override val delegate: UMN, private val listener: (LogRecord
     override fun getSequenceOfIDs(): Sequence<UUID> = delegate.getSequenceOfIDs()
 }
 
+/**
+ * The class itself is not meant to be [Serializable]. Instead, use [LogRecord.toByteArray] and [LogRecord.fromByteArray].
+ */
 sealed class LogRecord(open val id: UUID) {
     abstract fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer)
-    fun toByteArray(serializer: DocumentSerializer): ByteArray = ByteArrayOutputStream().apply { writeTo(DataOutputStream(this), serializer) } .toByteArray()
+    fun toByteArray(serializer: DocumentSerializer): ByteArray = serializeData { writeTo(this, serializer) }
     abstract fun applyTo(umn: UMN)
 
     data class DocumentCreated(val document: Any, val type: Short, override val id: UUID) : LogRecord(id) {
@@ -169,7 +173,7 @@ sealed class LogRecord(open val id: UUID) {
             }
         }
 
-        fun fromByteArray(bytes: ByteArray, serializer: DocumentSerializer,
+        fun fromByteArray(bytes: SerializedLogRecord, serializer: DocumentSerializer,
                           typeToClassResolver: TypeToClassResolver): LogRecord =
                 readFrom(DataInputStream(bytes.inputStream()), serializer, typeToClassResolver)
     }

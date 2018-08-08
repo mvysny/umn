@@ -3,9 +3,7 @@ package com.gitlab.mvysny.umn.sync.hazelcast
 import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.InMemoryUMN
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
-import com.gitlab.mvysny.umn.sync.tester.AutoTypeResolver
-import com.gitlab.mvysny.umn.sync.tester.globalLogClientTestBattery
-import com.gitlab.mvysny.umn.sync.tester.writerReaderTestBattery
+import com.gitlab.mvysny.umn.sync.tester.*
 import com.hazelcast.config.Config
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
@@ -29,7 +27,19 @@ class SyncHazelcastClientTest : DynaTest({
 
     globalLogClientTestBattery { newClient() }
 
-    writerReaderTestBattery(1, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
+    writerReaderTestBattery("in-memory", 1, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
 
-    writerReaderTestBattery(10, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
+    writerReaderTestBattery("in-memory", 10, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
+
+    writerReaderTestBattery("mvstore", 1, { createMvstoreUMN() }, { newClient() })
+
+    writerReaderTestBattery("mvstore", 10, { createMvstoreUMN() }, { newClient() })
+
+    syncTestBattery("in-memory", 2, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
+
+    syncTestBattery("in-memory", 10, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
+
+    syncTestBattery("mvstore", 2, { createMvstoreUMN() }, { newClient() })
+
+    syncTestBattery("mvstore", 10, { createMvstoreUMN() }, { newClient() })
 })

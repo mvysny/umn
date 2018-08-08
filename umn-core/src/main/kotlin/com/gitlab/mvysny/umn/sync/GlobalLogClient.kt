@@ -110,7 +110,7 @@ interface GlobalLogClient : Closeable {
      *
      * @throws IllegalStateException if the client is not yet started or has been closed.
      */
-    fun addAsync(record: LogRecord)
+    fun addAsync(record: SerializedLogRecord)
 
     /**
      * Returns true after [start] has been called. Returns false if the client is closed.

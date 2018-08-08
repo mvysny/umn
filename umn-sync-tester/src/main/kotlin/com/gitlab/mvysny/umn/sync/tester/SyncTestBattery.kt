@@ -1,10 +1,7 @@
 package com.gitlab.mvysny.umn.sync.tester
 
 import com.github.mvysny.dynatest.DynaNodeGroup
-import com.gitlab.mvysny.umn.core.For
-import com.gitlab.mvysny.umn.core.IndexingUMN
-import com.gitlab.mvysny.umn.core.UMN
-import com.gitlab.mvysny.umn.core.facet
+import com.gitlab.mvysny.umn.core.*
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.syncing
 import java.util.*
@@ -15,17 +12,17 @@ import kotlin.test.expect
  * @param readerCount number of readers, 1 or higher
  * @param umnStorageProducer a basic root storage, [com.gitlab.mvysny.umn.core.InMemoryUMN] or [com.gitlab.mvysny.umn.core.MvstoreUMN].
  */
-fun DynaNodeGroup.writerReaderTestBattery(readerCount: Int, umnStorageProducer: ()->UMN, clientProducer: ()-> GlobalLogClient) {
+fun DynaNodeGroup.writerReaderTestBattery(umnType: String, readerCount: Int, umnStorageProducer: ()->UMN, clientProducer: ()-> GlobalLogClient) {
     require(readerCount >= 1) { "$readerCount must be 1 or higher" }
     val idx = IndexingUMN.IndexDef.simple("length", { setOf(it.length) }, String::class)
     fun createUMN(): UMN {
         val storage = umnStorageProducer()
         val indexing = IndexingUMN(storage, setOf(idx))
-        val syncing = indexing.syncing(clientProducer())
+        val syncing = indexing.syncing(clientProducer(), JavaDocumentSerializer)
         return syncing
     }
 
-    group("sync test with 1 writer and $readerCount reader(s)") {
+    group("sync test with 1 writer and $readerCount reader(s) on $umnType") {
         lateinit var writer: UMN
         lateinit var readers: List<UMN>
         beforeEach {
@@ -85,27 +82,34 @@ fun DynaNodeGroup.writerReaderTestBattery(readerCount: Int, umnStorageProducer: 
  * @param nodeCount number of nodes, 2 or higher
  * @param umnStorageProducer a basic root storage, [com.gitlab.mvysny.umn.core.InMemoryUMN] or [com.gitlab.mvysny.umn.core.MvstoreUMN].
  */
-fun DynaNodeGroup.syncTestBattery(nodeCount: Int, umnStorageProducer: ()->UMN, clientProducer: ()-> GlobalLogClient) {
+fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStorageProducer: ()->UMN, clientProducer: ()-> GlobalLogClient) {
     require(nodeCount >= 1) { "$nodeCount must be 1 or higher" }
     val idx = IndexingUMN.IndexDef.simple("length", { setOf(it.length) }, String::class)
 
-    group("sync test with $nodeCount nodes") {
+    group("sync test with $nodeCount nodes on $umnType") {
         lateinit var nodes: List<UMN>
         beforeEach { nodes = List(nodeCount) { IndexingUMN(umnStorageProducer(), setOf(idx)) } }
         afterEach { nodes.forEach { it.close() } }
 
         fun startSync() {
-            nodes = nodes.map { it.syncing(clientProducer()) }
+            nodes = nodes.map { it.syncing(clientProducer(), JavaDocumentSerializer) }
         }
 
         test("create() propagates properly") {
-            val uuids = mutableListOf<UUID>()
+            val uuids = mutableMapOf<UUID, String>()
             nodes.forEach { node ->
-                (0 until Random().nextInt(50)).forEach { uuids.add(node.create("foo $it")) }
+                (0 until Random().nextInt(50)).forEach {
+                    val doc = "foo $it"
+                    uuids.put(node.create(doc), doc)
+                }
             }
             startSync()
             // the sync runs in bg, wait a bit until all changes are distributed
             Thread.sleep(500)
+            // check that the documents were propagated properly to all nodes
+            nodes.forEach {
+                uuids.forEach { id, doc -> expect(doc) { uuids[id] } }
+            }
         }
 /*
         test("propagation creates indices properly") {

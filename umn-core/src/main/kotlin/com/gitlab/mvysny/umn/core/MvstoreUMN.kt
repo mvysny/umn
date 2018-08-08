@@ -72,7 +72,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
         get() = null
 
     override fun create(document: Any, id: UUID): Boolean
-            = map.putIfAbsent(id, serializer.serialize(document)) == null
+            = map.putIfAbsent(id, serialize(document)) == null
 
     override fun close() {
         store.close()
@@ -95,7 +95,8 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
     }
 
     private fun serialize(doc: Any): SerializedDocument = serializeData {
-        writeShort(typeToClassResolver.toType(doc.javaClass.kotlin).toInt())
+        val type = typeToClassResolver.toType(doc.javaClass.kotlin)
+        writeShort(type.toInt())
         serializer.serialize(doc, this)
     }
 

@@ -4,6 +4,7 @@ import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import com.hazelcast.client.HazelcastClient
 import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.core.HazelcastInstance
@@ -94,10 +95,9 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
         addCallback = callback
     }
 
-    override fun addAsync(record: LogRecord) {
+    override fun addAsync(record: SerializedLogRecord) {
         check(started.get()) { "Not started" }
-        val ba = record.toByteArray(serializer)
-        client!!.getList<ByteArray>(topic).add(ba)
+        client!!.getList<ByteArray>(topic).add(record)
         addCallback()
     }
 
