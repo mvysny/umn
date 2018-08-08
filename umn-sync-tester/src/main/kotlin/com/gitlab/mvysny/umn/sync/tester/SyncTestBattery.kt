@@ -88,7 +88,8 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
     require(nodeCount >= 1) { "$nodeCount must be 1 or higher" }
     val idx = IndexingUMN.IndexDef.simple("length", { setOf(it.length) }, String::class)
 
-    group("sync test with $nodeCount nodes on $umnType") {
+    // tests that adding sync to already existing UMN databases will sync the documents.
+    group("late sync test with $nodeCount nodes on $umnType") {
         lateinit var nodes: List<UMN>
         beforeEach { nodes = List(nodeCount) { IndexingUMN(umnStorageProducer(), setOf(idx)) } }
         afterEach { nodes.forEach { it.close() } }
