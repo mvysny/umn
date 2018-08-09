@@ -43,7 +43,7 @@ class SyncMongoDBClient(
     private val started = AtomicBoolean()
     private var addCallback: () -> Unit = {}
     private var receiveCallback: (record: LogRecord) -> Unit = { _ -> }
-    private var offset: Int = 0
+    private var offset: Long = 0
     private val itemAddedQueue = LinkedBlockingQueue<SerializedLogRecord>()
     private val itemAddedLock = ReentrantLock()
     private var client: MongoClient? = null
@@ -87,25 +87,14 @@ class SyncMongoDBClient(
                 val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
                 receiveCallback(record)
             }
-        }, collection!!, collection!!.countDocuments(), pollDelayMs)
-
-        itemAddedLock.withLock {
-            // list.size sa moze kedykolvek zmenit nam pod zadkom, pretoze niekto prida item
-            // ale to by uz malo ist cez listener.
-            // preto my len prejdeme list a zavolame callback pre kazdy item.
-            collection!!.find().skip(offset).forEach { doc ->
-                val ba = doc["l"] as Binary
-                val record = LogRecord.fromByteArray(ba.data, serializer, typeToClassResolver)
-                receiveCallback(record)
-            }
-        }
+        }, collection!!, offset, pollDelayMs)
     }
 
     override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
         checkNotClosed()
         checkNotStarted()
-        offset = rewind.toInt()
+        offset = rewind
         receiveCallback = callback
     }
 
@@ -146,7 +135,7 @@ private class ActivePollingMongoCollectionWatcher(private val listener: (current
     init {
         t = thread(isDaemon = true, name = ActivePollingMongoCollectionWatcher::class.java.simpleName) {
             try {
-                var current = 0
+                var current = offset.toInt()
                 while(!closing.get()) {
                     collection.find().skip(current).iterator().use { iterator ->
                         while (iterator.hasNext() && !closing.get()) {

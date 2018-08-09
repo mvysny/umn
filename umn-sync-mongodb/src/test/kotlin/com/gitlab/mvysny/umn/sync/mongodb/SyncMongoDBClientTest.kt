@@ -41,6 +41,6 @@ class SyncMongoDBClientTest : DynaTest({
 
         syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer)
 
-        writerReaderTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer)
+        writerReaderTestBattery("mvstore", 1, { createMvstoreUMN() }, clientProducer)
     }
 })
