@@ -40,8 +40,10 @@ fun <T: Closeable> T.tryInit(block: ()->Unit): T {
     } catch (t: Throwable) {
         try {
             close()
-        } catch (ex: Exception) {
+        } catch (ex: Throwable) {
             t.addSuppressed(ex)
+        } finally {
+            throw t
         }
     }
     return this
