@@ -14,10 +14,14 @@ import kotlin.concurrent.thread
 fun main(args: Array<String>) {
     // run MongoDB in Docker first:
     //  docker run --rm -ti -p 27017:27017 mongo:4.0
-    val url = ConnectionString("mongodb://localhost:27017/mydb?maxpoolsize=1&minpoolsize=0")
+    val url = ConnectionString("mongodb://localhost:27017/mydb")
     val settings = MongoClientSettings.builder().apply {
         applyConnectionString(url)
 //        credential(MongoCredential.createCredential("sa", "mydb", "sa".toCharArray()))
+        applyToConnectionPoolSettings {
+            it.minSize(0)
+            it.maxSize(1)
+        }
     }.build()
     MongoClients.create(settings).use { client ->
         println("Got client")
