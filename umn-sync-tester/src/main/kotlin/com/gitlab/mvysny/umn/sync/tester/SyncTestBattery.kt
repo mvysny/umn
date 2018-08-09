@@ -168,6 +168,8 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             withSync {
                 // not resynced
                 expect(false) { nodes[1].exists(id) }
+                // but the doc still exists on other node. This is an example of how to break sync.
+                expect("foo") { nodes[0].get(id, String::class) }
             }
         }
     }
