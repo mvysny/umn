@@ -109,15 +109,16 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
 }
 
 /**
- * Wraps given receiver and syncs all changes to the global log through given [client].
+ * Wraps given receiver and syncs all changes to the global log through clients provided by given [clientProvider].
+ * You need to call `SyncingUMN.syncer.start()` to actually start syncing, or set the [autoStart] parameter to true.
  *
- * Adding syncing aspect to already existing UMN database works, but in that case this function blocks until the
- * `changes` buffer is built.
+ * It is possible to add syncing aspect to an already existing UMN database. If the sync log is detected to be empty,
+ * a dummy [LogRecord.DocumentCreated] is created for every existing document. However, this only works once!
+ * From this point on, you must use [SyncingUMN] to mutate the database, in order to properly populate the mutation log.
+ * If you don't, the mutation log will not be populated with document changes and the changes will not be sent to other nodes.
  *
- * Warning: never use more than one sync on an UMN storage since they will use the same buffer
- * and will replicate different pieces of data!
- *
- * You need to call `SyncingUMN.syncer.start()` to actually start syncing.
+ * Warning: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
+ * and they will send same changes multiple times to other nodes!
  *
  * @param clientProvider creates new clients. The client produced must not be started yet. Closed when the [SyncingUMN] is closed or when
  * the [Syncer] is [Syncer.stop]ped.
@@ -153,11 +154,13 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
     private val eventLoop = Executors.newSingleThreadExecutor()
     //guarded-by: run in eventLoop
     private var client: GlobalLogClient? = null
+    //guarded-by: run in eventLoop
     private var pusher: GlobalLogPusher? = null
 
     private val announcingUMN = AnnouncingUMN(underlyingUMN, mutationLog)
     /**
-     * Use this UMN to interact with the database. All actions done on this UMN will be synced (once the syncing is [start]ed).
+     * Use this UMN to interact with the database. All actions done on this UMN will be stored in the mutation log
+     * and synced (once the syncing is [start]ed).
      */
     val syncingUMN = SyncingUMN(announcingUMN, this)
 
