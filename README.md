@@ -239,3 +239,12 @@ changes and the indices will not be updated. Always call methods on the last lay
 However, if all you have is a SyncingUMN, you can't cast it to `IndexingUMN` to retrieve indices.
 That's why there is the `facet()` method which will traverse delegates until `IndexingUMN` (or
 any other UMN type) is found.
+
+## Syncing
+
+TBD
+
+UMN currently supports the following means of synchronization:
+
+* Via a Kafka server: [umn-sync-kafka]
+* Via Hazelcast server: [umn-sync-hazelcast]

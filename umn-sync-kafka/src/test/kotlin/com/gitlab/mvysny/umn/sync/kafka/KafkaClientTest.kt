@@ -3,9 +3,7 @@ package com.gitlab.mvysny.umn.sync.kafka
 import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.closeQuietly
-import com.gitlab.mvysny.umn.sync.tester.Container
-import com.gitlab.mvysny.umn.sync.tester.Docker
-import com.gitlab.mvysny.umn.sync.tester.globalLogClientTestBattery
+import com.gitlab.mvysny.umn.sync.tester.*
 import org.apache.kafka.common.TopicPartition
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,8 +32,11 @@ class KafkaClientTest : DynaTest({
         lateinit var topic: String
         beforeEach { topic = "topic-${UUID.randomUUID()}" }
 
-        globalLogClientTestBattery {
-            KafkaClient("127.0.0.1:9092", TopicPartition(topic, 0), JavaDocumentSerializer)
-        }
+        val clientProducer = { KafkaClient("127.0.0.1:9092", TopicPartition(topic, 0), JavaDocumentSerializer, AutoTypeResolver) }
+        globalLogClientTestBattery(clientProducer)
+
+        syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer)
+
+        writerReaderTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer)
     }
 })
