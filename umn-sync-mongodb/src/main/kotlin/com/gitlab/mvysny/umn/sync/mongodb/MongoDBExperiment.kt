@@ -30,10 +30,11 @@ fun main(args: Array<String>) {
                 // instead of forcing the user to use complex setup, we'll use active polling
                 var current = 0
                 while (true) {
-                    val i = collection.find().skip(current).iterator()
-                    while (i.hasNext()) {
-                        println("WATCHER: " + i.next()["foo"])
-                        current++
+                    collection.find().skip(current).iterator().use { iterator ->
+                        while (iterator.hasNext()) {
+                            println("WATCHER: " + iterator.next()["foo"])
+                            current++
+                        }
                     }
                     Thread.sleep(300)
                 }
