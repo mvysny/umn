@@ -1,18 +1,25 @@
 package com.gitlab.mvysny.umn.sync.mongodb
 
+import com.mongodb.ConnectionString
+import com.mongodb.MongoClientSettings
+import com.mongodb.MongoCredential
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
 import com.mongodb.client.model.CreateCollectionOptions
 import org.bson.Document
 import java.io.Closeable
-import java.util.*
 import kotlin.concurrent.thread
 
 
 fun main(args: Array<String>) {
     // run MongoDB in Docker first:
     //  docker run --rm -ti -p 27017:27017 mongo:4.0
-    MongoClients.create().use { client ->
+    val url = ConnectionString("mongodb://localhost:27017/mydb?maxpoolsize=1&minpoolsize=0")
+    val settings = MongoClientSettings.builder().apply {
+        applyConnectionString(url)
+//        credential(MongoCredential.createCredential("sa", "mydb", "sa".toCharArray()))
+    }.build()
+    MongoClients.create(settings).use { client ->
         println("Got client")
         val db = client.getDatabase("mydb")
         println(client.listDatabaseNames().toList())
