@@ -4,6 +4,7 @@ import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.expectList
 import com.gitlab.mvysny.umn.core.*
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import com.gitlab.mvysny.umn.sync.SyncingUMN
 import com.gitlab.mvysny.umn.sync.syncing
 import java.util.*
 import kotlin.test.expect
@@ -94,8 +95,17 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
         beforeEach { nodes = List(nodeCount) { IndexingUMN(umnStorageProducer(), setOf(idx)) } }
         afterEach { nodes.forEach { it.close() } }
 
-        fun startSync() {
+        fun withSync(block: ()->Unit) {
+            val oldNodes = nodes
             nodes = nodes.map { it.syncing(clientProducer, JavaDocumentSerializer, true) }
+            try {
+                // the sync runs in bg, wait a bit until all changes are distributed
+                Thread.sleep(300)
+                block()
+            } finally {
+                nodes.forEach { (it as SyncingUMN).syncer.apply { close(); awaitClose() } }
+            }
+            nodes = oldNodes
         }
 
         test("create() propagates properly") {
@@ -106,12 +116,11 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
                     uuids.put(node.create(doc), doc)
                 }
             }
-            startSync()
-            // the sync runs in bg, wait a bit until all changes are distributed
-            Thread.sleep(500)
-            // check that the documents were propagated properly to all nodes
-            nodes.forEach { node ->
-                uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
+            withSync {
+                // check that the documents were propagated properly to all nodes
+                nodes.forEach { node ->
+                    uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
+                }
             }
         }
 
@@ -126,12 +135,11 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
                     uuids.put(id, updated)
                 }
             }
-            startSync()
-            // the sync runs in bg, wait a bit until all changes are distributed
-            Thread.sleep(500)
-            // check that the documents were propagated properly to all nodes
-            nodes.forEach { node ->
-                uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
+            withSync {
+                // check that the documents were propagated properly to all nodes
+                nodes.forEach { node ->
+                    uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
+                }
             }
         }
 
@@ -139,13 +147,27 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             nodes.forEach { node ->
                 (0 until Random().nextInt(50)).forEach { node.delete(node.create("foo $it")) }
             }
-            startSync()
-            // the sync runs in bg, wait a bit until all changes are distributed
-            Thread.sleep(500)
-            // check that the documents were propagated properly to all nodes
-            nodes.forEach { node ->
-                expectList() { node.getSequenceOfIDs().toList() }
-                expect(true) { node.isEmpty() }
+            withSync {
+                // check that the documents were propagated properly to all nodes
+                nodes.forEach { node ->
+                    expectList() { node.getSequenceOfIDs().toList() }
+                    expect(true) { node.isEmpty() }
+                }
+            }
+        }
+
+        test("late sync syncs only once") {
+            val id = nodes[0].create("foo")
+            val oldNodes = nodes
+            withSync {
+                nodes.forEach { it.get(id, String::class) }  // check that the change is propagated
+            }
+            Thread.sleep(200)
+            nodes[1].delete(id) // delete the document without telling sync. This is awful practice but allows us
+            // to check that sync will not resync all documents from all nodes again.
+            withSync {
+                // not resynced
+                expect(false) { nodes[1].exists(id) }
             }
         }
     }
