@@ -18,9 +18,9 @@ class SyncMongoDBClientTest : DynaTest({
     if (Docker.isPresent) {
         // we will only start Kafka once and make every test use a new topic.
         // tests will run much faster this way than if we restarted Kafka after every test
-        lateinit var dockerizedKafka: Container
-        beforeGroup { dockerizedKafka = Docker.startMongoDB() }
-        afterGroup { dockerizedKafka.closeQuietly() }
+        lateinit var dockerizedMongo: Container
+        beforeGroup { dockerizedMongo = Docker.startMongoDB() }
+        afterGroup { dockerizedMongo.closeQuietly() }
 
         lateinit var topic: String
         beforeEach { topic = "topic-${UUID.randomUUID()}" }
@@ -42,5 +42,9 @@ class SyncMongoDBClientTest : DynaTest({
         syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer)
 
         writerReaderTestBattery("mvstore", 1, { createMvstoreUMN() }, clientProducer)
+
+        syncTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer)
+
+        writerReaderTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer)
     }
 })
