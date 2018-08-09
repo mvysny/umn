@@ -2,7 +2,10 @@ package com.gitlab.mvysny.umn.sync.mongodb
 
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
+import com.mongodb.client.model.CreateCollectionOptions
+import org.bson.Document
 import java.io.Closeable
+import java.util.*
 
 
 fun main(args: Array<String>) {
@@ -11,6 +14,15 @@ fun main(args: Array<String>) {
     MongoClients.create().use { client ->
         val db = client.getDatabase("mydb")
         println(client.listDatabaseNames().toList())
+        if (!db.listCollectionNames().contains("mycollection")) {
+            db.createCollection(
+                "mycollection",
+                CreateCollectionOptions().capped(true).sizeInBytes(1_000_000_000_000_000L)
+            )
+        }
+        val collection = db.getCollection("mycollection")
+        collection.insertOne(Document("foo", "bar${UUID.randomUUID()}"))
+        println(collection.find().toList())
     }
 }
 
