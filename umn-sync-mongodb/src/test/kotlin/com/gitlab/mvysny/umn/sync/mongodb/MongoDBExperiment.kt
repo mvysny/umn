@@ -26,6 +26,8 @@ fun main(args: Array<String>) {
         println("Got client")
         val db = client.getDatabase("mydb")
         println(client.listDatabaseNames().toList())
+        val collections = db.listCollections().toList()
+        println(collections)
         if (!db.listCollectionNames().contains("mycollection")) {
             db.createCollection(
                 "mycollection",
