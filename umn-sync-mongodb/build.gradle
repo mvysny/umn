@@ -2,7 +2,7 @@ dependencies {
     compile(project(":umn-core"))
     compile 'org.mongodb:mongodb-driver-sync:3.8.0'
     testCompile(project(":umn-sync-tester"))
-//    compile("ch.qos.logback:logback-classic:1.2.3")
+    testCompile("ch.qos.logback:logback-classic:1.2.3")
 }
 
 publishing {
