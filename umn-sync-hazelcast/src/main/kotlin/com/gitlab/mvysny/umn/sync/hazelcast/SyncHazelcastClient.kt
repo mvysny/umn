@@ -25,7 +25,7 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
     private var addCallback: () -> Unit = {}
     private var receiveCallback: (record: LogRecord) -> Unit = { _ -> }
     private var offset: Int = 0
-    private val itemAddedQueue = LinkedBlockingQueue<ByteArray>()
+    private val itemAddedQueue = LinkedBlockingQueue<SerializedLogRecord>()
     private val itemAddedLock = ReentrantLock()
     private var client: HazelcastInstance? = null
 

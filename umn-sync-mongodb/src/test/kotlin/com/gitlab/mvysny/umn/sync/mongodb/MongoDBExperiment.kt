@@ -27,8 +27,14 @@ fun main(args: Array<String>) {
         val db = client.getDatabase("mydb")
         println(client.listDatabaseNames().toList())
         val collections = db.listCollections().toList()
-        println(collections)
-        if (!db.listCollectionNames().contains("mycollection")) {
+        val c = collections.firstOrNull { it["name"] == "mycollection" }
+        if (c != null) {
+            // check that it is capped
+            if ((c["options"] as? Document)?.get("capped") as? Boolean != true) {
+                throw IllegalStateException("There already is collection mycollection but it is not capped! I need capped collection which guarantees iteration order based on insertion order: $c")
+            }
+        }
+        if (c == null) {
             db.createCollection(
                 "mycollection",
                 CreateCollectionOptions().capped(true).sizeInBytes(1_000_000_000_000_000L)

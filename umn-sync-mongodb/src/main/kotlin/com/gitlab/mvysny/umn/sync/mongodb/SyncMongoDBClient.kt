@@ -4,28 +4,37 @@ import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import com.mongodb.MongoClientSettings
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
-import java.net.ConnectException
+import com.mongodb.client.MongoCollection
+import com.mongodb.client.model.CreateCollectionOptions
+import org.bson.Document
+import org.bson.types.Binary
+import org.slf4j.LoggerFactory
+import java.io.Closeable
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 
 /**
  * Synchronizes UMN over a Mongo DB collection.
  * @property clientSettings the Mongo DB client configuration
- * @property database the MongoDB database to use
- * @property collection the collection which will hold the log. IT MUST BE
+ * @property databaseName the MongoDB database to use
+ * @property collectionName the collection which will hold the log. Auto-created if it doesn't exist. It must be a capped collection!
+ * @property delayMs active polling of new records in the collection: how long to wait before next check. 10 seconds is probably a good value.
  * @author mavi
  */
 class SyncMongoDBClient(
     val clientSettings: MongoClientSettings,
-    val database: String,
-    val collection: String,
+    val databaseName: String,
+    val collectionName: String,
     val serializer: DocumentSerializer,
-    val typeToClassResolver: TypeToClassResolver
+    val typeToClassResolver: TypeToClassResolver,
+    val pollDelayMs: Long
 ) : GlobalLogClient {
 
     override val isStarted: Boolean
@@ -35,49 +44,58 @@ class SyncMongoDBClient(
     private var addCallback: () -> Unit = {}
     private var receiveCallback: (record: LogRecord) -> Unit = { _ -> }
     private var offset: Int = 0
-    private val itemAddedQueue = LinkedBlockingQueue<ByteArray>()
+    private val itemAddedQueue = LinkedBlockingQueue<SerializedLogRecord>()
     private val itemAddedLock = ReentrantLock()
     private var client: MongoClient? = null
+    private var collection: MongoCollection<Document>? = null
 
     private fun checkNotClosed() = check(!closed.get()) { "Already closed" }
     private fun checkNotStarted() = check(!started.get()) { "Already started" }
+
+    private var watcher: ActivePollingMongoCollectionWatcher? = null
 
     @Synchronized
     override fun start() {
         checkNotClosed()
         checkNotStarted()
         val client: MongoClient = MongoClients.create(clientSettings)
-
-        todo check collection
-
+        val db = client.getDatabase(databaseName)
+        val collections = db.listCollections().toList()
+        val c = collections.firstOrNull { it["name"] == "mycollection" }
+        if (c != null) {
+            // check that it is capped
+            if ((c["options"] as? Document)?.get("capped") as? Boolean != true) {
+                throw IllegalStateException("There already is collection mycollection but it is not capped! I need capped collection which guarantees iteration order based on insertion order: $c")
+            }
+        }
+        if (c == null) {
+            db.createCollection(
+                "mycollection",
+                CreateCollectionOptions().capped(true).sizeInBytes(1_000_000_000_000_000L)
+            )
+        }
+        collection = db.getCollection(collectionName)
         this.client = client
         started.set(true)
 
-        val list = client.getList<ByteArray>(topic)
-        list.addItemListener(object : ItemListener<ByteArray>{
-            override fun itemRemoved(item: ItemEvent<ByteArray>) {
-                throw RuntimeException("Can not happen - the items are only appended to the log")
+        watcher = ActivePollingMongoCollectionWatcher({ current, log ->
+            // even if itemAdded() is invoked in parallel, the queue should help keeping
+            // the total order
+            itemAddedQueue.add(log)
+            itemAddedLock.withLock {
+                val ba = itemAddedQueue.remove()
+                val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
+                receiveCallback(record)
             }
-
-            override fun itemAdded(item: ItemEvent<ByteArray>) {
-                // even if itemAdded() is invoked in parallel, the queue should help keeping
-                // the total order
-                itemAddedQueue.add(item.item)
-                itemAddedLock.withLock {
-                    val ba = itemAddedQueue.remove()
-                    val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
-                    receiveCallback(record)
-                }
-            }
-        }, true)
+        }, collection!!, collection!!.countDocuments(), pollDelayMs)
 
         itemAddedLock.withLock {
             // list.size sa moze kedykolvek zmenit nam pod zadkom, pretoze niekto prida item
             // ale to by uz malo ist cez listener.
             // preto my len prejdeme list a zavolame callback pre kazdy item.
-            val size = list.size
-            list.subList(offset.coerceAtMost(size), size).forEach { ba ->
-                val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
+            collection!!.find().skip(offset).forEach { doc ->
+                val ba = doc["l"] as Binary
+                val record = LogRecord.fromByteArray(ba.data, serializer, typeToClassResolver)
                 receiveCallback(record)
             }
         }
@@ -99,13 +117,68 @@ class SyncMongoDBClient(
 
     override fun addAsync(record: SerializedLogRecord) {
         check(started.get()) { "Not started" }
-        client!!.getList<ByteArray>(topic).add(record)
+        collection!!.insertOne(Document("l", Binary(record)))
         addCallback()
     }
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        watcher?.close()
         client?.close()
     }
+}
 
+/**
+ * Change streams are only available on replica: https://stackoverflow.com/questions/48139224/mongodb-change-stream-replica-set-limitation
+ *
+ * Therefore, either you need to have a complex setup, or a non-recommended setup of one-node replica, or we can't use change streams.
+ * Instead of forcing the user to use complex setup, we'll use active polling.
+ * @property listener notified of incoming log records
+ * @property collection listen on new items on this collection
+ * @property offset seek before listening (skip first n documents)
+ * @property delayMs how long to wait before next check.
+ */
+private class ActivePollingMongoCollectionWatcher(private val listener: (current: Int, SerializedLogRecord)->Unit, val collection: MongoCollection<Document>,
+                                                  private var offset: Long,
+                                                  val delayMs: Long) : Closeable {
+    private val closing = AtomicBoolean(false)
+    private val t: Thread
+    init {
+        t = thread(isDaemon = true, name = ActivePollingMongoCollectionWatcher::class.java.simpleName) {
+            try {
+                var current = 0
+                while(!closing.get()) {
+                    collection.find().skip(current).iterator().use { iterator ->
+                        while (iterator.hasNext() && !closing.get()) {
+                            val doc = iterator.next()
+                            val binary = doc["l"] as Binary
+                            listener(current, binary.data)
+                            current++
+                        }
+                    }
+                    if (!closing.get()) {
+                        Thread.sleep(delayMs)
+                    }
+                }
+            } catch (t: Throwable) {
+                if (t is InterruptedException && closing.get()) {
+                    // this is fine
+                } else {
+                    log.error("Watcher thread failed: $t", t)
+                }
+            }
+        }
+    }
+
+    override fun close() {
+        if (closing.compareAndSet(false, true)) {
+            t.interrupt()
+            t.join(1000)
+        }
+    }
+
+    companion object {
+        @JvmStatic
+        private val log = LoggerFactory.getLogger(ActivePollingMongoCollectionWatcher::class.java)
+    }
 }
