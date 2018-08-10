@@ -23,8 +23,9 @@ val settings = MongoClientSettings.builder().apply {
     applyConnectionString(url)
 //        credential(MongoCredential.createCredential("myuser", "mydb", "mypassword".toCharArray()))
     applyToConnectionPoolSettings {
-        // the sync can be slow; let's limit the amount of connections so that the server
-        // is not overwhelmed.
+        // the sync is performed in the background so it doesn't really have to be fast.
+        // Let's limit the amount of connections to the server, so that the server
+        // is not needlessly drained of resources.
         it.minSize(0)
         it.maxSize(1)
     }
