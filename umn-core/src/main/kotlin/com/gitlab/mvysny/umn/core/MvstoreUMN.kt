@@ -81,7 +81,10 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
     /**
      * Migrates v1 database to v2. Only needs to be run once. Warning: thread-unsafe! Needs to be run after this class
      * is constructed, but before it is accessed by other parties.
-     * @param typeResolver used once, when the mvstore is migrated from v1 to v2.
+     *
+     * The v2 database added support for document having types.
+     * @param typeResolver resolves the type for given document. Note that you CAN'T load the document using [get]
+     * since that only works on v2 database (which is not yet populated).
      */
     fun migrateV1V2(typeResolver: (UUID)->Short) {
         // migrate to v2 with types
