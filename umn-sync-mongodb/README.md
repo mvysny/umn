@@ -52,6 +52,48 @@ Every user should sync to its own private database. Configure MongoDB to add use
 assign databases to them; then just use `MongoCredential` to supply username/password
 to the UMN MongoDB client.
 
+Docker example. To start MongoDB with security enabled, just run:
+
+```
+docker run --rm -ti -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=example  -p 27017:27017 mongo:4.0
+```
+
+This will create the `root`/`example` user. To create a database and an user, we'll need to run the `mongo` command inside of the docker.
+
+To check out the docker container ID, just run:
+```
+$ docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                      NAMES
+dc9d3e2361b3        mongo:4.0           "docker-entrypoint.s…"   19 minutes ago      Up 19 minutes       0.0.0.0:27017->27017/tcp   quirky_bhabha
+```
+
+So MongoDB is running in container named `quirky_bhabha`. Now we can connect to the MongoDB:
+
+```
+$ docker exec -ti quirky_bhabha mongo -u root -p example --authenticationDatabase admin
+> use mydb
+> db.createUser({ user: "myuser", pwd: "example", roles: [{ role: "readWrite", db: "mydb" }] })
+> db.listUsers()
+> exit
+```
+
+Now we can connect to our database:
+
+```
+$ docker exec -ti quirky_bhabha mongo -u myuser -p example --authenticationDatabase mydb
+> use mydb
+> db.getCollectionNames()
+> exit
+```
+
+Now the database is ready; we can connect to it by specifying the connection string of `mongodb://localhost:27017/mydb`
+and using the username `myuser` and password `example`.
+
+### Other security considerations
+
+* Use SSL to encrypt traffic
+* Read more on [MongoDB Security Checklist](https://docs.mongodb.com/manual/administration/security-checklist/)
+
 ## Issues
 
 * Should work on Android without any issues: https://stackoverflow.com/questions/6887887/mongodb-on-android
