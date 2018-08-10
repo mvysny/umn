@@ -246,5 +246,6 @@ TBD
 
 UMN currently supports the following means of synchronization:
 
+* Via a MongoDB server: [umn-sync-mongodb](umn-sync-mongodb)
 * Via a Kafka server: [umn-sync-kafka](umn-sync-kafka)
 * Via Hazelcast server: [umn-sync-hazelcast](umn-sync-hazelcast)

@@ -2,6 +2,10 @@
 
 Uses Kafka jar to connect to [Apache Kafka](https://kafka.apache.org/) server and synchronize using a shared Kafka log.
 
+## Tutorial
+
+TBD
+
 ## Security
 
 TBD.
