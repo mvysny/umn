@@ -6,6 +6,7 @@ import com.gitlab.mvysny.umn.core.*
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.SyncingUMN
 import com.gitlab.mvysny.umn.sync.syncing
+import java.time.Duration
 import java.util.*
 import kotlin.test.expect
 
@@ -84,8 +85,12 @@ fun DynaNodeGroup.writerReaderTestBattery(umnType: String, readerCount: Int, umn
  * Tests a more realistic scenario with n equivalent nodes, starting off a different state.
  * @param nodeCount number of nodes, 2 or higher
  * @param umnStorageProducer a basic root storage, [com.gitlab.mvysny.umn.core.InMemoryUMN] or [com.gitlab.mvysny.umn.core.MvstoreUMN].
+ * @param clientProducer produces new unstarted client for every test.
+ * @param awaitSync after starting [SyncingUMN], expect that a full sync will take at most this amount of time.
  */
-fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStorageProducer: ()->UMN, clientProducer: ()-> GlobalLogClient) {
+fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStorageProducer: ()->UMN,
+                                  clientProducer: ()-> GlobalLogClient,
+                                  awaitSync: Duration = Duration.ofMillis(300)) {
     require(nodeCount >= 1) { "$nodeCount must be 1 or higher" }
     val idx = IndexingUMN.IndexDef.simple("length", { setOf(it.length) }, String::class)
 
@@ -95,12 +100,12 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
         beforeEach { nodes = List(nodeCount) { IndexingUMN(umnStorageProducer(), setOf(idx)) } }
         afterEach { nodes.forEach { it.close() } }
 
-        fun withSync(block: ()->Unit) {
+        fun withSync(awaitSync: Duration, block: ()->Unit) {
             val oldNodes = nodes
             nodes = nodes.map { it.syncing(clientProducer, JavaDocumentSerializer, true) }
             try {
                 // the sync runs in bg, wait a bit until all changes are distributed
-                Thread.sleep(300)
+                Thread.sleep(awaitSync.toMillis())
                 block()
             } finally {
                 nodes.forEach { (it as SyncingUMN).syncer.apply { close(); awaitClose() } }
@@ -116,7 +121,7 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
                     uuids.put(node.create(doc), doc)
                 }
             }
-            withSync {
+            withSync(awaitSync) {
                 // check that the documents were propagated properly to all nodes
                 nodes.forEach { node ->
                     uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
@@ -135,7 +140,7 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
                     uuids.put(id, updated)
                 }
             }
-            withSync {
+            withSync(awaitSync) {
                 // check that the documents were propagated properly to all nodes
                 nodes.forEach { node ->
                     uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
@@ -147,7 +152,7 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             nodes.forEach { node ->
                 (0 until Random().nextInt(50)).forEach { node.delete(node.create("foo $it")) }
             }
-            withSync {
+            withSync(awaitSync) {
                 // check that the documents were propagated properly to all nodes
                 nodes.forEach { node ->
                     expectList() { node.getSequenceOfIDs().toList() }
@@ -159,13 +164,13 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
         test("late sync syncs only once") {
             val id = nodes[0].create("foo")
             val oldNodes = nodes
-            withSync {
+            withSync(awaitSync) {
                 nodes.forEach { it.get(id, String::class) }  // check that the change is propagated
             }
             Thread.sleep(200)
             nodes[1].delete(id) // delete the document without telling sync. This is awful practice but allows us
             // to check that sync will not resync all documents from all nodes again.
-            withSync {
+            withSync(awaitSync) {
                 // not resynced
                 expect(false) { nodes[1].exists(id) }
                 // but the doc still exists on other node. This is an example of how to break sync.

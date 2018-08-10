@@ -25,7 +25,8 @@ import kotlin.concurrent.withLock
  * @property clientSettings the Mongo DB client configuration
  * @property databaseName the MongoDB database to use
  * @property collectionName the collection which will hold the log. Auto-created if it doesn't exist. It must be a capped collection!
- * @property delayMs active polling of new records in the collection: how long to wait before next check. 10 seconds is probably a good value.
+ * @property pollDelayMs active polling of new records in the collection: how long to wait before next check. 10 seconds is probably a good value.
+ * @property cappedCollectionSizeInBytes how many records will the log hold. Defaults to 1TB but you may use even larger numbers.
  * @author mavi
  */
 class SyncMongoDBClient(
@@ -34,7 +35,8 @@ class SyncMongoDBClient(
     val collectionName: String,
     val serializer: DocumentSerializer,
     val typeToClassResolver: TypeToClassResolver,
-    val pollDelayMs: Long
+    val pollDelayMs: Long,
+    val cappedCollectionSizeInBytes: Long = 1024L * 1024L * 1024L * 1024L
 ) : GlobalLogClient {
 
     override val isStarted: Boolean
@@ -64,14 +66,14 @@ class SyncMongoDBClient(
         val c = collections.firstOrNull { it["name"] == "mycollection" }
         if (c != null) {
             // check that it is capped
-            if ((c["options"] as? Document)?.get("capped") as? Boolean != true) {
-                throw IllegalStateException("There already is collection mycollection but it is not capped! I need capped collection which guarantees iteration order based on insertion order: $c")
+            check((c["options"] as? Document)?.get("capped") as? Boolean == true) {
+                "There already is collection mycollection but it is not capped! I need capped collection which guarantees iteration order based on insertion order: $c"
             }
         }
         if (c == null) {
             db.createCollection(
                 "mycollection",
-                CreateCollectionOptions().capped(true).sizeInBytes(1_000_000_000_000_000L)
+                CreateCollectionOptions().capped(true).sizeInBytes(cappedCollectionSizeInBytes)
             )
         }
         collection = db.getCollection(collectionName)
@@ -125,7 +127,7 @@ class SyncMongoDBClient(
  * @property listener notified of incoming log records
  * @property collection listen on new items on this collection
  * @property offset seek before listening (skip first n documents)
- * @property delayMs how long to wait before next check.
+ * @property delayMs active polling of new log records from the server: how long to wait before next check.
  */
 private class ActivePollingMongoCollectionWatcher(private val listener: (current: Int, SerializedLogRecord)->Unit, val collection: MongoCollection<Document>,
                                                   private var offset: Long,

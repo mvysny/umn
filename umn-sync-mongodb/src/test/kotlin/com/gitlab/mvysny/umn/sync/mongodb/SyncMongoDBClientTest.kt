@@ -6,6 +6,7 @@ import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.tester.*
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
+import java.time.Duration
 import java.util.*
 
 /**
@@ -39,11 +40,11 @@ class SyncMongoDBClientTest : DynaTest({
         }
         globalLogClientTestBattery(clientProducer)
 
-        syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer)
+        syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer, Duration.ofSeconds(1))
 
         writerReaderTestBattery("mvstore", 1, { createMvstoreUMN() }, clientProducer)
 
-        syncTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer)
+        syncTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer, Duration.ofSeconds(1))
 
         writerReaderTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer)
     }
