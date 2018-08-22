@@ -385,6 +385,13 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * @param forKeys only consider documents mapped to these keys.
          */
         fun findLastID(forKeys: For<K>): UUID? = getDescSequenceOfIDs(forKeys).firstOrNull()
+
+        /**
+         * Checks whether the index contains *value* document with given [id].
+         *
+         * Highly inefficient operation! O(n)
+         */
+        fun containsValueDocument(id: UUID): Boolean = getSequenceOfIDs(For.all()).contains(id)
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)
