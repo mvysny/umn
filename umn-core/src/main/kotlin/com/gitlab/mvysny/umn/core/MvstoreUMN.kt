@@ -83,7 +83,10 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
      * is constructed, but before it is accessed by other parties.
      *
      * The v2 database added support for document having types.
-     * @param typeResolver resolves the type for given document. Note that you CAN'T load the document using [get]
+     *
+     * The function does nothing if the database is already migrated.
+     * @param typeResolver resolves the type for given document. Note that you CAN'T load the document using [get] - hopefully
+     * you had every document indexed by its type previously :-D
      * since that only works on v2 database (which is not yet populated).
      */
     fun migrateV1V2(typeResolver: (UUID)->Short) {
