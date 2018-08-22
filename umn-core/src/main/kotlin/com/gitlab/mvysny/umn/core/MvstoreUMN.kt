@@ -85,6 +85,10 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
      * The v2 database added support for document having types.
      *
      * The function does nothing if the database is already migrated.
+     *
+     * If the [typeResolver] throws an exception, the whole function fails and leaves the db half-migrated. When this function
+     * is re-run, it will clean up and start the migration anew.
+     *
      * @param typeResolver resolves the type for given document. Note that you CAN'T load the document using [get] - hopefully
      * you had every document indexed by its type previously :-D
      * since that only works on v2 database (which is not yet populated).
