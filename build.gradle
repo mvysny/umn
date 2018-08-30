@@ -1,5 +1,5 @@
 buildscript {
-    ext.dynatest_version = "0.8"
+    ext.dynatest_version = "0.9"
 
     ext.local = new Properties()
     if (project.rootProject.file('local.properties').exists()) {
