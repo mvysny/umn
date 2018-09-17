@@ -73,7 +73,24 @@ So MongoDB is running in container named `quirky_bhabha`. Now we can connect to 
 $ docker exec -ti quirky_bhabha mongo -u root -p example --authenticationDatabase admin
 > use mydb
 > db.createUser({ user: "myuser", pwd: "example", roles: [{ role: "readWrite", db: "mydb" }] })
-> db.listUsers()
+> db.getUsers()
+[
+        {
+                "_id" : "mydb.myuser",
+                "user" : "myuser",
+                "db" : "mydb",
+                "roles" : [
+                        {
+                                "role" : "readWrite",
+                                "db" : "mydb"
+                        }
+                ],
+                "mechanisms" : [
+                        "SCRAM-SHA-1",
+                        "SCRAM-SHA-256"
+                ]
+        }
+]
 > exit
 ```
 
