@@ -1,11 +1,10 @@
 dependencies {
     compile(project(":umn-core"))
     compile 'org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830'
-
-    compile 'com.squareup.okhttp3:okhttp:3.11.0'
-
-    testCompile(project(":umn-sync-tester"))
     compile("org.slf4j:slf4j-simple:1.7.25")
+
+    testCompile 'com.squareup.okhttp3:okhttp:3.11.0'
+    testCompile(project(":umn-sync-tester"))
 }
 
 publishing {
@@ -45,3 +44,14 @@ bintray {
     }
 }
 
+task zip(type: Zip) {
+    from 'src/main/scripts'
+    into('lib') {
+        from configurations.runtime.allArtifacts.files
+        from configurations.runtime
+    }
+}
+
+artifacts {
+    archives zip
+}
