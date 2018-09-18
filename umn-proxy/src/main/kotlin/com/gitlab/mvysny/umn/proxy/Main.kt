@@ -37,3 +37,13 @@ class WebsocketServerPojo : WebSocketListener {
         println("${System.identityHashCode(session).toString(16)} WS Server: $msg")
     }
 }
+
+fun main(args: Array<String>) {
+    val port = 8080
+    val server = Server(port)
+    server.handler = WebSocketHandler.Simple(WebsocketServerPojo::class.java)
+    server.start()
+    println("Server is running on port $port, press Enter to kill it")
+    System.`in`.read()
+    server.stop()
+}
