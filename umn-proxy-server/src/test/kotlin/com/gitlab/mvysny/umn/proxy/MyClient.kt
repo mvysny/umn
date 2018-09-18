@@ -7,11 +7,10 @@ import org.eclipse.jetty.websocket.server.WebSocketHandler
 import kotlin.concurrent.thread
 
 
-private class EchoWebSocketListener : WebSocketListener() {
+private class MyClient : WebSocketListener() {
     override fun onOpen(webSocket: WebSocket, response: Response) {
-        println("WS: Connection opened")
-        webSocket.send("Hello, it's SSaurel !")
-        webSocket.send("What's up ?")
+        println("WS: Connection opened: $response")
+        webSocket.send("Hello World!")
         webSocket.send(ByteString.decodeHex("deadbeef"))
         webSocket.close(NORMAL_CLOSURE_STATUS, "Goodbye !")
     }
@@ -30,7 +29,7 @@ private class EchoWebSocketListener : WebSocketListener() {
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-        println("WS Client: Error : " + t.message)
+        println("WS Client: Error: $t")
         t.printStackTrace()
     }
 
@@ -42,8 +41,8 @@ private class EchoWebSocketListener : WebSocketListener() {
 fun client() {
     Thread.sleep(1000)
     println("Creating client & connecting")
-    val request = Request.Builder().url("ws://localhost:8080").build()
-    val listener = EchoWebSocketListener()
+    val request = Request.Builder().url("ws://localhost:8080").addHeader("username", "johnny1").build()
+    val listener = MyClient()
     val client = OkHttpClient()
     val ws = client.newWebSocket(request, listener)
     println("Connected! Awaiting 2s")

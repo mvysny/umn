@@ -19,7 +19,12 @@ class WebsocketServerPojo : WebSocketListener {
 
     override fun onWebSocketConnect(session: Session) {
         this.session = session
-        log("Connect: " + session.remoteAddress.address)
+        val user = session.upgradeRequest.getHeader("username")
+        log("Connect: " + session.remoteAddress.address + "; user=" + user)
+        if (user != "johnny25") {
+            session.close(4000, "Invalid user $user")
+            return
+        }
         session.remote.sendString("Hello WebBrowser")
     }
 
