@@ -1,0 +1,47 @@
+dependencies {
+    compile(project(":umn-core"))
+    compile 'org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830'
+
+    compile 'com.squareup.okhttp3:okhttp:3.11.0'
+
+    testCompile(project(":umn-sync-tester"))
+    compile("org.slf4j:slf4j-simple:1.7.25")
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId project.group
+            artifactId 'umn-proxy'
+            version project.version
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', 'UMN: Proxy sync over websockets')
+                root.appendNode('name', 'umn-proxy')
+                root.appendNode('url', 'https://gitlab.com/mvysny/umn')
+            }
+            from components.java
+            artifact sourceJar {
+                classifier "sources"
+            }
+        }
+    }
+}
+
+bintray {
+    user = local.getProperty('bintray.user')
+    key = local.getProperty('bintray.key')
+    pkg {
+        repo = 'gitlab'
+        name = 'com.gitlab.mvysny.umn'
+        licenses = ['MIT']
+        vcsUrl = 'https://gitlab.com/mvysny/umn'
+        publish = true
+        publications = ['mavenJava']
+        version {
+            name = project.version
+            released = new Date()
+        }
+    }
+}
+

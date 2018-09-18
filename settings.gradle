@@ -1,2 +1,2 @@
 rootProject.name = 'umn'
-include 'umn-core', 'umn-sync-kafka', 'umn-sync-tester', 'umn-sync-hazelcast', 'umn-sync-mongodb'
+include 'umn-core', 'umn-sync-kafka', 'umn-sync-tester', 'umn-sync-hazelcast', 'umn-sync-mongodb', 'umn-proxy'
