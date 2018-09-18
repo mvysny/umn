@@ -3,6 +3,8 @@ package com.gitlab.mvysny.umn.sync
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.UMN
 import java.io.Closeable
+import java.io.IOException
+import java.util.concurrent.CancellationException
 
 /**
  * Connects multitude of [UMN]s to a *global log* and synchronizes data. For example,
@@ -45,7 +47,7 @@ import java.io.Closeable
  *   is the final state - a closed client can not be reused nor started.
  *
  * The client must reconnect automatically on non-fatal IO exceptions such as connection
- * failures. todo how to announce fatal exceptions such as username/password mismatch?
+ * failures.
  *
  * When the client is closed, it must not fire any callbacks anymore.
  */
@@ -83,16 +85,22 @@ interface GlobalLogClient : Closeable {
      * and starts firing events. The method may be synchronous and may start firing events
      * already from the method body.
      *
-     * The client can be started only once, and from one thread in parallel only.
+     * The client can be started only once, and from one thread only.
      *
      * The method may block (potentially endlessly) until a successful connection has been made. Alternatively, the method
-     * may throw [java.io.IOException] - in this case start should be re-attempted again after a small backoff period.
+     * may throw [java.io.IOException] - in this case start should be re-attempted again after a small back-off period.
+     * Any other type of exception including [RuntimeException], [InvalidUsernamePasswordException] are considered fatal and the re-connection
+     * must not be reattempted.
      *
-     * If [close] is called, the client must stop starting/connecting and return from this method (normal return or throw an exception).
+     * If [close] is called, the client must stop starting/connecting and return from this method (normal return or throw [CancellationException]).
      * @throws IllegalStateException if the client is already started or has been closed.
      * @throws java.io.IOException on recoverable I/O exception
      * @throws java.net.ConnectException a special subclass of IOException when we know that the server is down.
+     * @throws CancellationException if [close] has been called while we were busy in this method connecting to the server.
+     * @throws InvalidUsernamePasswordException if the username/password is invalid.
+     * @throws RuntimeException on other general fatal exception.
      */
+    @Throws(IOException::class, InvalidUsernamePasswordException::class, CancellationException::class)
     fun start()
 
     /**
@@ -100,16 +108,17 @@ interface GlobalLogClient : Closeable {
      * record is added to the log.
      *
      * When the [record] has been added successfully server-side, the [setAddCallback] callback
-     * is called. Afterwards, the record is also announced to all clients via the [setReceiverCallback].
+     * is called. Afterwards, the record is also announced to all clients (including this one) via the [setReceiverCallback].
      *
      * The method can block if the internal outgoing buffer is full, or if the server is currently
      * unavailable. The internal outgoing buffer should be quite small since [GlobalLogPusher]
-     * stores outgoing messages on-disk first.
+     * stores outgoing messages on-disk first. Because of that, the internal buffer may be as small as to hold only one record.
      *
      * Only called by one thread.
      *
      * @throws IllegalStateException if the client is not yet started or has been closed.
      */
+    @Throws(IOException::class)
     fun addAsync(record: SerializedLogRecord)
 
     /**
@@ -117,3 +126,5 @@ interface GlobalLogClient : Closeable {
      */
     val isStarted: Boolean
 }
+
+class InvalidUsernamePasswordException(message: String, cause: Throwable? = null) : Exception(message, cause)
