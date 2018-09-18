@@ -46,5 +46,10 @@ fun client() {
     println("Connected! Awaiting 2s")
     Thread.sleep(2000)
     println("Shutting down client")
-    client.dispatcher().executorService().shutdown();
+    ws.cancel()
+    client.close()
+}
+
+fun OkHttpClient.close() {
+    dispatcher().executorService().shutdown()
 }
