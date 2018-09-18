@@ -4,7 +4,6 @@ import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.websocket.api.Session
 import org.eclipse.jetty.websocket.api.WebSocketListener
 import org.eclipse.jetty.websocket.server.WebSocketHandler
-import kotlin.concurrent.thread
 
 
 class WebsocketServerPojo : WebSocketListener {
@@ -30,7 +29,7 @@ class WebsocketServerPojo : WebSocketListener {
     }
 
     override fun onWebSocketBinary(payload: ByteArray, offset: Int, len: Int) {
-        log("Binary: ${payload.copyOfRange(offset, len).joinToString(separator = ":") { (it.toInt() and 0xFF).toString(16) }}")
+        log("Binary: ${payload.copyOfRange(offset, len).toHex()}")
     }
 
     private fun log(msg: String) {
@@ -47,3 +46,5 @@ fun main(args: Array<String>) {
     System.`in`.read()
     server.stop()
 }
+
+fun ByteArray.toHex() = joinToString(separator = ":") { (it.toInt() and 0xFF).toString(16) }
