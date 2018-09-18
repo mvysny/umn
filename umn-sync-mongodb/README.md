@@ -113,7 +113,7 @@ and using the username `myuser` and password `example`.
 
 ## Issues
 
-* Should work on Android without any issues: https://stackoverflow.com/questions/6887887/mongodb-on-android
+* Doesn't work on Android: https://stackoverflow.com/questions/6887887/mongodb-on-android
 * Unfortunately Change streams are supported only on replicas; to keep the server setup simple
   `SyncMongoDBClient` does not use change streams for listening on changes on the server,
   but instead it uses active polling.
