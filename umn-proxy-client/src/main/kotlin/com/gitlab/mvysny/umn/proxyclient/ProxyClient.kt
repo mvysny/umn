@@ -1,18 +1,19 @@
 package com.gitlab.mvysny.umn.proxyclient
 
+import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
+import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import okhttp3.*
 import okio.ByteString
 import java.lang.IllegalStateException
-import java.util.concurrent.CompletableFuture
 
 /**
  * @property client the client which will be used to WS-connect to the server.
  * @param requestBuilder the request builder with [Request.Builder.url] set.
  */
-class ProxyClient(val client: OkHttpClient, requestBuilder: Request.Builder, username: String, password: String) : GlobalLogClient {
+class ProxyClient(val client: OkHttpClient, requestBuilder: Request.Builder, username: String, password: String, val documentSerializer: DocumentSerializer, val documentTypeResolver: TypeToClassResolver) : GlobalLogClient {
     val listener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
