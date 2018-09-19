@@ -31,7 +31,7 @@ sealed class AbstractMessage {
     abstract fun writeTo(dout: DataOutputStream)
 
     fun asByteArray(): ByteArray = ByteArrayOutputStream().apply {
-        writeTo(DataOutputStream(this))
+        this@AbstractMessage.writeTo(DataOutputStream(this))
     }.toByteArray()
 
     object Started : AbstractMessage() {
@@ -86,6 +86,7 @@ sealed class AbstractMessage {
         private val TYPE_ON_LOG_RECORD = 4
 
         fun fromByteArray(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): AbstractMessage {
+            require(bytes.isNotEmpty() && offset < length) { "Empty array: ${bytes.size}, offset=$offset length=$length" }
             val din = DataInputStream(bytes.inputStream(offset, length))
             val type = din.readByte().toInt()
             return when (type) {

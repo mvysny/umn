@@ -29,13 +29,14 @@ class UMNProxyWebsocketListener : WebSocketListener {
         this.session = session
         val username: String? = session.upgradeRequest.getHeader("username")
         val password: String? = session.upgradeRequest.getHeader("password")
-        if (username == null || password == null) {
+        val rewindStr: String? = session.upgradeRequest.getHeader("rewind")
+        if (username == null || password == null || rewindStr == null) {
             log.warn("Missing headers")
             session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, "Missing headers")
             return
         }
         this.username = username
-        val rewind = session.upgradeRequest.getHeader("rewind").toLong()
+        val rewind = rewindStr.toLong()
         logStorage = server.createGlobalLogClient(username, password)
         logStorage.setAddCallback {
             session.remote.send(AbstractMessage.OnAdded)
@@ -98,4 +99,8 @@ class UMNProxyServer(val port: Int, val globalLogClientProvider: GlobalLogClient
     }
 }
 
-fun RemoteEndpoint.send(msg: AbstractMessage) = sendBytes(ByteBuffer.wrap(msg.asByteArray()))
+fun RemoteEndpoint.send(msg: AbstractMessage) {
+    val bytes = msg.asByteArray()
+    check(bytes.isNotEmpty()) { "sending empty message!" }
+    sendBytes(ByteBuffer.wrap(bytes))
+}

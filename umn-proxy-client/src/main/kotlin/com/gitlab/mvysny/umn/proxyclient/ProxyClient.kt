@@ -18,6 +18,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder, val username: String, private val password: String) : GlobalLogClient {
     private val listener = Listener()
 
+    init {
+        requestBuilder.addHeader("rewind", "0")
+    }
+
     inner class Listener : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             // do nothing. We either await for socket close (on username/password mismatch or for some other reason), or
@@ -54,12 +58,12 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            log.error("websocket failed: $t", t)
+            log.error("$username: websocket failed: $t", t)
             startFuture.completeExceptionally(RuntimeException(t.message, t))
         }
     }
 
-    private lateinit var ws: WebSocket
+    private var ws: WebSocket? = null
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
@@ -112,12 +116,13 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
     override fun addAsync(record: SerializedLogRecord) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
-        ws.send(AbstractMessage.AddAsync(record))
+        ws!!.send(AbstractMessage.AddAsync(record))
     }
 
     override fun close() {
         if (closed.compareAndSet(false, true)) {
-            ws.close(1000, "CLOSED BY USER")
+            ws?.close(1000, "CLOSED BY USER")
+            ws = null
         }
     }
     
