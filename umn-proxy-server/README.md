@@ -19,7 +19,7 @@ looks like the following:
 The problem is that the `SyncMongoDBClient` class requires MongoDB Java client which doesn't work on Android;
 also your database needs to be exposed over the internet. You can solve both of these issues
 by using the UMN Proxy. The Proxy relies the synchronization commands using a very thin [umn-proxy-client](../umn-proxy-client)
-client which works from anywhere and uses http(s) websockets:
+client which uses http(s) websockets:
 
 ```
 [Your App] --uses--> [UMN] <---uses---> [ProxyClient] <---INTERNET---> [UMN Proxy Server] --uses--> [SyncMongoDBClient] --localhost--> [MongoDB]
