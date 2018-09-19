@@ -33,13 +33,13 @@ UMN Proxy supports two modes of operation:
 ## The Proxy Mode
 
 In this mode, the UMN Proxy only relies the synchronization commands to the actual database.
-Therefore, you need to run both the UMN Proxy and the actual database server (such as MongoDB, Hazelcast or
+Therefore, you need to run both the UMN Proxy Server and the actual database server (such as MongoDB, Hazelcast or
 Kafka) on your server machine. If you wish your setup to be simpler, use the Standalone Mode.
 
 ## The Standalone Mode
 
-UMN Proxy is capable of not only acting as a proxy (relying sync commands to, say, MongoDB) -
-it can also be configured to actually handle the duty of storing of the log (simply by using `MVStoreGlobalLog`
+UMN Proxy Server is capable of not only acting as a proxy (relying sync commands to, say, a MongoDB server) -
+it can be configured to also handle the duty of storing of the log (simply by using the `MVStoreGlobalLog`
 to store it into a H2 MVStore database).
 
 Therefore, if you are shooting for the most simple setup, you don't need Kafka nor MongoDB nor Hazelcast -
