@@ -97,11 +97,12 @@ private class GlobalLogPusher(
  *
  * @param globalLogClient not closed by this class
  */
-private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient) {
+private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient, val documentSerializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
     init {
         var currentPtr = currentLogPointer.find(false) ?: 0L
-        globalLogClient.setReceiverCallback(currentPtr) { item ->
+        globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
+            val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)
             item.applyTo(umn)
             currentLogPointer.put(false, ++currentPtr)
         }
@@ -122,6 +123,7 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  *
  * @param clientProvider creates new clients. The client produced must not be started yet. Closed when the [SyncingUMN] is closed or when
  * the [Syncer] is [Syncer.stop]ped.
+ * @param serializer serializes/deserializes documents
  * @receiver wrap this UMN
  * @param autoStart if true the syncer is started automatically. Defaults to false.
  * @return a wrapped receiver which syncs all changes to the global log.
@@ -167,7 +169,7 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
     fun start() = event {
         if (client == null) {
             client = clientProvider()
-            GlobalLogPuller(underlyingUMN, client!!)
+            GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver)
             // also starts the client in the background
             pusher = GlobalLogPusher(client!!, mutationLog.log)
         }

@@ -12,16 +12,16 @@ import java.lang.IllegalArgumentException
  *
  * # Communication protocol
  *
- * 1. When opening a web socket communication, the username and password must be sent as headers. If these headers are missing or the user/pass
+ * 1. When opening a web socket communication, the `username`, `password` and `rewind` must be sent as headers. If these headers are missing or the user/pass
  * doesn't match, the web socket connection is closed immediately, with [WS_INVALID_USERNAME_PASSWORD].
- * 2. The client starts by sending the [Start] message which also rewinds the message log. The server opens its own [com.gitlab.mvysny.umn.sync.GlobalLogClient]
- * delegate and starts it.
+ * 2. Upon opening a web socket, the server opens its own [com.gitlab.mvysny.umn.sync.GlobalLogClient]
+ * delegate and starts it. If the username/password is invalid, the web socket connection is closed immediately, with [WS_INVALID_USERNAME_PASSWORD].
  * 3. If the client succeeded to be started server-side and everything is OK, the server responds by [Started]. If something failed,
  * the connection is closed with [WS_SERVER_ERROR].
  * 4. Then the server starts sending a stream of [OnLogRecord] to catch up the client with messages he did not yet seen. This depends on the
- * [Start.rewind] parameter.
+ * `rewind` parameter.
  * 5. When the client's [com.gitlab.mvysny.umn.sync.GlobalLogClient.addAsync] is invoked, the client sends [AddAsync] to which the server responds with [OnAdded].
- * 5. Server then periodically sends [OnLogRecord] to inform all clients of an added log record.
+ * 6. Server then periodically sends [OnLogRecord] to inform all clients of an added log record.
  *
  * At any time the connection may be closed by the server in case of an error. In such case the client must not repeat, but instead must fail
  * with a non-recoverable exception.
@@ -30,18 +30,9 @@ sealed class AbstractMessage {
 
     abstract fun writeTo(dout: DataOutputStream)
 
-    fun asByteArray() = ByteArrayOutputStream().apply {
+    fun asByteArray(): ByteArray = ByteArrayOutputStream().apply {
         writeTo(DataOutputStream(this))
-    }
-
-    class Start(val rewind: Long) : AbstractMessage() {
-        override fun writeTo(dout: DataOutputStream) {
-            dout.writeLong(rewind)
-        }
-        companion object {
-            fun read(din: DataInputStream) = Start(din.readLong())
-        }
-    }
+    }.toByteArray()
 
     object Started : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
@@ -87,9 +78,8 @@ sealed class AbstractMessage {
 
     companion object {
         val WS_INVALID_USERNAME_PASSWORD = 4000
-        val WS_SERVER_ERROR = 4000
+        val WS_SERVER_ERROR = 4001
 
-        private val TYPE_START = 0
         private val TYPE_STARTED = 1
         private val TYPE_ADD_ASYNC = 2
         private val TYPE_ON_ADDED = 3
@@ -99,7 +89,6 @@ sealed class AbstractMessage {
             val din = DataInputStream(bytes.inputStream(offset, length))
             val type = din.readByte().toInt()
             when (type) {
-                TYPE_START -> Start.read(din)
                 TYPE_STARTED -> Started
                 TYPE_ADD_ASYNC -> AddAsync.read(din)
                 TYPE_ON_ADDED -> OnAdded

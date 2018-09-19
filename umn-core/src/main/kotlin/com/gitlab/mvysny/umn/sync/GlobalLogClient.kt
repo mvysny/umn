@@ -67,7 +67,7 @@ interface GlobalLogClient : Closeable {
      * greater.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit)
+    fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit)
 
     /**
      * Invoked for every [LogRecord] sent by [addAsync] of this client, serves as a confirmation

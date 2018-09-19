@@ -29,7 +29,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     internal var addCallback: () -> Unit = {}
-    internal var receiveCallback: (record: LogRecord) -> Unit = {}
+    internal var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
 
     /**
      * We have broadcasted (invoked [receiveCallback]) for log items up to this pointer, including.
@@ -68,7 +68,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
         addCallback = callback
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         currentLogPointer = rewind
@@ -93,7 +93,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
     internal fun onNewItems() {
         log.keyIterator(currentLogPointer).forEach { key ->
             val record = checkNotNull(log[key])
-            receiveCallback(LogRecord.fromByteArray(record, owner.serializer, owner.typeToClassResolver))
+            receiveCallback(record)
             currentLogPointer = key + 1
         }
     }
@@ -117,7 +117,7 @@ fun <V: Any> MVMap<Long, V>.append(value: V): Long {
  *
  * Closes [db] when closed.
  */
-class MVStoreGlobalLog(val db: MVStore, val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) : Closeable {
+class MVStoreGlobalLog(val db: MVStore) : Closeable {
     private val startedClients = ConcurrentHashMap<String, BlockingQueue<MVStoreGlobalLogClient>>()
     private val closed = AtomicBoolean(false)
 

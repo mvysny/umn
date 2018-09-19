@@ -1,8 +1,6 @@
 package com.gitlab.mvysny.umn.sync.kafka
 
-import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
-import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.core.tryInit
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
@@ -11,7 +9,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.TimeoutException
 import org.apache.kafka.common.errors.WakeupException
@@ -21,7 +18,6 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
 import org.slf4j.LoggerFactory
 import java.io.Closeable
-import java.lang.Exception
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -38,15 +34,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @param serializer used to serialize documents stored in the [UMN] to byte array, so that
  * they can be passed wrapped in [LogRecord]s to the Kafka topic.
  */
-class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartition,
-                  val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) : GlobalLogClient {
+class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartition) : GlobalLogClient {
 
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     private var addCallback: () -> Unit = {}
-    private var receiveCallback: (record: LogRecord) -> Unit = {}
+    private var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
     private var offset: Long = 0L
     /**
      * The consumer thread polling [consumer]. Started in [start], killed in [close].
@@ -58,7 +53,7 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
 
     private fun checkNotStarted() = check(!started.get()) { "Already started" }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
         checkNotClosed()
         checkNotStarted()
@@ -89,9 +84,8 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
         consumerThread = KafkaConsumerThread(config,
             offset,
             topicPartition,
-            serializer,
             receiveCallback,
-            addCallback, typeToClassResolver).apply { start() }
+            addCallback).apply { start() }
     }
 
     override fun close() {
@@ -110,10 +104,8 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
 private class KafkaConsumerThread(config: Map<String, Any>,
                                   val offset: Long,
                                   val topicPartition: TopicPartition,
-                                  val serializer: DocumentSerializer,
-                                  val receiveCallback: (record: LogRecord)->Unit,
-                                  val addCallback: () -> Unit,
-                                  val typeToClassResolver: TypeToClassResolver) :
+                                  val receiveCallback: (record: SerializedLogRecord)->Unit,
+                                  val addCallback: () -> Unit) :
     Thread("Kafka Client Consumer Thread"), Closeable {
     /**
      * The Kafka producer, initialized in [start].
@@ -149,9 +141,8 @@ private class KafkaConsumerThread(config: Map<String, Any>,
             while (!closed.get()) {
                 val records: ConsumerRecords<String, ByteArray> = consumer.poll(1000L)
                 records.forEach { record ->
-                    val rec = LogRecord.fromByteArray(record.value(), serializer, typeToClassResolver)
                     try {
-                        receiveCallback(rec)
+                        receiveCallback(record.value())
                     } catch (t: Throwable) {
                         log.error("Receiver callback failed", t)
                     }
