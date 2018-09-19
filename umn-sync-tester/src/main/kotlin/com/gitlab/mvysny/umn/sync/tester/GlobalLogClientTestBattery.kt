@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.expect
 
 /**
- * Tests a [GlobalLogClient].
+ * Tests a [GlobalLogClient]. Use [AutoTypeResolver] and [com.gitlab.mvysny.umn.core.JavaDocumentSerializer].
  * @param clientProducer expected to return clients connected to the same global log; the global log
  * must be cleared between individual tests.
  */

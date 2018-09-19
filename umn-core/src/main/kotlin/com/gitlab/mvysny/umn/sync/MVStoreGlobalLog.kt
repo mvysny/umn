@@ -3,8 +3,10 @@ package com.gitlab.mvysny.umn.sync
 import com.gitlab.mvysny.umn.core.DocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.TypeToClassResolver
+import com.gitlab.mvysny.umn.core.closeQuietly
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
+import java.io.Closeable
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
@@ -45,7 +47,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
 
     override fun start() {
         checkNotClosed()
-        check(!started.compareAndSet(false, true)) { "Already started" }
+        check(started.compareAndSet(false, true)) { "Already started" }
 
         // verify the username and password
         val passwordHash = owner.db.openMap<String, String>("users")[username] ?: throw InvalidUsernamePasswordException("No such user: $username")
@@ -77,6 +79,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
         check(started.get()) { "Not yet started" }
         checkNotClosed()
         log.append(record)
+        addCallback()
         owner.fireNewItemNotification(username)
     }
 
@@ -111,9 +114,12 @@ fun <V: Any> MVMap<Long, V>.append(value: V): Long {
 
 /**
  * Thread-safe. Stores logs for multiple users into given [db]. Call [newClient] to provide new client.
+ *
+ * Closes [db] when closed.
  */
-class MVStoreGlobalLog(val db: MVStore, val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) {
+class MVStoreGlobalLog(val db: MVStore, val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) : Closeable {
     private val startedClients = ConcurrentHashMap<String, BlockingQueue<MVStoreGlobalLogClient>>()
+    private val closed = AtomicBoolean(false)
 
     /**
      * Creates a new client for given user. Authenticates the user with given [username] and [password] lazily, in the
@@ -148,5 +154,13 @@ class MVStoreGlobalLog(val db: MVStore, val serializer: DocumentSerializer, val 
     fun deleteUser(username: String) {
         db.openMap<String, String>("users").remove(username)
         db.removeMap(db.openMap<Long, SerializedLogRecord>("${username}__log"))
+    }
+
+    override fun close() {
+        if (closed.compareAndSet(false, true)) {
+            startedClients.values.flatten().forEach { it.closeQuietly() }
+            startedClients.clear()
+            db.close()
+        }
     }
 }
