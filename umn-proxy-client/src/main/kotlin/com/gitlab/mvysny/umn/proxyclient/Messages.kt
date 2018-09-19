@@ -16,7 +16,7 @@ import java.lang.IllegalArgumentException
  * doesn't match, the web socket connection is closed immediately, with [WS_INVALID_USERNAME_PASSWORD].
  * 2. Upon opening a web socket, the server opens its own [com.gitlab.mvysny.umn.sync.GlobalLogClient]
  * delegate and starts it. If the username/password is invalid, the web socket connection is closed immediately, with [WS_INVALID_USERNAME_PASSWORD].
- * 3. If the client succeeded to be started server-side and everything is OK, the server responds by [Started]. If something failed,
+ * 3. If the client succeeded to be started server-side and everything is OK, the server responds by [Started] or [OnLogRecord]. If something failed,
  * the connection is closed with [WS_SERVER_ERROR].
  * 4. Then the server starts sending a stream of [OnLogRecord] to catch up the client with messages he did not yet seen. This depends on the
  * `rewind` parameter.
@@ -85,10 +85,10 @@ sealed class AbstractMessage {
         private val TYPE_ON_ADDED = 3
         private val TYPE_ON_LOG_RECORD = 4
 
-        fun fromByteArray(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size) {
+        fun fromByteArray(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): AbstractMessage {
             val din = DataInputStream(bytes.inputStream(offset, length))
             val type = din.readByte().toInt()
-            when (type) {
+            return when (type) {
                 TYPE_STARTED -> Started
                 TYPE_ADD_ASYNC -> AddAsync.read(din)
                 TYPE_ON_ADDED -> OnAdded
