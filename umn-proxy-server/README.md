@@ -1,8 +1,8 @@
 # UMN Proxy
 
-UMN Proxy plugs into the synchronization mechanism and transparently relies synchronization commands
+UMN Proxy Client plugs into the synchronization mechanism and transparently relies synchronization commands
 over a http(s) web socket protocol to a remote
-synchronization server. Typically you employ UMN Proxy when:
+UMN Proxy Server. Typically you employ the UMN Proxy setup when:
 
 * You don't want to expose your database directly over the internet, but you want it to be hidden
   behind a firewall
