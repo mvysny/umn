@@ -58,7 +58,7 @@ fun OkHttpClient.close() {
 
 fun main(args: Array<String>) {
     val server = Server(8080)
-    server.handler = WebSocketHandler.Simple(UMNProxyWebsocketServer::class.java)
+    server.handler = WebSocketHandler.Simple(UMNProxyWebsocketListener::class.java)
     server.start()
     println("Server is running, press Enter to kill it")
     thread {
