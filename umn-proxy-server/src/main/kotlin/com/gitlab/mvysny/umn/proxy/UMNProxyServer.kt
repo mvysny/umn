@@ -60,7 +60,7 @@ class UMNProxyWebsocketListener : WebSocketListener {
     }
 
     override fun onWebSocketText(message: String) {
-        throw IllegalArgumentException("Not expected to receive text, the protocol is purely binary")
+        session.close(1003, "UNEXPECTED TEXT MESSAGE")
     }
 
     override fun onWebSocketBinary(payload: ByteArray, offset: Int, len: Int) {
@@ -68,7 +68,7 @@ class UMNProxyWebsocketListener : WebSocketListener {
         if (msg is AbstractMessage.AddAsync) {
             logStorage.addAsync(msg.record)
         } else {
-            throw IllegalArgumentException("Unexpected message $msg")
+            session.close(1002, "Unexpected message arrived: $msg")
         }
     }
 
