@@ -36,7 +36,7 @@ class SyncMongoDBClientTest : DynaTest({
                     it.maxSize(1)
                 }
             }.build()
-            SyncMongoDBClient(settings, "mydb", topic, JavaDocumentSerializer, AutoTypeResolver, 50)
+            SyncMongoDBClient(settings, "mydb", topic, 50)
         }
         globalLogClientTestBattery(clientProducer)
 

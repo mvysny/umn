@@ -1,8 +1,5 @@
 package com.gitlab.mvysny.umn.sync.hazelcast
 
-import com.gitlab.mvysny.umn.core.DocumentSerializer
-import com.gitlab.mvysny.umn.core.LogRecord
-import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import com.hazelcast.client.HazelcastClient
@@ -16,14 +13,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-class SyncHazelcastClient(val hostPort: String, val topic: String,
-                          val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) : GlobalLogClient {
+class SyncHazelcastClient(val hostPort: String, val topic: String) : GlobalLogClient {
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     private var addCallback: () -> Unit = {}
-    private var receiveCallback: (record: LogRecord) -> Unit = { _ -> }
+    private var receiveCallback: (record: SerializedLogRecord) -> Unit = { _ -> }
     private var offset: Int = 0
     private val itemAddedQueue = LinkedBlockingQueue<SerializedLogRecord>()
     private val itemAddedLock = ReentrantLock()
@@ -63,8 +59,7 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
                 itemAddedQueue.add(item.item)
                 itemAddedLock.withLock {
                     val ba = itemAddedQueue.remove()
-                    val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
-                    receiveCallback(record)
+                    receiveCallback(ba)
                 }
             }
         }, true)
@@ -75,13 +70,12 @@ class SyncHazelcastClient(val hostPort: String, val topic: String,
             // preto my len prejdeme list a zavolame callback pre kazdy item.
             val size = list.size
             list.subList(offset.coerceAtMost(size), size).forEach { ba ->
-                val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
-                receiveCallback(record)
+                receiveCallback(ba)
             }
         }
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
         checkNotClosed()
         checkNotStarted()

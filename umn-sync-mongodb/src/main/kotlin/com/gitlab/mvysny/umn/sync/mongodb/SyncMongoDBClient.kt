@@ -1,8 +1,5 @@
 package com.gitlab.mvysny.umn.sync.mongodb
 
-import com.gitlab.mvysny.umn.core.DocumentSerializer
-import com.gitlab.mvysny.umn.core.LogRecord
-import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import com.mongodb.MongoClientSettings
@@ -33,8 +30,6 @@ class SyncMongoDBClient(
     val clientSettings: MongoClientSettings,
     val databaseName: String,
     val collectionName: String,
-    val serializer: DocumentSerializer,
-    val typeToClassResolver: TypeToClassResolver,
     val pollDelayMs: Long,
     val cappedCollectionSizeInBytes: Long = 1024L * 1024L * 1024L * 1024L
 ) : GlobalLogClient {
@@ -44,7 +39,7 @@ class SyncMongoDBClient(
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     private var addCallback: () -> Unit = {}
-    private var receiveCallback: (record: LogRecord) -> Unit = { _ -> }
+    private var receiveCallback: (record: SerializedLogRecord) -> Unit = { _ -> }
     private var offset: Long = 0
     private val itemAddedQueue = LinkedBlockingQueue<SerializedLogRecord>()
     private val itemAddedLock = ReentrantLock()
@@ -86,13 +81,12 @@ class SyncMongoDBClient(
             itemAddedQueue.add(log)
             itemAddedLock.withLock {
                 val ba = itemAddedQueue.remove()
-                val record = LogRecord.fromByteArray(ba, serializer, typeToClassResolver)
-                receiveCallback(record)
+                receiveCallback(ba)
             }
         }, collection!!, offset, pollDelayMs)
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
         checkNotClosed()
         checkNotStarted()

@@ -1,12 +1,10 @@
 package com.gitlab.mvysny.umn.sync.kafka
 
 import com.github.mvysny.dynatest.DynaTest
-import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.tester.*
 import org.apache.kafka.common.TopicPartition
 import java.util.*
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Runs Kafka in Docker. To connect to this Kafka, just connect to
@@ -32,7 +30,7 @@ class KafkaClientTest : DynaTest({
         lateinit var topic: String
         beforeEach { topic = "topic-${UUID.randomUUID()}" }
 
-        val clientProducer = { KafkaClient("127.0.0.1:9092", TopicPartition(topic, 0), JavaDocumentSerializer, AutoTypeResolver) }
+        val clientProducer = { KafkaClient("127.0.0.1:9092", TopicPartition(topic, 0)) }
         globalLogClientTestBattery(clientProducer)
 
         syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer)

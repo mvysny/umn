@@ -1,8 +1,5 @@
 package com.gitlab.mvysny.umn.sync
 
-import com.gitlab.mvysny.umn.core.DocumentSerializer
-import com.gitlab.mvysny.umn.core.LogRecord
-import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -17,7 +14,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     internal var addCallback: () -> Unit = {}
-    internal var receiveCallback: (record: LogRecord) -> Unit = {}
+    internal var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
     private var currentLogPointer: Long = 0L
 
     private fun checkNotClosed() {
@@ -44,7 +41,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
         addCallback = callback
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: LogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         currentLogPointer = rewind
@@ -54,7 +51,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
     override fun addAsync(record: SerializedLogRecord) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
-        owner.add(this, LogRecord.fromByteArray(record, owner.serializer, owner.typeToClassResolver))
+        owner.add(this, record)
     }
 
     override fun close() {
@@ -64,7 +61,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
     }
 
     @Synchronized
-    internal fun onNewItem(record: LogRecord) {
+    internal fun onNewItem(record: SerializedLogRecord) {
         receiveCallback(record)
         currentLogPointer++
     }
@@ -73,14 +70,14 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
 /**
  * Should be thread-safe :-D
  */
-class InMemoryGlobalLog(val serializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) {
+class InMemoryGlobalLog() {
     private val clients = CopyOnWriteArrayList<InMemoryGlobalLogClient>()
-    internal val log = CopyOnWriteArrayList<LogRecord>()
+    internal val log = CopyOnWriteArrayList<SerializedLogRecord>()
 
     fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)
 
     @Synchronized
-    internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long): List<LogRecord> {
+    internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long): List<SerializedLogRecord> {
         clients.add(client)
         return log.subList(retrieveLogFrom.toInt(), log.size)
     }
@@ -90,7 +87,7 @@ class InMemoryGlobalLog(val serializer: DocumentSerializer, val typeToClassResol
     }
 
     @Synchronized
-    internal fun add(client: InMemoryGlobalLogClient, record: LogRecord) {
+    internal fun add(client: InMemoryGlobalLogClient, record: SerializedLogRecord) {
         log.add(record)
         client.addCallback()
         clients.forEach { it.onNewItem(record) }

@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.sync.tester
 
 import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.expectThrows
+import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
@@ -11,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.expect
 
 /**
- * Tests a [GlobalLogClient]. Use [AutoTypeResolver] and [com.gitlab.mvysny.umn.core.JavaDocumentSerializer].
+ * Tests a [GlobalLogClient].
  * @param clientProducer expected to return clients connected to the same global log; the global log
  * must be cleared between individual tests.
  */
@@ -84,7 +85,7 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
             var receiverCallbackCalled = false
             client.setReceiverCallback(0L) { record->
                 receiverCallbackCalled = true
-                expect(item) { record }
+                expect(item) { LogRecord.fromByteArray(record, JavaDocumentSerializer, AutoTypeResolver) }
             }
             client.start()
             client.addAsync(item)
@@ -148,7 +149,7 @@ private class ClientTester(offset: Long, client: GlobalLogClient) {
     fun getReceived(): List<LogRecord> = received.toList()
     init {
         client.setAddCallback { addCallbackCalledCount.incrementAndGet() }
-        client.setReceiverCallback(offset) { record -> received.add(record) }
+        client.setReceiverCallback(offset) { record -> received.add(LogRecord.fromByteArray(record, JavaDocumentSerializer, AutoTypeResolver)) }
         client.start()
     }
 }
