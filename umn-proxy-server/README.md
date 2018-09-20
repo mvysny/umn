@@ -80,6 +80,8 @@ TBD configuration
 UMN Proxy Server offers the administration interface as a REST endpoint. By default the interface
 listens on http 8081 on localhost only, no credentials are required.
 
+To control the UMN Proxy Server programatically, see the Java client: [umn-proxy-server-adminclient](../umn-proxy-server-adminclient).
+
 ### User management
 
 The user management only works when the UMN Proxy Server is running in the Standalone mode.

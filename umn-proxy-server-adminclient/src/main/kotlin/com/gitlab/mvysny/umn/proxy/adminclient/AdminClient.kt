@@ -55,7 +55,7 @@ private object MyFactory : CallAdapter.Factory() {
  * Returns the Admin API for given endpoint url. Must end with a slash.
  * @param url for example `http://localhost:8081/admin/`
  */
-fun getAdminClient(url: String): AdminClient {
+fun createAdminClient(url: String): AdminClient {
     val retrofit = Retrofit.Builder()
         .baseUrl(url)
         .addConverterFactory(GsonConverterFactory.create(gson))

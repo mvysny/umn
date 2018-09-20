@@ -19,7 +19,7 @@ class AdminClientTest : DynaTest({
         server.start()
         adminServer = AdminServer(8081)
         AdminServer.mvstoreGlobalLog.deleteAllUsers()
-        client = getAdminClient("http://localhost:8081/admin/")
+        client = createAdminClient("http://localhost:8081/admin/")
     }
     afterEach {
         adminServer.closeQuietly()
