@@ -19,7 +19,7 @@ val httpClient = OkHttpClient()
 val request = Request.Builder().url("ws://umn-proxy-hostname:8080")
 
 val syncingumn = umn.syncing({
-    ProxyClient(httpClient, request, "username", "password", JavaDocumentSerializer, YourTypeResolver)
+    ProxyClient(httpClient, request, "username", "password")
 }, JavaDocumentSerializer, true)
 // the sync is now started. You must use syncingumn from now on - if you add documents to
 // the original umn the changes will not be propagated to syncingumn.
