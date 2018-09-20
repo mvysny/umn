@@ -91,6 +91,6 @@ Use the database built-in mechanisms to manage users.
 
 | Method+Endpoint | Explanation
 | --------------- | -----------------------------
-| GET /admin/users | Returns all users, as a List of String usernames. Example: `curl -i localhost:8081/admin/users`
-| PUT /admin/users | Creates a new user with given plaintext password. Requires two parameters, passed as query params: `username` and `password`. If the user already exists, its password is updated. Example: `"curl -i -x PUT localhost:8081/admin/users?username=user&password=example"`
-| DELETE /admin/users/:username | Deletes the user with given username. Example: `curl -i -x DELETE localhost:8081/admin/users/user`
+| GET /admin/users | Returns all users, as a JSON List of String usernames. Example: `curl -i localhost:8081/admin/users` should print `["user", "user25"]`
+| PUT /admin/users | Creates a new user with given plaintext password. Requires two parameters, passed as query params: `username` and `password`. If the user already exists, its password is updated. Example: `curl -i -X PUT "localhost:8081/admin/users?username=user&password=example"` should print 204 NO CONTENT on success.
+| DELETE /admin/users/:username | Deletes the user with given username. Example: `curl -i -X DELETE localhost:8081/admin/users/user` should print 204 NO CONTENT on success.

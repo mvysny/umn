@@ -13,7 +13,6 @@ import java.net.InetSocketAddress
 import javax.ws.rs.*
 
 @Path("/users")
-@Produces(MediaType.TEXT_PLAIN)
 class UsersResource {
 
     val log: MVStoreGlobalLog
@@ -21,7 +20,8 @@ class UsersResource {
 
     @GET
     @Path("/")
-    fun getAllUsers(): List<String> = log.listUsers()
+    @Produces(MediaType.APPLICATION_JSON)
+    fun getAllUsers(): List<String> = log.listUsers().toList()
 
     @PUT
     @Path("/")
@@ -37,7 +37,7 @@ class UsersResource {
 }
 
 class RestApiApplication : Application() {
-    override fun getSingletons(): Set<Any> = setOf(UsersResource())
+    override fun getSingletons(): Set<Any> = setOf(UsersResource(), GsonMessageBodyHandler())
 }
 
 class RestServer(val port: Int) : Closeable {

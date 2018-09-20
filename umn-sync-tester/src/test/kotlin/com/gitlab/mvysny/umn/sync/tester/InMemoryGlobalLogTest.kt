@@ -6,7 +6,7 @@ import com.gitlab.mvysny.umn.sync.InMemoryGlobalLog
 
 class InMemoryGlobalLogTest : DynaTest({
     lateinit var log: InMemoryGlobalLog
-    beforeEach { log = InMemoryGlobalLog(JavaDocumentSerializer, AutoTypeResolver) }
+    beforeEach { log = InMemoryGlobalLog() }
 
     globalLogClientTestBattery { log.newClient() }
 })

@@ -11,7 +11,7 @@ class MVStoreGlobalLogTest : DynaTest({
     lateinit var log: MVStoreGlobalLog
     beforeEach {
         val db = MVStore.open(createTempFile().absolutePath)
-        log = MVStoreGlobalLog(db, JavaDocumentSerializer, AutoTypeResolver)
+        log = MVStoreGlobalLog(db)
         log.createOrUpdateUser("foo", "bar")
     }
     afterEach {

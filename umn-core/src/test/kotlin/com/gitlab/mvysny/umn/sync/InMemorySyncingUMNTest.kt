@@ -8,7 +8,7 @@ import com.gitlab.mvysny.umn.core.genericUmnTestBattery
 
 class InMemorySyncingUMNTest : DynaTest({
     lateinit var log: InMemoryGlobalLog
-    beforeEach { log = InMemoryGlobalLog(JavaDocumentSerializer, AutoTypeResolver) }
+    beforeEach { log = InMemoryGlobalLog() }
 
     // run the basic test battery on the replicating UMN
     group("basic test battery on replicating UMN") {
