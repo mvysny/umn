@@ -40,15 +40,3 @@ bintray {
         }
     }
 }
-
-task zip(type: Zip) {
-    from 'src/main/scripts'
-    into('lib') {
-        from configurations.runtime.allArtifacts.files
-        from configurations.runtime
-    }
-}
-
-artifacts {
-    archives zip
-}
