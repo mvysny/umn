@@ -155,6 +155,10 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
         db.removeMap(db.openMap<Long, SerializedLogRecord>("${username}__log"))
     }
 
+    fun deleteAllUsers() {
+        db.openMap<String, String>("users").clear()
+    }
+
     override fun close() {
         if (closed.compareAndSet(false, true)) {
             startedClients.values.flatten().forEach { it.closeQuietly() }

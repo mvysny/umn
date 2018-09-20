@@ -15,8 +15,7 @@ import javax.ws.rs.*
 @Path("/users")
 class UsersResource {
 
-    val log: MVStoreGlobalLog
-    get() = (server.globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog
+    val log: MVStoreGlobalLog get() = AdminServer.mvstoreGlobalLog
 
     @GET
     @Path("/")
@@ -40,7 +39,7 @@ class RestApiApplication : Application() {
     override fun getSingletons(): Set<Any> = setOf(UsersResource(), GsonMessageBodyHandler())
 }
 
-class RestServer(val port: Int) : Closeable {
+class AdminServer(val port: Int) : Closeable {
     private val server = Server(InetSocketAddress.createUnresolved("127.0.0.1", port))
 
     init {
@@ -59,5 +58,10 @@ class RestServer(val port: Int) : Closeable {
 
     override fun close() {
         server.stop()
+    }
+
+    companion object {
+        val mvstoreGlobalLog: MVStoreGlobalLog
+            get() = (server.globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog
     }
 }

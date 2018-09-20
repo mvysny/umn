@@ -9,7 +9,7 @@ fun main(args: Array<String>) {
         server = UMNProxyServer(port, globalLogClientProvider)
         server.start()
         try {
-            val restServer = RestServer(port + 1)
+            val restServer = AdminServer(port + 1)
             try {
                 println("Server is running on port $port, press Enter to kill it")
                 System.`in`.read()
