@@ -144,7 +144,7 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
         db.openMap<String, String>("users")[username] = PasswordHash.createHash(password)
     }
 
-    fun listUsers(): List<String> = db.openMap<String, String>("users").keyList()
+    fun listUsers(): List<String> = db.openMap<String, String>("users").keyList().filterNotNull()
 
     /**
      * Deletes the user along with the entire log.
@@ -156,7 +156,7 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
     }
 
     fun deleteAllUsers() {
-        db.openMap<String, String>("users").clear()
+        listUsers().forEach { deleteUser(it) }
     }
 
     override fun close() {
