@@ -3,6 +3,10 @@ dependencies {
     compile 'org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830'
     compile("org.slf4j:slf4j-simple:1.7.25")
 
+    // REST Admin API
+    compile 'org.jboss.resteasy:resteasy-servlet-initializer:3.6.1.Final'
+    compile 'com.google.code.gson:gson:2.8.5'
+
     testCompile 'com.squareup.okhttp3:okhttp:3.11.0'
     testCompile(project(":umn-sync-tester"))
 }

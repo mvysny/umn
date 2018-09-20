@@ -19,7 +19,7 @@ class MVStoreGlobalLogProvider(val dbdir: File) : GlobalLogClientProvider {
     }
 
     private val db: MVStore
-    private val mvstorelog: MVStoreGlobalLog
+    val mvstorelog: MVStoreGlobalLog
     init {
         check(dbdir.isAbsolute) { "$dbdir must be absolute"}
         if (!dbdir.exists() || !dbdir.isDirectory) {

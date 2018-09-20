@@ -144,6 +144,8 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
         db.openMap<String, String>("users")[username] = PasswordHash.createHash(password)
     }
 
+    fun listUsers(): List<String> = db.openMap<String, String>("users").keyList()
+
     /**
      * Deletes the user along with the entire log.
      * @param username the name of the user
