@@ -18,6 +18,8 @@ class MVStoreGlobalLogProvider(val dbdir: File) : GlobalLogClientProvider {
         mvstorelog.close()
     }
 
+    override fun toString() = "MVStoreGlobalLogProvider(dbdir=$dbdir)"
+
     private val db: MVStore
     val mvstorelog: MVStoreGlobalLog
     init {

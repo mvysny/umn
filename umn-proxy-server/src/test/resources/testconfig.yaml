@@ -1,0 +1,5 @@
+port: 25
+adminPort: 45
+proxy:
+  standalone:
+    db: /some/weird/place
