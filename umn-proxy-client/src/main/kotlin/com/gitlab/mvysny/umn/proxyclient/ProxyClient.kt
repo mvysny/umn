@@ -7,7 +7,6 @@ import okhttp3.*
 import okio.ByteString
 import org.slf4j.LoggerFactory
 import java.lang.RuntimeException
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -19,7 +18,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
     private val listener = Listener()
 
     init {
-        requestBuilder.addHeader("rewind", "0")
+        requestBuilder.header("rewind", "0")
     }
 
     inner class Listener : WebSocketListener() {
@@ -82,7 +81,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
     override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
-        requestBuilder.addHeader("rewind", rewind.toString())
+        requestBuilder.header("rewind", rewind.toString())
         receiveCallback = callback
     }
 
@@ -91,15 +90,15 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         addCallback = callback
     }
 
-    private val startFuture = CompletableFuture<Unit>()
+    private val startFuture = CompletableFutureCompat<Unit>()
 
     override fun start() {
         checkNotClosed()
         check(started.compareAndSet(false, true)) { "Already started" }
 
         val request = requestBuilder
-            .addHeader("username", username)
-            .addHeader("password", password).build()
+            .header("username", username)
+            .header("password", password).build()
         ws = client.newWebSocket(request, listener)
         try {
             startFuture.get()
@@ -121,6 +120,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
 
     override fun close() {
         if (closed.compareAndSet(false, true)) {
+            startFuture.cancel(false)
             ws?.close(1000, "CLOSED BY USER")
             ws = null
         }
