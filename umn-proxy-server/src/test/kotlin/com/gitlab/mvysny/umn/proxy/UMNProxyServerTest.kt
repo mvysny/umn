@@ -11,6 +11,7 @@ class UMNProxyServerTest : DynaTest({
     beforeEach {
         val dbDir = createTempDir().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
+        lp.mvstorelog.createOrUpdateUser("user", "example")
         server = UMNProxyServer(8080, lp)
         server.start()
     }

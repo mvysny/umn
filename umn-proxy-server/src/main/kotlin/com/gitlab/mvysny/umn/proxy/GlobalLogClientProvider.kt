@@ -27,6 +27,5 @@ class MVStoreGlobalLogProvider(val dbdir: File) : GlobalLogClientProvider {
         }
         db = MVStore.Builder().compress().fileName(File(dbdir, "umn_proxy_log").absolutePath).open()
         mvstorelog = MVStoreGlobalLog(db)
-        mvstorelog.createOrUpdateUser("user", "example")
     }
 }
