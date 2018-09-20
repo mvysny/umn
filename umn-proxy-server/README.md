@@ -86,6 +86,9 @@ The user management only works when the UMN Proxy Server is running in the Stand
 The purpose of this API is to add, update and remove users that are allowed to sync via the UMN Proxy Client.
 For every user a separate global log is created.
 
+> *Note:* When the UMN Proxy Server is not running in standalone mode, the log is stored in a separate database such as MongoDB.
+Use the database built-in mechanisms to manage users.
+
 | Method+Endpoint | Explanation
 | --------------- | -----------------------------
 | GET /admin/users | Returns all users, as a List of String usernames. Example: `curl -i localhost:8081/admin/users`
