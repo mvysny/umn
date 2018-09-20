@@ -4,7 +4,7 @@ dependencies {
     compile("org.slf4j:slf4j-simple:1.7.25")
 
     // REST Admin API
-    compile 'org.jboss.resteasy:resteasy-servlet-initializer:3.6.1.Final'
+    compile "com.sparkjava:spark-core:2.7.2"
     compile 'com.google.code.gson:gson:2.8.5'
 
     testCompile 'com.squareup.okhttp3:okhttp:3.11.0'

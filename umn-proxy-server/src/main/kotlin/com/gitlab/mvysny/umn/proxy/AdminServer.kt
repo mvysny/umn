@@ -1,63 +1,31 @@
 package com.gitlab.mvysny.umn.proxy
 
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.servlet.DefaultServlet
-import org.eclipse.jetty.servlet.ServletContextHandler
-import org.eclipse.jetty.servlet.ServletHolder
-import org.jboss.resteasy.plugins.server.servlet.HttpServletDispatcher
+import com.google.gson.GsonBuilder
+import spark.Request
+import spark.Service
 import java.io.Closeable
-import javax.ws.rs.core.Application
-import javax.ws.rs.core.MediaType
-import java.net.InetSocketAddress
-import javax.ws.rs.*
-
-@Path("/users")
-class UsersResource {
-
-    val log: MVStoreGlobalLog get() = AdminServer.mvstoreGlobalLog
-
-    @GET
-    @Path("/")
-    @Produces(MediaType.APPLICATION_JSON)
-    fun getAllUsers(): List<String> = log.listUsers().toList()
-
-    @PUT
-    @Path("/")
-    fun createUser(@QueryParam("username") username: String, @QueryParam("password") password: String) {
-        log.createOrUpdateUser(username, password)
-    }
-
-    @DELETE
-    @Path("/{username}")
-    fun deleteUser(@PathParam("username") username: String) {
-        log.deleteUser(username)
-    }
-}
-
-class RestApiApplication : Application() {
-    override fun getSingletons(): Set<Any> = setOf(UsersResource(), GsonMessageBodyHandler())
-}
 
 class AdminServer(val port: Int) : Closeable {
-    private val server = Server(InetSocketAddress.createUnresolved("127.0.0.1", port))
+    private val service: Service
 
     init {
-        val context = ServletContextHandler(server, "/")
-        val restEasyServlet = ServletHolder(HttpServletDispatcher())
-        restEasyServlet.setInitParameter("resteasy.servlet.mapping.prefix", "/admin")
-        restEasyServlet.setInitParameter("javax.ws.rs.Application", RestApiApplication::class.java.name)
-        context.addServlet(restEasyServlet, "/admin/*")
-
-        // Setup the DefaultServlet at "/".
-        val defaultServlet = ServletHolder(DefaultServlet())
-        context.addServlet(defaultServlet, "/")
-
-        server.start()
+        val gson = GsonBuilder().create()
+        service = Service.ignite().port(port).ipAddress("127.0.0.1")
+        service.get("/admin/users") { req, res -> gson.toJson(mvstoreGlobalLog.listUsers()) }
+        service.put("/admin/users") { req, res ->
+            mvstoreGlobalLog.createOrUpdateUser(req.queryParam("username"), req.queryParam("password"))
+            res.status(204)
+        }
+        service.delete("/admin/users/:user") { req, res ->
+            mvstoreGlobalLog.deleteUser(req.params("user"))
+            res.status(204)
+        }
+        service.awaitInitialization()
     }
 
     override fun close() {
-        server.stop()
+        service.stop()
     }
 
     companion object {
@@ -65,3 +33,5 @@ class AdminServer(val port: Int) : Closeable {
             get() = (server.globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog
     }
 }
+
+fun Request.queryParam(name: String): String = requireNotNull(queryParams(name)) { "Query parameter $name is missing" }
