@@ -4,8 +4,6 @@ import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.DataOutputStream
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 
 /**
  * [MutableMap.put]s the [value] into the map under given [key] or [MutableMap.remove]s it if it's null.

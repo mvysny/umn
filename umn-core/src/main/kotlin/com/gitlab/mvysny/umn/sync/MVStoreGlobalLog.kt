@@ -1,8 +1,5 @@
 package com.gitlab.mvysny.umn.sync
 
-import com.gitlab.mvysny.umn.core.DocumentSerializer
-import com.gitlab.mvysny.umn.core.LogRecord
-import com.gitlab.mvysny.umn.core.TypeToClassResolver
 import com.gitlab.mvysny.umn.core.closeQuietly
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore

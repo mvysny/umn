@@ -11,14 +11,24 @@ class CompletableFutureCompat<V> : Future<V> {
         class Ok<V>(override val value: V) : Result<V>()
         class Error(val e: Throwable) : Result<Nothing>() {
             override val value: Nothing
-                get() = throw ExecutionException(e)
+                get() = throw e
         }
         object Cancel : Result<Nothing>() {
             override val value: Nothing
                 get() = throw CancellationException()
         }
     }
+
+    /**
+     * Offers the completion result for [result].
+     *
+     * If this queue is not empty, the future is completed.
+     */
     private val completion = LinkedBlockingQueue<Result<V>>(1)
+    /**
+     * Holds the result of the computation. Takes the item from [completion] upon running and provides it as a result.
+     */
+    private val result = FutureTask<V> { completion.peek()!!.value }
     /**
      * If not already completed, causes invocations of [get]
      * and related methods to throw the given exception.
@@ -27,7 +37,13 @@ class CompletableFutureCompat<V> : Future<V> {
      * @return `true` if this invocation caused this CompletableFuture
      * to transition to a completed state, else `false`
      */
-    fun completeExceptionally(ex: Throwable): Boolean = completion.offer(Result.Error(ex))
+    fun completeExceptionally(ex: Throwable): Boolean {
+        val offered = completion.offer(Result.Error(ex))
+        if (offered) {
+            result.run()
+        }
+        return offered
+    }
 
     /**
      * If not already completed, completes this CompletableFuture with
@@ -40,8 +56,11 @@ class CompletableFutureCompat<V> : Future<V> {
      * @return `true` if this task is now cancelled
      */
     override fun cancel(mayInterruptIfRunning: Boolean): Boolean {
-        val canceled = completion.offer(Result.Cancel)
-        return canceled || isCancelled
+        val offered = completion.offer(Result.Cancel)
+        if (offered) {
+            result.cancel(mayInterruptIfRunning)
+        }
+        return offered
     }
 
     /**
@@ -51,16 +70,19 @@ class CompletableFutureCompat<V> : Future<V> {
      * @return `true` if this invocation caused this CompletableFuture
      * to transition to a completed state, else `false`
      */
-    fun complete(value: V): Boolean = completion.offer(Result.Ok(value))
+    fun complete(value: V): Boolean {
+        val offered = completion.offer(Result.Ok(value))
+        if (offered) {
+            result.run()
+        }
+        return offered
+    }
 
     override fun isDone(): Boolean = completion.isNotEmpty()
 
-    override fun get(): V = completion.take().value
+    override fun get(): V = result.get()
 
-    override fun get(timeout: Long, unit: TimeUnit): V {
-        val result = completion.poll(timeout, unit) ?: throw TimeoutException()
-        return result.value
-    }
+    override fun get(timeout: Long, unit: TimeUnit): V = result.get(timeout, unit)
 
-    override fun isCancelled(): Boolean = completion.poll() == Result.Cancel
+    override fun isCancelled(): Boolean = completion.peek() == Result.Cancel
 }
