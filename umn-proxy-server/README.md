@@ -101,8 +101,8 @@ create users, please use the Admin REST API as described below.
 
 ### Standalone Mode
 
-In this mode the UMN Proxy stores the log using the embedded H2 MVStorage database, and therefore
-it doesn't require Kafka/MongoDB/Hazelcast server
+In this mode the UMN Proxy stores the record log using the embedded H2 MVStorage database, and therefore
+it doesn't require Kafka/MongoDB/Hazelcast server to store the record log.
 
 The only configuration is the `db` which is a directory where the database file (just a single file) will
 be located. See the `config.yaml` example above for more details.
