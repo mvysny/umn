@@ -4,8 +4,6 @@ import com.gitlab.mvysny.umn.core.*
 import org.slf4j.LoggerFactory
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 import kotlin.reflect.KClass
 
 /**
@@ -70,43 +68,5 @@ class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSeri
     companion object {
         @JvmStatic
         private val log = LoggerFactory.getLogger(MutationLog::class.java)
-    }
-}
-
-/**
- * Provides a FIFO buffer abstraction while storing items into [UtilityMap].
- *
- * Thread-safe.
- */
-class FIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
-    private val readLock = ReentrantLock()
-    private val writeLock = ReentrantLock()
-    /**
-     * Inserts the specified element at the end of this queue.
-     */
-    fun append(item: T) {
-        writeLock.withLock {
-            val id: Long = (log.getLargestKey() ?: 0L) + 1L
-            log.put(id, item)
-        }
-    }
-    /**
-     * Retrieves and removes the head of this queue,
-     * or returns `null` if this queue is empty.
-     */
-    fun poll(): T? = readLock.withLock {
-        val lowestKey: Long = log.getSmallestKey() ?: return null
-        val result: T? = log.find(lowestKey)
-        log.put(lowestKey, null)
-        result
-    }
-
-    /**
-     * Retrieves (but does not remove) the head of this queue,
-     * or returns `null` if this queue is empty.
-     */
-    fun peek(): T? = readLock.withLock {
-        val lowestKey: Long = log.getSmallestKey() ?: return null
-        log.find(lowestKey)
     }
 }

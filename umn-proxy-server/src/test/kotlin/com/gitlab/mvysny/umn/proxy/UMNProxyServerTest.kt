@@ -19,7 +19,7 @@ class UMNProxyServerTest : DynaTest({
         val dbDir = createTempDir().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
         lp.mvstorelog.createOrUpdateUser("user", "example")
-        server = UMNProxyServer(8080, lp)
+        server = UMNProxyServer(51343, lp)
         server.start()
     }
     afterEach { server.close() }
@@ -53,6 +53,6 @@ class UMNProxyServerTest : DynaTest({
 
 fun createSyncClient(): ProxyClient {
     val client = OkHttpClient()
-    val request = Request.Builder().url("ws://localhost:8080")
+    val request = Request.Builder().url("ws://localhost:51343")
     return ProxyClient(client, request, "user", "example")
 }
