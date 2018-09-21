@@ -71,8 +71,8 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
-    internal var addCallback: () -> Unit = {}
-    internal var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
+    private var addCallback: () -> Unit = {}
+    private var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
 
     private fun checkNotClosed() {
         check(!closed.get()) { "Already closed" }
