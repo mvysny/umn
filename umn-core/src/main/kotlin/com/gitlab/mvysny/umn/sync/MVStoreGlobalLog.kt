@@ -56,7 +56,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
         owner.startClient(this)
 
         // open the log and broadcast any unsent items
-        log = owner.db.openMap("${username}__log")
+        log = owner.getLogMap(username)
         onNewItems()
     }
 
@@ -152,8 +152,10 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
      */
     fun deleteUser(username: String) {
         db.openMap<String, String>("users").remove(username)
-        db.removeMap(db.openMap<Long, SerializedLogRecord>("${username}__log"))
+        db.removeMap(getLogMap(username))
     }
+
+    fun getLogMap(username: String) = db.openMap<Long, SerializedLogRecord>("${username}__log")
 
     fun deleteAllUsers() {
         listUsers().forEach { deleteUser(it) }
@@ -166,4 +168,6 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
             db.close()
         }
     }
+
+    fun getLogSizes(): Map<String, Long> = listUsers().associateBy({it}, { getLogMap(it).sizeAsLong() })
 }

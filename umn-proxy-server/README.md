@@ -96,3 +96,9 @@ Use the database built-in mechanisms to manage users.
 | GET /admin/users | Returns all users, as a JSON List of String usernames. Example: `curl -i localhost:8081/admin/users` should print `["user", "user25"]`
 | PUT /admin/users | Creates a new user with given plaintext password. Requires two parameters, passed as query params: `username` and `password`. If the user already exists, its password is updated. Example: `curl -i -X PUT "localhost:8081/admin/users?username=user&password=example"` should print 204 NO CONTENT on success.
 | DELETE /admin/users/:username | Deletes the user with given username. Example: `curl -i -X DELETE localhost:8081/admin/users/user` should print 204 NO CONTENT on success.
+
+### Statistics
+
+| Method+Endpoint | Explanation
+| --------------- | -----------------------------
+| GET /admin/stats/logsizes | Returns all users and their log sizes, e.g. `curl -i localhost:8081/admin/stats/logsizes` should print `{"user":25, "user2": 1645}`

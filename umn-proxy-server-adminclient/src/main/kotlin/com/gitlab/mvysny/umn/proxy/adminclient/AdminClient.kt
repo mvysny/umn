@@ -24,6 +24,10 @@ interface AdminClient {
     @DELETE("users/{username}")
     @Throws(IOException::class, JsonParseException::class)
     fun deleteUser(@Path("username") username: String): Unit?
+
+    @GET("stats/logsizes")
+    @Throws(IOException::class, JsonParseException::class)
+    fun getLogSizes(): Map<String, Long>
 }
 
 private val gson = GsonBuilder()

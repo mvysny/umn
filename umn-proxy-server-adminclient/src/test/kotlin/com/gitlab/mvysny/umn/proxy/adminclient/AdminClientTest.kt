@@ -18,7 +18,6 @@ class AdminClientTest : DynaTest({
         server = UMNProxyServer(8080, lp)
         server.start()
         adminServer = AdminServer(8081)
-        AdminServer.mvstoreGlobalLog.deleteAllUsers()
         client = createAdminClient("http://localhost:8081/admin/")
     }
     afterEach {
@@ -50,5 +49,11 @@ class AdminClientTest : DynaTest({
             client.deleteUser("adam")
             expectList() { client.getUsers() }
         }
+    }
+
+    test("log sizes") {
+        client.createOrUpdateUser("adam", "example")
+        AdminServer.mvstoreGlobalLog.getLogMap("adam").put(0, "foo".toByteArray())
+        expect(mapOf("adam" to 1L)) { client.getLogSizes() }
     }
 })

@@ -22,6 +22,9 @@ class AdminServer(val port: Int) : Closeable {
             mvstoreGlobalLog.deleteUser(req.params("user"))
             res.return204NoContent()
         }
+        service.get("/admin/stats/logsizes") { req, res ->
+            gson.toJson(mvstoreGlobalLog.getLogSizes())
+        }
         service.awaitInitialization()
     }
 
