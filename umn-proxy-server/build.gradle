@@ -1,7 +1,7 @@
 dependencies {
     compile(project(":umn-proxy-client"))
     compile 'org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830'
-    compile("org.slf4j:slf4j-simple:1.7.25")
+    compile("ch.qos.logback:logback-classic:1.2.3")
 
     // REST Admin API
     compile "com.sparkjava:spark-core:2.7.2"

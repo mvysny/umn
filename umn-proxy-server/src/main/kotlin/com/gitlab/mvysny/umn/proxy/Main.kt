@@ -20,7 +20,11 @@ fun main(args: Array<String>) {
         try {
             val restServer = AdminServer(cfg.adminPort)
             try {
-                println("Server is running on port ${cfg.port}, admin is running on port ${cfg.adminPort}. Press Enter to kill the server")
+                println("""
+************************************************************************************************************************
+Server is running on port ${cfg.port}, admin is running on port ${cfg.adminPort}. Press Enter to kill the server
+************************************************************************************************************************
+""")
                 System.`in`.read()
             } finally {
                 restServer.close()
