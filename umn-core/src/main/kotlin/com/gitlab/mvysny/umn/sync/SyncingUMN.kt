@@ -171,7 +171,7 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
             client = clientProvider()
             GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver)
             // also starts the client in the background
-            pusher = GlobalLogPusher(client!!, mutationLog.log)
+            pusher = GlobalLogPusher(client!!, mutationLog.fifolog)
         }
     }
 

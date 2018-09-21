@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.sync
 
 import com.gitlab.mvysny.umn.core.*
+import org.slf4j.LoggerFactory
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.concurrent.locks.ReentrantLock
@@ -30,26 +31,31 @@ private object FailingSerializer : DocumentSerializer {
  * @param serializer used to serialize documents to the log.
  */
 class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSerializer) : AnnouncingUMN.Listener {
-    val log: FIFOBuffer<SerializedLogRecord>
+    val fifolog: FIFOBuffer<SerializedLogRecord>
 
     init {
         // buffer which stores the UMN mutation log.
         val map: UtilityMap<Long, SerializedLogRecord> = umn.openUtilityMap(bufferName)
         val initialPopulationMarker = umn.openUtilityMap<String, Boolean>("$bufferName-marker")
-        log = FIFOBuffer(map)
+        fifolog = FIFOBuffer(map)
         if (initialPopulationMarker.find("isPopulated") == null) {
             // this UMN has not been synced yet. We need to "fake" the history by creating DocumentCreated
             // records for all existing documents.
             initialPopulationMarker.put("isPopulated", true)
+            log.info("log history missing in $bufferName, creating fake from all current documents")
+            check(map.isEmpty()) { "The FIFOBuffer was expected to be empty but it contains keys ${map.keyIterator(Long.MIN_VALUE..Long.MAX_VALUE).toList()}!!!" }
+            var count = 0
             umn.getSequenceOfSerializedDocs().forEach {
                 // the serializer is not going to be called by DocumentCreated2, we can pass in a dummy impl
-                log.append(LogRecord.DocumentCreated2(it.second, it.first).toByteArray(FailingSerializer))
+                fifolog.append(LogRecord.DocumentCreated2(it.second, it.first).toByteArray(FailingSerializer))
+                count++
             }
+            log.info("log history faked, FIFOBuffer should now have $count records")
         }
     }
 
     override fun onRecord(logRecord: LogRecord) {
-        log.append(logRecord.toByteArray(serializer))
+        fifolog.append(logRecord.toByteArray(serializer))
     }
 
     /**
@@ -57,7 +63,12 @@ class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSeri
      * threads.
      */
     fun drain(): List<LogRecord> =
-        generateSequence { log.poll() } .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver) } .toList()
+        generateSequence { fifolog.poll() } .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver) } .toList()
+
+    companion object {
+        @JvmStatic
+        private val log = LoggerFactory.getLogger(MutationLog::class.java)
+    }
 }
 
 /**
