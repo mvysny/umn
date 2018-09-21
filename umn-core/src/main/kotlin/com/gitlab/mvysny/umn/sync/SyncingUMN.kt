@@ -24,12 +24,12 @@ import kotlin.concurrent.thread
  */
 private class GlobalLogPusher(
     private val globalLogClient: GlobalLogClient,
-    private val buffer: FIFOBuffer<SerializedLogRecord>
+    private val buffer: AckFIFOBuffer<SerializedLogRecord>
 ) : Closeable {
     init {
         globalLogClient.setAddCallback {
             // when the remote log ACKs that the item has been added, remove it from the buffer
-            buffer.poll()
+            buffer.ackLowest()
         }
     }
 
@@ -53,7 +53,7 @@ private class GlobalLogPusher(
                     if (!globalLogClient.isStarted) {
                         tryStartClient()
                     } else {
-                        val item = buffer.peek()
+                        val item = buffer.poll()
                         if (item == null) {
                             Thread.sleep(100)
                         } else {

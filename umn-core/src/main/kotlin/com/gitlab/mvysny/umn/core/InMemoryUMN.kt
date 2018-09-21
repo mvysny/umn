@@ -46,7 +46,7 @@ class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
 
     @Suppress("UNCHECKED_CAST")
     override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> =
-        utilityMaps.getOrPut(name, { InMemoryUtilityMap<K, V>() }) as UtilityMap<K, V>
+        utilityMaps.getOrPut(name) { InMemoryUtilityMap<K, V>() } as UtilityMap<K, V>
 
     override fun findSerialized(id: UUID): SerializedDocument? {
         val doc = find(id, Any::class) ?: return null

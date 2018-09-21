@@ -31,13 +31,13 @@ private object FailingSerializer : DocumentSerializer {
  * @param serializer used to serialize documents to the log.
  */
 class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSerializer) : AnnouncingUMN.Listener {
-    val fifolog: FIFOBuffer<SerializedLogRecord>
+    val fifolog: AckFIFOBuffer<SerializedLogRecord>
 
     init {
         // buffer which stores the UMN mutation log.
         val map: UtilityMap<Long, SerializedLogRecord> = umn.openUtilityMap(bufferName)
         val initialPopulationMarker = umn.openUtilityMap<String, Boolean>("$bufferName-marker")
-        fifolog = FIFOBuffer(map)
+        fifolog = AckFIFOBuffer(map)
         if (initialPopulationMarker.find("isPopulated") == null) {
             // this UMN has not been synced yet. We need to "fake" the history by creating DocumentCreated
             // records for all existing documents.
@@ -63,7 +63,9 @@ class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSeri
      * threads.
      */
     fun drain(): List<LogRecord> =
-        generateSequence { fifolog.poll() } .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver) } .toList()
+        generateSequence { val item = fifolog.poll(); fifolog.ackLowest(); item }
+            .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver) }
+            .toList()
 
     companion object {
         @JvmStatic
