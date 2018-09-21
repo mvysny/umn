@@ -66,14 +66,46 @@ the synchronization commands to your server.
 
 ## Configuration and Deployment
 
-TBD
+The deployment is simple. First you need to compile the server:
+
+1. Install Java JDK 8 or higher
+2. `git clone https://gitlab.com/mvysny/umn`
+3. `cd umn && ./gradlew umn-proxy-server:build -x test`
+4. Find the zip file at `umn-proxy-server/build/distributions/*.zip`
+
+To deploy:
+
+1. Install Java JRE 8 or higher
+2. Unzip the zip file
+3. Run `./proxy`
+
+The server will load the configuration file from the following locations:
+
+1. `config.yaml` at the current working directory
+2. `/etc/umnproxyserver/config.yaml`
+
+Example content of the configuration file:
+
+```yaml
+port: 8080
+host: 0.0.0.0
+adminPort: 8081
+adminHost: 127.0.0.1
+proxy:
+  standalone:
+    db: ./db
+```
+
+Currently only the standalone mode is supported. The database will be created automatically. To
+create users, please use the Admin REST API as described below.
 
 ### Standalone Mode
 
 In this mode the UMN Proxy stores the log using the embedded H2 MVStorage database, and therefore
 it doesn't require Kafka/MongoDB/Hazelcast server
 
-TBD configuration
+The only configuration is the `db` which is a directory where the database file (just a single file) will
+be located. See the `config.yaml` example above for more details.
 
 ## Admin Interface
 

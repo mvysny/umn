@@ -6,13 +6,14 @@ import spark.Request
 import spark.Response
 import spark.Service
 import java.io.Closeable
+import java.net.InetSocketAddress
 
-class AdminServer(val port: Int) : Closeable {
+class AdminServer(adr: InetSocketAddress) : Closeable {
     private val service: Service
 
     init {
         val gson = GsonBuilder().create()
-        service = Service.ignite().port(port).ipAddress("127.0.0.1")
+        service = Service.ignite().port(adr.port).ipAddress(adr.hostString)
         service.get("/admin/users") { req, res -> gson.toJson(mvstoreGlobalLog.listUsers()) }
         service.put("/admin/users") { req, res ->
             mvstoreGlobalLog.createOrUpdateUser(req.queryParam("username"), req.queryParam("password"))

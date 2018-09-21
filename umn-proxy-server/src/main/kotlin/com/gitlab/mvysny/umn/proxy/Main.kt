@@ -15,14 +15,14 @@ fun main(args: Array<String>) {
     val globalLogProvider = cfg.proxy.createLogClientProvider()
     Main.log.info("Using log provider: $globalLogProvider")
     globalLogProvider.use { globalLogClientProvider ->
-        server = UMNProxyServer(cfg.port, globalLogClientProvider)
+        server = UMNProxyServer(cfg.socketAddress, globalLogClientProvider)
         server.start()
         try {
-            val restServer = AdminServer(cfg.adminPort)
+            val restServer = AdminServer(cfg.adminSocketAddress)
             try {
                 println("""
 ************************************************************************************************************************
-Server is running on port ${cfg.port}, admin is running on port ${cfg.adminPort}. Press Enter to kill the server
+Server is running on ${cfg.socketAddress}, admin is running on ${cfg.adminSocketAddress}. Press Enter to kill the server
 ************************************************************************************************************************
 """)
                 System.`in`.read()

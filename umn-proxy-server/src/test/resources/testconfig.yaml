@@ -1,5 +1,7 @@
 port: 25
+host: 127.0.0.1
 adminPort: 45
+adminHost: 0.0.0.0
 proxy:
   standalone:
     db: /some/weird/place

@@ -11,6 +11,7 @@ import org.eclipse.jetty.websocket.api.WebSocketListener
 import org.eclipse.jetty.websocket.server.WebSocketHandler
 import org.slf4j.LoggerFactory
 import java.io.Closeable
+import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 
 class UMNProxyWebsocketListener : WebSocketListener {
@@ -85,8 +86,8 @@ class UMNProxyWebsocketListener : WebSocketListener {
 
 lateinit var server: UMNProxyServer
 
-class UMNProxyServer(val port: Int, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
-    private val server = Server(port)
+class UMNProxyServer(adr: InetSocketAddress, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
+    private val server = Server(adr)
     init {
         server.handler = WebSocketHandler.Simple(UMNProxyWebsocketListener::class.java)
     }

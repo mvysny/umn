@@ -11,6 +11,7 @@ import com.gitlab.mvysny.umn.sync.tester.expectAsync
 import com.gitlab.mvysny.umn.sync.tester.globalLogClientTestBattery
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.InetSocketAddress
 import java.util.*
 import kotlin.test.expect
 
@@ -19,7 +20,7 @@ class UMNProxyServerTest : DynaTest({
         val dbDir = createTempDir().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
         lp.mvstorelog.createOrUpdateUser("user", "example")
-        server = UMNProxyServer(51343, lp)
+        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), lp)
         server.start()
     }
     afterEach { server.close() }

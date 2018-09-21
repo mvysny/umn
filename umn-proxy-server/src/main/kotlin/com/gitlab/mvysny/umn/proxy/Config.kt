@@ -3,10 +3,16 @@ package com.gitlab.mvysny.umn.proxy
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.io.InputStream
+import java.net.InetSocketAddress
 
 data class Config(var port: Int = 8080,
+                  var host: String = "0.0.0.0",
                   var adminPort: Int = 8081,
+                  var adminHost: String = "127.0.0.1",
                   var proxy: Proxy = Proxy()) {
+    val socketAddress: InetSocketAddress get() = InetSocketAddress.createUnresolved(host, port)
+    val adminSocketAddress: InetSocketAddress get() = InetSocketAddress.createUnresolved(adminHost, adminPort)
+
     companion object {
         /**
          * Loads the configuration file from the following locations:
