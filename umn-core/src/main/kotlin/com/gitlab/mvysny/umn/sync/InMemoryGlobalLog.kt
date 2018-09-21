@@ -27,9 +27,7 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
 
     override fun start() {
         checkNotClosed()
-        if (!started.compareAndSet(false, true)) {
-            throw IllegalStateException("Already started")
-        }
+        check(started.compareAndSet(false, true)) { "Already started" }
         val logItems = owner.startClient(this, currentLogPointer)
         for (logItem in logItems) {
             onNewItem(logItem)
@@ -68,10 +66,13 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
 }
 
 /**
- * Should be thread-safe :-D
+ * Should be thread-safe :-D Check [log] for all messages sent by any of clients produced by [newClient].
  */
 class InMemoryGlobalLog() {
     private val clients = CopyOnWriteArrayList<InMemoryGlobalLogClient>()
+    /**
+     * Any message sent by any client produced by [newClient] is stored here.
+     */
     internal val log = CopyOnWriteArrayList<SerializedLogRecord>()
 
     fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)

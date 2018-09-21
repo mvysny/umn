@@ -9,7 +9,7 @@ import com.gitlab.mvysny.umn.sync.MutationLog
  * Wraps this UMN in a capturing UMN which sends all mutation events to a log. Returns both the new capturing UMN and the log
  * which hosts the mutation events (in the form of [LogRecord]s).
  */
-internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<UMN, MutationLog> {
+internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<AnnouncingUMN, MutationLog> {
     val log = MutationLog(this, "MUTATION_LOG", serializer)
     val umn = AnnouncingUMN(this, log)
     return umn to log
@@ -18,13 +18,13 @@ internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<UMN, Mutation
 /**
  * A test battery which tests the [AnnouncingUMN], [MutationLog] and the serialization of [LogRecord]s.
  */
-internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN, MutationLog>) {
-    lateinit var umn: UMN
-    lateinit var log: MutationLog
-    beforeEach { replayLogProducer().apply { umn = first; log = second } }
-    afterEach { umn.close() }
-
+internal fun DynaNodeGroup.announcingTestBattery(storageProducer: ()->UMN) {
     group("log producer tests") {
+        lateinit var umn: AnnouncingUMN
+        lateinit var log: MutationLog
+        beforeEach { storageProducer().mutationLog(JavaDocumentSerializer).apply { umn = first; log = second } }
+        afterEach { umn.close() }
+
         test("initially the log is empty") {
             expectList() { log.drain() }
         }
@@ -42,6 +42,36 @@ internal fun DynaNodeGroup.announcingTestBattery(replayLogProducer: ()->Pair<UMN
             val id = umn.create("kvak")
             umn.delete(id)
             expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id)) { log.drain() }
+        }
+        test("draining two times in a row won't return the same items") {
+            val id = umn.create("kvak")
+            umn.delete(id)
+            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id)) { log.drain() }
+            expectList() { log.drain() }
+        }
+    }
+
+    group("initial population") {
+        test("initial population ignores deleted documents") {
+            val storage = storageProducer()
+            storage.delete(storage.create("kvak"))
+            val log = storage.mutationLog(JavaDocumentSerializer).second
+            expectList() { log.drain() }
+        }
+        test("initial population does not pick document updates") {
+            val storage = storageProducer()
+            val id = storage.create("kvak")
+            storage.update(id, "foo")
+            val log = storage.mutationLog(JavaDocumentSerializer).second
+            expectList(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), id)) { log.drain() }
+        }
+        test("initial population runs only once") {
+            val storage = storageProducer()
+            val id = storage.create("kvak")
+            var log = storage.mutationLog(JavaDocumentSerializer).second
+            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id)) { log.drain() }
+            log = storage.mutationLog(JavaDocumentSerializer).second
+            expectList() { log.drain() }
         }
     }
 }
@@ -62,10 +92,10 @@ class AnnouncingUMNTest : DynaTest({
 
     group("replay log specific tests") {
         group("in-memory") {
-            announcingTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).mutationLog(JavaDocumentSerializer) }
+            announcingTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }
         }
         group("on mvstore") {
-            announcingTestBattery { createMvstoreUMN().mutationLog(JavaDocumentSerializer) }
+            announcingTestBattery { createMvstoreUMN() }
         }
     }
 })
