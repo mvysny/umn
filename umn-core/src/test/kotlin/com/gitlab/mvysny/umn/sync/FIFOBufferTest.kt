@@ -26,6 +26,7 @@ internal fun DynaNodeGroup.fifoBufferTestBattery(bufferProducer: () -> FIFOBuffe
     test("preserves item order") {
         (0..1000).forEach { buf.append(it.toString()) }
         expect((0..1000).toList()) { (0..1000).map { buf.poll()!!.toInt() } }
+        expect(null) { buf.poll() }
     }
 }
 
