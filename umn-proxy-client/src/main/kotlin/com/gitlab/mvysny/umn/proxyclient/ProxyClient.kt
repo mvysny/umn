@@ -25,15 +25,18 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         override fun onOpen(webSocket: WebSocket, response: Response) {
             // do nothing. We either await for socket close (on username/password mismatch or for some other reason), or
             // we expect a surge of messages to arrive
+            log.debug("Connected to ${webSocket.request().url()}")
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
+            log.error("Received text message $text which is unexpected, MITM?!?")
             webSocket.close(1003, "Encountered unexpected Text Message")
             startFuture.completeExceptionally(RuntimeException("1003: encountered unexpected Text Message"))
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
             val msg = AbstractMessage.fromByteArray(bytes.toByteArray())
+            log.debug("Received message $msg")
             when (msg) {
                 is AbstractMessage.OnLogRecord -> {
                     startFuture.complete(Unit)
@@ -49,6 +52,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            log.debug("Closing, code=$code reason=$reason")
             if (code == AbstractMessage.WS_INVALID_USERNAME_PASSWORD) {
                 startFuture.completeExceptionally(InvalidUsernamePasswordException(reason))
             } else {
@@ -110,6 +114,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         }
 
         // if we get here, we were not canceled and there has been no exception. we're started! ;)
+        log.info("Connected to Proxy Server at ${request.url()}")
     }
 
     override fun addAsync(record: SerializedLogRecord) {
@@ -120,6 +125,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
 
     override fun close() {
         if (closed.compareAndSet(false, true)) {
+            log.info("Closing connection")
             startFuture.cancel(false)
             ws?.close(1000, "CLOSED BY USER")
             ws = null

@@ -26,6 +26,7 @@ class UMNProxyWebsocketListener : WebSocketListener {
     }
 
     override fun onWebSocketConnect(session: Session) {
+        log.info("Got connection; headers=${session.upgradeRequest.headers}")
         this.session = session
         val username: String? = session.upgradeRequest.getHeader("username")
         val password: String? = session.upgradeRequest.getHeader("password")
@@ -58,14 +59,17 @@ class UMNProxyWebsocketListener : WebSocketListener {
             return
         }
         session.remote.send(AbstractMessage.Started)
+        log.info("Connection successful, sent handshake AbstractMessage.Started")
     }
 
     override fun onWebSocketText(message: String) {
+        log.error("Unexpected: Received text message $message, MITM?!?")
         session.close(1003, "UNEXPECTED TEXT MESSAGE")
     }
 
     override fun onWebSocketBinary(payload: ByteArray, offset: Int, len: Int) {
         val msg = AbstractMessage.fromByteArray(payload, offset, len)
+        log.debug("Got message $msg")
         if (msg is AbstractMessage.AddAsync) {
             logStorage.addAsync(msg.record)
         } else {

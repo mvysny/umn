@@ -30,6 +30,8 @@ sealed class AbstractMessage {
 
     abstract fun writeTo(dout: DataOutputStream)
 
+    final override fun toString(): String = javaClass.simpleName
+
     fun asByteArray(): ByteArray = ByteArrayOutputStream().apply {
         this@AbstractMessage.writeTo(DataOutputStream(this))
     }.toByteArray()
