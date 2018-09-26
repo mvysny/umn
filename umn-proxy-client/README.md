@@ -16,7 +16,7 @@ To add syncing capabilities to your existing UMN database:
 ```kotlin
 val umn = ...
 val httpClient = OkHttpClient()
-val request = Request.Builder().url("ws://umn-proxy-hostname:8080")
+val request = Request.Builder().url("ws://umn-proxy-hostname:10144")
 
 val syncingumn = umn.syncing({
     ProxyClient(httpClient, request, "username", "password")
@@ -33,4 +33,4 @@ syncingumn.close()
 ### Secure websockets over HTTPS/SSL
 
 Just configure your UMN Proxy Server to use secure websockets; then simply specify
-the following URL into the client: `wss://umn-proxy-hostname:8443`.
+the following URL into the client: `wss://umn-proxy-hostname:10146`.

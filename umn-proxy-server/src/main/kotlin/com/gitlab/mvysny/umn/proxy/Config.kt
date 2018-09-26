@@ -7,9 +7,9 @@ import java.io.File
 import java.io.InputStream
 import java.net.InetSocketAddress
 
-data class Config(var port: Int = 8080,
+data class Config(var port: Int = 10144,
                   var host: String = "0.0.0.0",
-                  var adminPort: Int = 8081,
+                  var adminPort: Int = 10145,
                   var adminHost: String = "127.0.0.1",
                   var proxy: Proxy = Proxy(),
                   var secure: Secure? = null) {
@@ -46,7 +46,7 @@ data class Standalone(var db: String = "db") {
     fun createLogClientProvider(): GlobalLogClientProvider = MVStoreGlobalLogProvider(File(db).absoluteFile)
 }
 
-data class Secure(var port: Int = 8443,
+data class Secure(var port: Int = 10146,
                   var host: String = "0.0.0.0",
                   var pkcs12: String? = null) {
 

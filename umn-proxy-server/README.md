@@ -87,15 +87,15 @@ The server will load the configuration file from the following locations:
 Example content of the configuration file:
 
 ```yaml
-port: 8080
+port: 10144
 host: 0.0.0.0
-adminPort: 8081
+adminPort: 10145
 adminHost: 127.0.0.1
 proxy:
   standalone:
     db: ./db
 secure:
-  port: 8443
+  port: 10146
   host: 0.0.0.0
   pkcs12: /opt/keystore.p12
 ```
@@ -117,7 +117,7 @@ The UMN Proxy Server supports secure WebSockets over HTTPS/SSL. In order to acti
 your certificate and private key stored in a passwordless PKCS12 key store. Then, just
 make sure to provide the `secure:` stanza in the `config.yaml` as shown above.
 
-In order to use the secure sockets, you need to provide the `wss://somehost:8443` URL to your UMN Proxy client.
+In order to use the secure sockets, you need to provide the `wss://somehost:10146` URL to your UMN Proxy client.
 
 #### Let's Encrypt
 
@@ -130,10 +130,10 @@ openssl pkcs12 -export -in fullchain.pem -inkey privkey.pem -out /opt/keystore.p
 chmod a+r /opt/keystore.p12
 ```
 
-Then configure UMN to activate the secure socket on port 8443: add the following to your `config.yaml`:
+Then configure UMN to activate the secure socket on port 10146: add the following to your `config.yaml`:
 ```yaml
 secure:
-  port: 8443
+  port: 10146
   host: 0.0.0.0
   pkcs12: /opt/keystore.p12
 ```
@@ -144,9 +144,9 @@ to restart the UMN Proxy Server to load the new key.
 ## Admin Interface
 
 UMN Proxy Server offers the administration interface as a REST endpoint. By default the interface
-listens on http 8081 on localhost only, no credentials are required.
+listens on http 10145 on localhost only, no credentials are required.
 
-To control the UMN Proxy Server programatically, see the Java client: [umn-proxy-server-adminclient](../umn-proxy-server-adminclient).
+To control the UMN Proxy Server programmatically, see the Java client: [umn-proxy-server-adminclient](../umn-proxy-server-adminclient).
 
 ### User management
 
@@ -159,12 +159,12 @@ Use the database built-in mechanisms to manage users.
 
 | Method+Endpoint | Explanation
 | --------------- | -----------------------------
-| GET /admin/users | Returns all users, as a JSON List of String usernames. Example: `curl -i localhost:8081/admin/users` should print `["user", "user25"]`
-| PUT /admin/users | Creates a new user with given plaintext password. Requires two parameters, passed as query params: `username` and `password`. If the user already exists, its password is updated. Example: `curl -i -X PUT "localhost:8081/admin/users?username=user&password=example"` should print 204 NO CONTENT on success.
-| DELETE /admin/users/:username | Deletes the user with given username. Example: `curl -i -X DELETE localhost:8081/admin/users/user` should print 204 NO CONTENT on success.
+| GET /admin/users | Returns all users, as a JSON List of String usernames. Example: `curl -i localhost:10145/admin/users` should print `["user", "user25"]`
+| PUT /admin/users | Creates a new user with given plaintext password. Requires two parameters, passed as query params: `username` and `password`. If the user already exists, its password is updated. Example: `curl -i -X PUT "localhost:10145/admin/users?username=user&password=example"` should print 204 NO CONTENT on success.
+| DELETE /admin/users/:username | Deletes the user with given username. Example: `curl -i -X DELETE localhost:10145/admin/users/user` should print 204 NO CONTENT on success.
 
 ### Statistics
 
 | Method+Endpoint | Explanation
 | --------------- | -----------------------------
-| GET /admin/stats/logsizes | Returns all users and their log sizes, e.g. `curl -i localhost:8081/admin/stats/logsizes` should print `{"user":25, "user2": 1645}`
+| GET /admin/stats/logsizes | Returns all users and their log sizes, e.g. `curl -i localhost:10145/admin/stats/logsizes` should print `{"user":25, "user2": 1645}`

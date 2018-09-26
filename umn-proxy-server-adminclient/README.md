@@ -4,6 +4,6 @@ A Java/Kotlin Proxy Server admin client which uses REST+Retrofit to communicate 
 
 Example:
 ```
-val client = createAdminClient("http://localhost:8081/admin/")
+val client = createAdminClient("http://localhost:10145/admin/")
 client.createOrUpdateUser("user", "example")
 ```

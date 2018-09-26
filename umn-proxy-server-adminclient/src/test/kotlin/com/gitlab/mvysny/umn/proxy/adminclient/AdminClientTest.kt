@@ -16,10 +16,10 @@ class AdminClientTest : DynaTest({
     beforeEach {
         val dbDir = createTempDir().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
-        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 8080), lp)
+        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 10144), null, lp)
         server.start()
-        adminServer = AdminServer(InetSocketAddress.createUnresolved("127.0.0.1", 8081))
-        client = createAdminClient("http://localhost:8081/admin/")
+        adminServer = AdminServer(InetSocketAddress.createUnresolved("127.0.0.1", 10145))
+        client = createAdminClient("http://localhost:10145/admin/")
     }
     afterEach {
         adminServer.closeQuietly()

@@ -8,8 +8,8 @@ import kotlin.test.expect
 class ConfigTest : DynaTest({
     test("load from empty config should fetch defaults") {
         val cfg = Config.loadFrom(ByteArrayInputStream(byteArrayOf()))
-        expect(InetSocketAddress.createUnresolved("0.0.0.0", 8080)) { cfg.socketAddress }
-        expect(InetSocketAddress.createUnresolved("127.0.0.1", 8081)) { cfg.adminSocketAddress }
+        expect(InetSocketAddress.createUnresolved("0.0.0.0", 10144)) { cfg.socketAddress }
+        expect(InetSocketAddress.createUnresolved("127.0.0.1", 10145)) { cfg.adminSocketAddress }
     }
     test("load from test config") {
         val cfg = ConfigTest::class.java.getResourceAsStream("/testconfig.yaml").use { Config.loadFrom(it) }
