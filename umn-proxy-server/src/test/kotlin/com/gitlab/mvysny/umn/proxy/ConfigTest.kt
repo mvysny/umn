@@ -16,5 +16,6 @@ class ConfigTest : DynaTest({
         expect(InetSocketAddress.createUnresolved("127.0.0.1", 25)) { cfg.socketAddress }
         expect(InetSocketAddress.createUnresolved("0.0.0.0", 45)) { cfg.adminSocketAddress }
         expect("/some/weird/place") { cfg.proxy.standalone!!.db }
+        expect(Secure(666, "127.0.0.1", "/opt/somewhere/keystore.p12")) { cfg.secure }
     }
 })

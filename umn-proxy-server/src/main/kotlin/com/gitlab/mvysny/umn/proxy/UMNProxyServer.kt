@@ -13,6 +13,19 @@ import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
+import org.eclipse.jetty.server.ForwardedRequestCustomizer
+import org.eclipse.jetty.server.SecureRequestCustomizer
+import org.eclipse.jetty.server.HttpConfiguration
+import spark.Spark.setPort
+import org.eclipse.jetty.util.log.JettyLogHandler.config
+import org.eclipse.jetty.server.HttpConnectionFactory
+import org.eclipse.jetty.server.ServerConnector
+import java.io.File
+import org.eclipse.jetty.util.ssl.SslContextFactory
+
+
+
+
 
 class UMNProxyWebsocketListener : WebSocketListener {
     private lateinit var session: Session
@@ -86,10 +99,11 @@ class UMNProxyWebsocketListener : WebSocketListener {
 
 lateinit var server: UMNProxyServer
 
-class UMNProxyServer(adr: InetSocketAddress, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
+class UMNProxyServer(adr: InetSocketAddress, val secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
     private val server = Server(adr)
     init {
         server.handler = WebSocketHandler.Simple(UMNProxyWebsocketListener::class.java)
+        secure?.registerJettyConnector(server)
     }
 
     fun start() {

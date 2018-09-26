@@ -5,3 +5,7 @@ adminHost: 0.0.0.0
 proxy:
   standalone:
     db: /some/weird/place
+secure:
+  port: 666
+  host: 127.0.0.1
+  pkcs12: /opt/somewhere/keystore.p12

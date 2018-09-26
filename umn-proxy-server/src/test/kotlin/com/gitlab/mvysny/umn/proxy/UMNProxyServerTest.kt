@@ -20,7 +20,7 @@ class UMNProxyServerTest : DynaTest({
         val dbDir = createTempDir().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
         lp.mvstorelog.createOrUpdateUser("user", "example")
-        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), lp)
+        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), null, lp)
         server.start()
     }
     afterEach { server.close() }

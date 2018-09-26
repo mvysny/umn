@@ -15,7 +15,7 @@ fun main(args: Array<String>) {
     val globalLogProvider = cfg.proxy.createLogClientProvider()
     Main.log.info("Using log provider: $globalLogProvider")
     globalLogProvider.use { globalLogClientProvider ->
-        server = UMNProxyServer(cfg.socketAddress, globalLogClientProvider)
+        server = UMNProxyServer(cfg.socketAddress, cfg.secure, globalLogClientProvider)
         server.start()
         try {
             val restServer = AdminServer(cfg.adminSocketAddress)

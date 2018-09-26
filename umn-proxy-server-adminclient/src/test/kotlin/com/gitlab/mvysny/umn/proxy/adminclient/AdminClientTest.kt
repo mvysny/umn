@@ -7,6 +7,7 @@ import com.gitlab.mvysny.umn.proxy.AdminServer
 import com.gitlab.mvysny.umn.proxy.MVStoreGlobalLogProvider
 import com.gitlab.mvysny.umn.proxy.UMNProxyServer
 import com.gitlab.mvysny.umn.proxy.server
+import java.net.InetSocketAddress
 import kotlin.test.expect
 
 class AdminClientTest : DynaTest({
@@ -15,9 +16,9 @@ class AdminClientTest : DynaTest({
     beforeEach {
         val dbDir = createTempDir().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
-        server = UMNProxyServer(8080, lp)
+        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 8080), lp)
         server.start()
-        adminServer = AdminServer(8081)
+        adminServer = AdminServer(InetSocketAddress.createUnresolved("127.0.0.1", 8081))
         client = createAdminClient("http://localhost:8081/admin/")
     }
     afterEach {

@@ -94,6 +94,10 @@ adminHost: 127.0.0.1
 proxy:
   standalone:
     db: ./db
+secure:
+  port: 8443
+  host: 0.0.0.0
+  pkcs12: /opt/keystore.p12
 ```
 
 Currently only the standalone mode is supported. The database will be created automatically. To
@@ -106,6 +110,36 @@ it doesn't require Kafka/MongoDB/Hazelcast server to store the record log.
 
 The only configuration is the `db` which is a directory where the database file (just a single file) will
 be located. See the `config.yaml` example above for more details.
+
+### SSL/HTTPS
+
+The UMN Proxy Server supports secure WebSockets over HTTPS/SSL. In order to activate this, you'll need
+your certificate and private key stored in a passwordless PKCS12 key store. Then, just
+make sure to provide the `secure:` stanza in the `config.yaml` as shown above.
+
+In order to use the secure sockets, you need to provide the `wss://somehost:8443` URL to your UMN Proxy client.
+
+#### Let's Encrypt
+
+You can use UMN Proxy server with Let's Encrypt easily. You just need to make sure to
+convert PEM produced by Let's Encrypt to PKCS12 (taken from excellent [LetsEncrypt certs with embedded Jetty on](https://danielflower.github.io/2017/04/08/Lets-Encrypt-Certs-with-embedded-Jetty.html)):
+
+```bash
+cd /etc/letsencrypt/live/www.crickam.com
+openssl pkcs12 -export -in fullchain.pem -inkey privkey.pem -out /opt/keystore.p12 -name crickam -CAfile chain.pem -caname root -passout "pass:"
+chmod a+r /opt/keystore.p12
+```
+
+Then configure UMN to activate the secure socket on port 8443: add the following to your `config.yaml`:
+```yaml
+secure:
+  port: 8443
+  host: 0.0.0.0
+  pkcs12: /opt/keystore.p12
+```
+
+Don't forget to add the post hook to convert the keystore after it has been updated by Certbot, and
+to restart the UMN Proxy Server to load the new key.
 
 ## Admin Interface
 
