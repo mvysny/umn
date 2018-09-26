@@ -2,10 +2,12 @@
 
 ## Using images from dockerhub
 
+UMN Proxy Server images are hosted on the Docker Hub at [UMN Proxy Server Docker Repository](https://hub.docker.com/r/mvysny/umn-proxy-server/).
+
 To run the UMN Proxy Server, simply issue the following command in your terminal:
 
 ```
-docker run --rm -ti -p 10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.11.1
+docker run --rm -ti -p 10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.11.2
 ```
 
 
