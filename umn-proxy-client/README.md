@@ -9,7 +9,23 @@ therefore it's very easy to use even in restricted networks which employ http pr
 
 ## How to use
 
+Add the client as a Gradle dependency:
+```
+repositories {
+    maven { url "https://dl.bintray.com/mvysny/gitlab" }
+}
+dependencies {
+    compile('com.gitlab.mvysny.umn:umn-proxy-client:0.11')
+}
+```
+
 Simply use the following code to create the proxy client:
+
+```kotlin
+val httpClient = OkHttpClient()
+val request = Request.Builder().url("ws://umn-proxy-hostname:10144")
+ProxyClient(httpClient, request, "username", "password")
+```
 
 To add syncing capabilities to your existing UMN database:
 
