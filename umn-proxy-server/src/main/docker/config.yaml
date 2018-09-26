@@ -1,0 +1,8 @@
+port: 10144
+host: 0.0.0.0
+adminPort: 10145
+adminHost: 0.0.0.0
+proxy:
+  standalone:
+    db: /var/umn-proxy-server/db
+
