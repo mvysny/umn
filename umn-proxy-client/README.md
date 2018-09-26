@@ -29,3 +29,8 @@ syncingumn.syncer.stop()
 
 syncingumn.close()
 ```
+
+### Secure websockets over HTTPS/SSL
+
+Just configure your UMN Proxy Server to use secure websockets; then simply specify
+the following URL into the client: `wss://umn-proxy-hostname:8443`.

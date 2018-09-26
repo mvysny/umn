@@ -111,7 +111,7 @@ it doesn't require Kafka/MongoDB/Hazelcast server to store the record log.
 The only configuration is the `db` which is a directory where the database file (just a single file) will
 be located. See the `config.yaml` example above for more details.
 
-### SSL/HTTPS
+### Secure WebSockets over SSL/HTTPS
 
 The UMN Proxy Server supports secure WebSockets over HTTPS/SSL. In order to activate this, you'll need
 your certificate and private key stored in a passwordless PKCS12 key store. Then, just
