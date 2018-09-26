@@ -26,10 +26,11 @@ You can now press CTRL+C to terminate the server.
 
 ### Docker Compose
 
-An example `docker-compose.yml` file which runs the server as above:
+See the example [docker-compose.yml](docker-compose.yml) file which runs the server. Download the file,
+then simply run the following from your terminal:
 
-```yml
-
+```bash
+docker-compose up
 ```
 
 ### Security
