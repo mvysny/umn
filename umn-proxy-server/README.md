@@ -168,3 +168,7 @@ Use the database built-in mechanisms to manage users.
 | Method+Endpoint | Explanation
 | --------------- | -----------------------------
 | GET /admin/stats/logsizes | Returns all users and their log sizes, e.g. `curl -i localhost:10145/admin/stats/logsizes` should print `{"user":25, "user2": 1645}`
+
+## Using in docker
+
+Please see [UMN Proxy Server Docker Documentation](src/main/docker) for more info.
