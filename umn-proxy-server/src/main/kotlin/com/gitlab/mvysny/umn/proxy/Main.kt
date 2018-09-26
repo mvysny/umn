@@ -1,36 +1,66 @@
 package com.gitlab.mvysny.umn.proxy
 
+import com.gitlab.mvysny.umn.core.closeQuietly
 import org.slf4j.LoggerFactory
+import java.io.Closeable
 
-class Main {
+class Main(val cfg: Config) : Closeable {
+    override fun close() {
+        adminServer?.closeQuietly()
+        proxyServer?.closeQuietly()
+        globalLogClientProvider?.closeQuietly()
+    }
+
+    private var globalLogClientProvider: GlobalLogClientProvider? = null
+    private var proxyServer: UMNProxyServer? = null
+    private var adminServer: AdminServer? = null
+
+    private fun start() {
+        globalLogClientProvider = cfg.proxy.createLogClientProvider()
+        log.info("Using log provider: $globalLogClientProvider")
+        proxyServer = UMNProxyServer(cfg.socketAddress, cfg.secure, globalLogClientProvider!!)
+        proxyServer!!.start()
+        server = proxyServer!!
+
+        adminServer = AdminServer(cfg.adminSocketAddress)
+    }
+
     companion object {
         @JvmStatic
-        val log = LoggerFactory.getLogger(Main::class.java)
+        private val log = LoggerFactory.getLogger(Main::class.java)
+        @JvmStatic
+        fun main(args: Array<String>) {
+            val cfg = Config.load()
+            log.info("Using config: $cfg")
+            val main = Main(cfg)
+            Runtime.getRuntime().addShutdownHook(Thread {
+                try {
+                    log.info("Shutting down")
+                    main.close()
+                    log.info("Shut down cleanly")
+                } catch (t: Throwable) {
+                    log.error("Failed to shut down cleanly", t)
+                }
+            })
+            main.start()
+            println("""
+******************************************************************************************
+Server is running on ${cfg.socketAddress}, admin is running on ${cfg.adminSocketAddress}.
+******************************************************************************************
+""")
+            loop()
+        }
+
+        private fun loop() {
+            // endless loop, to continue running in docker-compose where there is no stdin
+            System.out.println("Press CTRL+C to terminate")
+            while(true) {
+                Thread.sleep(Long.MAX_VALUE)
+            }
+        }
     }
 }
 
 fun main(args: Array<String>) {
-    val cfg = Config.load()
-    Main.log.info("Using config: $cfg")
-    val globalLogProvider = cfg.proxy.createLogClientProvider()
-    Main.log.info("Using log provider: $globalLogProvider")
-    globalLogProvider.use { globalLogClientProvider ->
-        server = UMNProxyServer(cfg.socketAddress, cfg.secure, globalLogClientProvider)
-        server.start()
-        try {
-            val restServer = AdminServer(cfg.adminSocketAddress)
-            try {
-                println("""
-************************************************************************************************************************
-Server is running on ${cfg.socketAddress}, admin is running on ${cfg.adminSocketAddress}. Press Enter to kill the server
-************************************************************************************************************************
-""")
-                System.`in`.read()
-            } finally {
-                restServer.close()
-            }
-        } finally {
-            server.close()
-        }
-    }
+    Main.main(args)
 }

@@ -2,7 +2,35 @@
 
 ## Using images from dockerhub
 
-TBD
+To run the UMN Proxy Server, simply issue the following command in your terminal:
+
+```
+docker run --rm -ti -p 10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.11.1
+```
+
+
+You can test that the server is running:
+
+```
+curl -i localhost:10145/admin/users
+HTTP/1.1 200 OK
+Date: Wed, 26 Sep 2018 09:35:21 GMT
+Content-Type: text/html;charset=utf-8
+Transfer-Encoding: chunked
+Server: Jetty(9.4.12.v20180830)
+
+[]
+```
+
+You can now press CTRL+C to terminate the server.
+
+### Docker Compose
+
+An example `docker-compose.yml` file which runs the server as above:
+
+```yml
+
+```
 
 ### Security
 
@@ -26,7 +54,7 @@ secure:
 Then, use `-v yourkeystore.p12:/opt/keystore.p12` to mount the keystore file into your
 image; also don't forget to add `-p 10146:10146` to expose the SSL port from your image.
 
-## Building custom images
+## Building the image
 
 To build the image, first build the server:
 
