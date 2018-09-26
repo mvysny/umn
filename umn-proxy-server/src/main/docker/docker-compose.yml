@@ -1,10 +1,10 @@
 version: '2'
 services:
   umn-proxy-server:
-    image: mvysny/umn-proxy-server:0.11.1
+    image: mvysny/umn-proxy-server:0.11.2
     ports:
       - "10144:10144"
       - "127.0.0.1:10145:10145"
     volumes:
-      - /home/mavi/db:/var/umn-proxy-server/db
+      - ./db:/var/umn-proxy-server/db
 
