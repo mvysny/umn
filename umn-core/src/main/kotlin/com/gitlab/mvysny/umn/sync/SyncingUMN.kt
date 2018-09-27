@@ -118,7 +118,7 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  * From this point on, you must use [SyncingUMN] to mutate the database, in order to properly populate the mutation log.
  * If you don't, the mutation log will not be populated with document changes and the changes will not be sent to other nodes.
  *
- * Warning: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
+ * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
  * and they will send same changes multiple times to other nodes!
  *
  * @param clientProvider creates new clients. The client produced must not be started yet. Closed when the [SyncingUMN] is closed or when
@@ -147,7 +147,13 @@ class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val 
     }
 }
 
-class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, private val clientProvider: ()->GlobalLogClient) : Closeable {
+/**
+ * Thread-safe syncer syncing given UMN. Use [UMN.syncing] to obtain instances of this class. Then, call [start] to start syncing.
+ *
+ * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
+ * and they will send same changes multiple times to other nodes!
+ */
+class Syncer internal constructor(private val underlyingUMN: UMN, serializer: DocumentSerializer, private val clientProvider: ()->GlobalLogClient) : Closeable {
     /*
      * buffer which stores outgoing changes until they are correctly transmitted over given
       */
@@ -166,6 +172,9 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
      */
     val syncingUMN = SyncingUMN(announcingUMN, this)
 
+    /**
+     * Starts syncing. Thread-safe. Attempt to start an already started syncer does nothing.
+     */
     fun start() = event {
         if (client == null) {
             client = clientProvider()
@@ -187,10 +196,13 @@ class Syncer(private val underlyingUMN: UMN, serializer: DocumentSerializer, pri
         }
     }
 
-    // tu musim dat forceRun=true, inak close() by nefungoval:
-    // lebo close() zavola stop() a hned shutdowne eventLoop, co je race condition, lebo ked je stop kod konecne zavolany,
-    // zisti ze eventLoop je shutdownuty a nic neurobi.
+    /**
+     * Stops syncing. Thread-safe. Attempt to stop an already stopped syncer does nothing.
+     */
     fun stop() = event(true) {
+        // tu musim dat forceRun=true, inak close() by nefungoval:
+        // lebo close() zavola stop() a hned shutdowne eventLoop, co je race condition, lebo ked je stop kod konecne zavolany,
+        // zisti ze eventLoop je shutdownuty a nic neurobi.
         pusher?.closeQuietly()
         pusher = null
         client?.closeQuietly()
