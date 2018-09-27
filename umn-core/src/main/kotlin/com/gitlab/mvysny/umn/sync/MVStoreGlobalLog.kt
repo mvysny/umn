@@ -170,4 +170,6 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
     }
 
     fun getLogSizes(): Map<String, Long> = listUsers().associateBy({it}, { getLogMap(it).sizeAsLong() })
+
+    val activeClientCount: Int get() = startedClients.values.sumBy { it.size }
 }

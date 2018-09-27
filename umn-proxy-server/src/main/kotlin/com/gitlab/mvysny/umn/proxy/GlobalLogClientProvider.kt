@@ -8,6 +8,7 @@ import java.io.File
 import java.nio.file.Files
 
 interface GlobalLogClientProvider : Closeable {
+    val activeClientCount: Int
     fun createClient(username: String, password: String): GlobalLogClient
 }
 
@@ -30,4 +31,7 @@ class MVStoreGlobalLogProvider(val dbdir: File) : GlobalLogClientProvider {
         db = MVStore.Builder().compress().fileName(File(dbdir, "umn_proxy_log").absolutePath).open()
         mvstorelog = MVStoreGlobalLog(db)
     }
+
+    override val activeClientCount: Int
+        get() = mvstorelog.activeClientCount
 }

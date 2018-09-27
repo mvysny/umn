@@ -13,19 +13,6 @@ import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import org.eclipse.jetty.server.ForwardedRequestCustomizer
-import org.eclipse.jetty.server.SecureRequestCustomizer
-import org.eclipse.jetty.server.HttpConfiguration
-import spark.Spark.setPort
-import org.eclipse.jetty.util.log.JettyLogHandler.config
-import org.eclipse.jetty.server.HttpConnectionFactory
-import org.eclipse.jetty.server.ServerConnector
-import java.io.File
-import org.eclipse.jetty.util.ssl.SslContextFactory
-
-
-
-
 
 class UMNProxyWebsocketListener : WebSocketListener {
     private lateinit var session: Session
@@ -33,10 +20,12 @@ class UMNProxyWebsocketListener : WebSocketListener {
     private lateinit var logStorage: GlobalLogClient
     override fun onWebSocketClose(statusCode: Int, reason: String) {
         log.info("$username: Closing web socket: statusCode=$statusCode, reason=$reason")
+        logStorage.close()
     }
 
     override fun onWebSocketError(t: Throwable) {
         log.error("$username: Web socket failure: $t", t)
+        logStorage.close()
     }
 
     override fun onWebSocketConnect(session: Session) {
@@ -79,6 +68,7 @@ class UMNProxyWebsocketListener : WebSocketListener {
     override fun onWebSocketText(message: String) {
         log.error("Unexpected: Received text message $message, MITM?!?")
         session.close(1003, "UNEXPECTED TEXT MESSAGE")
+        logStorage.close()
     }
 
     override fun onWebSocketBinary(payload: ByteArray, offset: Int, len: Int) {
@@ -88,6 +78,7 @@ class UMNProxyWebsocketListener : WebSocketListener {
             logStorage.addAsync(msg.record)
         } else {
             session.close(1002, "Unexpected message arrived: $msg")
+            logStorage.close()
         }
     }
 
@@ -99,7 +90,7 @@ class UMNProxyWebsocketListener : WebSocketListener {
 
 lateinit var server: UMNProxyServer
 
-class UMNProxyServer(adr: InetSocketAddress, val secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
+class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
     private val server = Server(adr)
     init {
         server.handler = WebSocketHandler.Simple(UMNProxyWebsocketListener::class.java)

@@ -29,10 +29,23 @@ class UMNProxyServerTest : DynaTest({
         createSyncClient()
     }
 
+    test("when no clients are connected the active client count is zero") {
+        expect(0) { server.globalLogClientProvider.activeClientCount }
+    }
+
     group("sync writes logs into the database") {
         lateinit var client: GlobalLogClient
         beforeEach { client = createSyncClient() }
         afterEach { client.close() }
+
+        test("closing websocket client also closes mvstorelog's client") {
+            client.start()
+            Thread.sleep(200)
+            expect(1) { server.globalLogClientProvider.activeClientCount }
+            client.close()
+            Thread.sleep(200)
+            expect(0) { server.globalLogClientProvider.activeClientCount }
+        }
 
         test("publishing item writes it into the mvstorelog") {
             val item = LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID())
