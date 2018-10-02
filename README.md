@@ -31,7 +31,7 @@ UMN currently does not have:
 The database API is stable at this point and is being battle-tested in the
 [Aedict Japanese Dictionary](http://www.aedict.eu/), so you are free to use that.
 
-The syncing part is however alpha-quality and definitely not ready for production use.
+The syncing part is beta-quality and battle-tested in the Aedict Japanese Dictionary.
 
 ## Adding it to your project
 
@@ -242,10 +242,12 @@ any other UMN type) is found.
 
 ## Syncing
 
-UMN is able to synchronize all nodes connected to a common server.
+UMN is able to synchronize the data to all nodes connected to a common server. UMN Sync converts
+all database modifications into a stream of events (called *log records*), and transmits that log over a common server
+to all other clients. Every client contains a queue of log records; the queue is emptied as the events
+are confirmed to be received by the server.
 
-TBD examples
-
+To activate syncing, you first need to create a client which transmits the log to a particular server of your choosing.
 UMN currently supports the following means of synchronization:
 
 * Via [UMN Proxy Server](umn-proxy-server) backed with the H2 MVStore log storage.
@@ -253,6 +255,67 @@ UMN currently supports the following means of synchronization:
 * Via a MongoDB server: [umn-sync-mongodb](umn-sync-mongodb)
 * Via a Kafka server: [umn-sync-kafka](umn-sync-kafka)
 * Via Hazelcast server: [umn-sync-hazelcast](umn-sync-hazelcast)
+
+### Example
+
+The easiest way to sync is to launch the UMN Proxy Server in Standalone mode. Please read the
+[UMN Proxy Server Documentation](umn-proxy-server) for more info; for experimenting we'll simply launch the server in
+docker:
+
+```bash
+$ docker run --rm -ti -p 10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.12
+```
+
+This will launch the proxy server which will listen on two ports: 10144 is a websocket endpoint for data syncing, 10145 is the admin interface.
+Let's create a testing user first:
+
+```bash
+$ curl -i -X PUT "localhost:10145/admin/users?username=user&password=example"
+```
+
+We will now construct the Proxy Client in your Kotlin code:
+
+```kotlin
+val httpClient = OkHttpClient.Builder()
+        .pingInterval(1, TimeUnit.MINUTES)
+        .build()
+
+fun createProxyClient(): GlobalLogClient {
+    val request = Request.Builder().url("ws://localhost:10144")
+    return ProxyClient(httpClient, request, "user", "example")
+}
+```
+
+Let's now wrap your UMN database to add syncing capabilities:
+
+```kotlin
+val syncingUMN = umn.syncing({ createProxyClient() }, JavaDocumentSerializer, true)
+```
+
+Done. Just remember to use `syncingUMN` to update the database from now on. `syncingUMN` will intercept all
+database changes and transmit them to the UMN Proxy Server. It will also apply all changes made by other
+nodes.
+
+### Limitations
+
+Every node keeps its own outgoing log. This technique keeps all logic client-side which allows for syncing
+over literally any database server, be it SQL, NoSQL, Kafka, Hazelcast. However it has a couple of disadvantages and
+it is very important to remember those, otherwise you'll get very weird behavior.
+
+It is possible to apply `.syncing` to already existing UMN database. When `.syncing` is applied for the first time,
+it will fake the log by creating `CreateRecord` for every document present in the database, and it will transmit those records
+to other nodes. However, this is done only once. If you keep using the unwrapped `umn` to store documents (instead of the `syncingUMN`),
+the changes will never be picked up by `syncingUMN`  and they will never be transmitted.
+
+It's important to remember that:
+- If you used UMN without syncing capabilities in your app, it is OK to add sync support: simply wrap the old UMN
+via `.syncing` and keep using only the wrapped instance.
+- However, if you decide to remove syncing capabilities by removing the `.syncing` call, any further changes will never be
+picked up by the syncer.
+
+There is only one client log. Once it's transmitted to the server, it's purged from the client, to save space. This works unless you
+decide to reconfigure syncing to some other server. The new server will never be repopulated by data from
+the clients (because the log has been purged). Switching servers is therefore unsupported.
 
 ### Syncing behind a firewall
 
