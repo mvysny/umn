@@ -4,6 +4,7 @@ import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.proxyclient.ProxyClient
+import com.gitlab.mvysny.umn.proxyclient.destroy
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.tester.AutoTypeResolver
 import com.gitlab.mvysny.umn.sync.tester.addAsync
@@ -16,6 +17,10 @@ import java.util.*
 import kotlin.test.expect
 
 class UMNProxyServerTest : DynaTest({
+    lateinit var httpClient: OkHttpClient
+    beforeGroup {
+        httpClient = OkHttpClient()
+    }
     beforeEach {
         val dbDir = createTempDir().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
@@ -24,9 +29,10 @@ class UMNProxyServerTest : DynaTest({
         server.start()
     }
     afterEach { server.close() }
+    afterGroup { httpClient.destroy() }
 
     globalLogClientTestBattery {
-        createSyncClient()
+        createSyncClient(httpClient)
     }
 
     test("when no clients are connected the active client count is zero") {
@@ -35,7 +41,7 @@ class UMNProxyServerTest : DynaTest({
 
     group("sync writes logs into the database") {
         lateinit var client: GlobalLogClient
-        beforeEach { client = createSyncClient() }
+        beforeEach { client = createSyncClient(httpClient) }
         afterEach { client.close() }
 
         test("closing websocket client also closes mvstorelog's client") {
@@ -65,8 +71,7 @@ class UMNProxyServerTest : DynaTest({
     }
 })
 
-fun createSyncClient(): ProxyClient {
-    val client = OkHttpClient()
+fun createSyncClient(httpClient: OkHttpClient): ProxyClient {
     val request = Request.Builder().url("ws://localhost:51343")
-    return ProxyClient(client, request, "user", "example")
+    return ProxyClient(httpClient, request, "user", "example")
 }
