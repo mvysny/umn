@@ -15,6 +15,7 @@ where performance is critical. You can use standard Java Serialization for exper
 however in order to ensure that the binary data can be read back you should use one of the
 following libraries:
 
+* [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)
 * [Google Protobuf](https://github.com/google/protobuf)
 * [Kryo](https://github.com/EsotericSoftware/kryo)
 * Others. I'll eventually update this list and introduce one recommended way which is simple,
@@ -291,6 +292,10 @@ Let's now wrap your UMN database to add syncing capabilities:
 ```kotlin
 val syncingUMN = umn.syncing({ createProxyClient() }, JavaDocumentSerializer, true)
 ```
+
+> *Note*: `JavaDocumentSerializer` is really only good for testing purposes, since it uses plain Java Serialization
+which is not portable between different Java JDKs (or even different Java versions). You're urged to implement your own
+serialization, e.g. using [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization).
 
 Done. Just remember to use `syncingUMN` to update the database from now on. `syncingUMN` will intercept all
 database changes and transmit them to the UMN Proxy Server. It will also apply all changes made by other
