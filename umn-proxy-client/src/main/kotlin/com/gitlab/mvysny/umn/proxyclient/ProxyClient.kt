@@ -15,7 +15,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * *NOTE*: It is a good idea to configure the client to send ping every 1 minute, to prevent the connection from timing out
  * (which happens by default in 5 minutes in Jetty).
- * @property client the client which will be used to WS-connect to the server. Closed when this client is closed.
+ *
+ * *WARNING*: [client] is not closed by this client: [OkHttpClient] instances should be reused as stated in the [OkHttpClient]
+ * docs. You should probably create one singleton instance and close it when JVM is being killed.
+ *
+ * @property client the client which will be used to WS-connect to the server. NOT CLOSED!
  * @param requestBuilder the request builder with [Request.Builder.url] set.
  */
 class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder, val username: String, private val password: String) : GlobalLogClient {
@@ -134,7 +138,6 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
             startFuture.cancel(false)
             ws?.close(1000, "CLOSED BY USER")
             ws = null
-            client.destroy()
         }
     }
     
@@ -149,6 +152,10 @@ fun WebSocket.send(msg: AbstractMessage) {
     send(ByteString.of(bytes, 0, bytes.size))
 }
 
+/**
+ * Destroys the [OkHttpClient] including the dispatcher, connection pool, everything. WARNING: THIS MAY AFFECT
+ * OTHER http clients if they share e.g. dispatcher executor service.
+ */
 fun OkHttpClient.destroy() {
     dispatcher().executorService().shutdown()
     connectionPool().evictAll()
