@@ -104,9 +104,10 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         checkNotClosed()
         check(started.compareAndSet(false, true)) { "Already started" }
 
-        val request = requestBuilder
+        val request: Request = requestBuilder
             .header("username", username)
             .header("password", password).build()
+        log.debug("Sending request $request with headers ${request.headers()}")
         ws = client.newWebSocket(request, listener)
         try {
             startFuture.get()

@@ -36,12 +36,20 @@ sealed class AbstractMessage {
         this@AbstractMessage.writeTo(DataOutputStream(this))
     }.toByteArray()
 
+    /**
+     * Sent by the server upon connection open, to notify the client that the username/password is OK and
+     * the server is ready to listen for requests.
+     */
     object Started : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_STARTED)
         }
     }
 
+    /**
+     * Sent by the client to notify the Global Log of a new log record. The server will reply with [OnAdded] when the record
+     * is stored safely on the server.
+     */
     class AddAsync(val record: SerializedLogRecord) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ADD_ASYNC)
@@ -57,12 +65,18 @@ sealed class AbstractMessage {
         }
     }
 
+    /**
+     * Sent by the server as an ACK that [AddAsync] has been received.
+     */
     object OnAdded : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ON_ADDED)
         }
     }
 
+    /**
+     * Sent by the server to all clients, notifying them that a record has been added to the global log (via the [AddAsync] message).
+     */
     class OnLogRecord(val record: SerializedLogRecord) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ON_LOG_RECORD)
