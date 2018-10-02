@@ -96,11 +96,26 @@ sealed class AbstractMessage {
         val WS_INVALID_USERNAME_PASSWORD = 4000
         val WS_SERVER_ERROR = 4001
 
+        /**
+         * [Started]
+         */
         private val TYPE_STARTED = 1
+        /**
+         * [AddAsync]
+         */
         private val TYPE_ADD_ASYNC = 2
+        /**
+         * [OnAdded]
+         */
         private val TYPE_ON_ADDED = 3
+        /**
+         * [OnLogRecord]
+         */
         private val TYPE_ON_LOG_RECORD = 4
 
+        /**
+         * Reconstructs the message from given [bytes].
+         */
         fun fromByteArray(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): AbstractMessage {
             require(bytes.isNotEmpty() && offset < length) { "Empty array: ${bytes.size}, offset=$offset length=$length" }
             val din = DataInputStream(bytes.inputStream(offset, length))
