@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * *NOTE*: It is a good idea to configure the client to send ping every 1 minute, to prevent the connection from timing out
  * (which happens by default in 5 minutes in Jetty).
- * @property client the client which will be used to WS-connect to the server.
+ * @property client the client which will be used to WS-connect to the server. Closed when this client is closed.
  * @param requestBuilder the request builder with [Request.Builder.url] set.
  */
 class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder, val username: String, private val password: String) : GlobalLogClient {
