@@ -134,6 +134,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
             startFuture.cancel(false)
             ws?.close(1000, "CLOSED BY USER")
             ws = null
+            client.destroy()
         }
     }
     
@@ -146,4 +147,10 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
 fun WebSocket.send(msg: AbstractMessage) {
     val bytes = msg.asByteArray()
     send(ByteString.of(bytes, 0, bytes.size))
+}
+
+fun OkHttpClient.destroy() {
+    dispatcher().executorService().shutdown()
+    connectionPool().evictAll()
+    cache()?.close()
 }
