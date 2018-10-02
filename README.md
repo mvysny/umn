@@ -256,7 +256,7 @@ UMN currently supports the following means of synchronization:
 * Via a Kafka server: [umn-sync-kafka](umn-sync-kafka)
 * Via Hazelcast server: [umn-sync-hazelcast](umn-sync-hazelcast)
 
-### Example
+### Syncing Example
 
 The easiest way to sync is to launch the UMN Proxy Server in Standalone mode. Please read the
 [UMN Proxy Server Documentation](umn-proxy-server) for more info; for experimenting we'll simply launch the server in
@@ -296,7 +296,7 @@ Done. Just remember to use `syncingUMN` to update the database from now on. `syn
 database changes and transmit them to the UMN Proxy Server. It will also apply all changes made by other
 nodes.
 
-### Limitations
+### Syncing Limitations
 
 Every node keeps its own outgoing log. This technique keeps all logic client-side which allows for syncing
 over literally any database server, be it SQL, NoSQL, Kafka, Hazelcast. However it has a couple of disadvantages and
