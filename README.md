@@ -295,7 +295,7 @@ val syncingUMN = umn.syncing({ createProxyClient() }, JavaDocumentSerializer, tr
 
 > *Note*: `JavaDocumentSerializer` is really only good for testing purposes, since it uses plain Java Serialization
 which is not portable between different Java JDKs (or even different Java versions). You're urged to implement your own
-serialization, e.g. using [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization).
+document serializer, e.g. using [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization).
 
 Done. Just remember to use `syncingUMN` to update the database from now on. `syncingUMN` will intercept all
 database changes and transmit them to the UMN Proxy Server. It will also apply all changes made by other
