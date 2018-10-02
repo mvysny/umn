@@ -31,9 +31,7 @@ class UMNProxyServerTest : DynaTest({
     afterEach { server.close() }
     afterGroup { httpClient.destroy() }
 
-    globalLogClientTestBattery {
-        createSyncClient(httpClient)
-    }
+    globalLogClientTestBattery { createSyncClient(httpClient) }
 
     test("when no clients are connected the active client count is zero") {
         expect(0) { server.globalLogClientProvider.activeClientCount }
