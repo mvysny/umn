@@ -11,6 +11,10 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
+ * A client that connects to the UMN Proxy server.
+ *
+ * *NOTE*: It is a good idea to configure the client to send ping every 1 minute, to prevent the connection from timing out
+ * (which happens by default in 5 minutes in Jetty).
  * @property client the client which will be used to WS-connect to the server.
  * @param requestBuilder the request builder with [Request.Builder.url] set.
  */

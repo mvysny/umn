@@ -3,7 +3,10 @@ package com.gitlab.mvysny.umn.proxy
 import okhttp3.*
 import okio.ByteString
 import org.eclipse.jetty.server.Server
+import org.eclipse.jetty.server.ServerConnector
+import org.eclipse.jetty.websocket.api.Session
 import org.eclipse.jetty.websocket.server.WebSocketHandler
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 
@@ -12,7 +15,6 @@ private class MyClient : WebSocketListener() {
         println("WS: Connection opened: $response")
         webSocket.send("Hello World!")
         webSocket.send(ByteString.decodeHex("deadbeef"))
-        webSocket.close(NORMAL_CLOSURE_STATUS, "Goodbye !")
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
@@ -38,12 +40,42 @@ private class MyClient : WebSocketListener() {
     }
 }
 
+class EchoServer : org.eclipse.jetty.websocket.api.WebSocketListener {
+    private lateinit var s: Session
+    override fun onWebSocketError(cause: Throwable) {
+        cause.printStackTrace()
+    }
+
+    override fun onWebSocketClose(statusCode: Int, reason: String?) {
+        println("Echo server closing: $statusCode $reason")
+    }
+
+    override fun onWebSocketConnect(session: Session) {
+        println("Echo server session opened: $session")
+        s = session
+        s.idleTimeout = 1000L
+    }
+
+    override fun onWebSocketText(message: String) {
+        println("Server got message $message")
+        s.remote.sendString(message)
+    }
+
+    override fun onWebSocketBinary(payload: ByteArray, offset: Int, len: Int) {
+        println("Server got message ${payload.sliceArray(offset..(offset + len)).joinToString { it.toString(16) }}")
+    }
+}
+
 fun client() {
     Thread.sleep(1000)
     println("Creating client & connecting")
-    val request = Request.Builder().url("ws://localhost:8080").addHeader("username", "johnny1").build()
+    val request = Request.Builder().url("ws://localhost:8080")
+        .addHeader("username", "johnny1")
+        .build()
     val listener = MyClient()
-    val client = OkHttpClient()
+    val client = OkHttpClient.Builder()
+        .pingInterval(500, TimeUnit.MILLISECONDS)
+        .build()
     val ws = client.newWebSocket(request, listener)
     println("Connected! Awaiting 2s")
     Thread.sleep(2000)
@@ -58,19 +90,11 @@ fun OkHttpClient.close() {
 
 fun main(args: Array<String>) {
     val server = Server(8080)
-    server.handler = WebSocketHandler.Simple(UMNProxyWebsocketListener::class.java)
+    server.handler = WebSocketHandler.Simple(EchoServer::class.java)
     server.start()
     println("Server is running, press Enter to kill it")
     thread {
         try {
-            client()
-        } catch (t: Throwable) {
-            t.printStackTrace()
-        }
-    }
-    thread {
-        try {
-            Thread.sleep(2000)
             client()
         } catch (t: Throwable) {
             t.printStackTrace()
