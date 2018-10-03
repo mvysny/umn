@@ -1,4 +1,4 @@
-image: openjdk:8-jdk
+image: mvysny/openjdk8_openjdk7:8u181.7u80
 variables:
     GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 before_script:
@@ -13,4 +13,4 @@ cache:
     - .gradle/build-cache/
 build:
   script:
-    - ./gradlew build -x test
+    - ./gradlew build -x test -Dkotlin.jdkHome=/jdk7
