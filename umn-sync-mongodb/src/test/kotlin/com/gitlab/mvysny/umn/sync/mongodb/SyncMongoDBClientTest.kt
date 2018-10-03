@@ -40,11 +40,11 @@ class SyncMongoDBClientTest : DynaTest({
         }
         globalLogClientTestBattery(clientProducer)
 
-        syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer, Duration.ofSeconds(1))
+        syncTestBattery("mvstore", 2, { createMvstoreUMN() }, clientProducer, 1.seconds)
 
         writerReaderTestBattery("mvstore", 1, { createMvstoreUMN() }, clientProducer)
 
-        syncTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer, Duration.ofSeconds(1))
+        syncTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer, 1.seconds)
 
         writerReaderTestBattery("mvstore", 10, { createMvstoreUMN() }, clientProducer)
     }

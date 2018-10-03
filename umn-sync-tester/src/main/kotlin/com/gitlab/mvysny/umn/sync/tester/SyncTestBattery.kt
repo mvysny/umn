@@ -6,7 +6,6 @@ import com.gitlab.mvysny.umn.core.*
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.SyncingUMN
 import com.gitlab.mvysny.umn.sync.syncing
-import java.time.Duration
 import java.util.*
 import kotlin.test.expect
 
@@ -90,7 +89,7 @@ fun DynaNodeGroup.writerReaderTestBattery(umnType: String, readerCount: Int, umn
  */
 fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStorageProducer: ()->UMN,
                                   clientProducer: ()-> GlobalLogClient,
-                                  awaitSync: Duration = Duration.ofMillis(300)) {
+                                  awaitSync: Long = 300) {
     require(nodeCount >= 1) { "$nodeCount must be 1 or higher" }
     val idx = IndexingUMN.IndexDef.simple("length", { setOf(it.length) }, String::class)
 
@@ -100,12 +99,12 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
         beforeEach { nodes = List(nodeCount) { IndexingUMN(umnStorageProducer(), setOf(idx)) } }
         afterEach { nodes.forEach { it.close() } }
 
-        fun withSync(awaitSync: Duration, block: ()->Unit) {
+        fun withSync(awaitSync: Long, block: ()->Unit) {
             val oldNodes = nodes
             nodes = nodes.map { it.syncing(clientProducer, JavaDocumentSerializer, true) }
             try {
                 // the sync runs in bg, wait a bit until all changes are distributed
-                Thread.sleep(awaitSync.toMillis())
+                Thread.sleep(awaitSync)
                 block()
             } finally {
                 nodes.forEach { (it as SyncingUMN).syncer.apply { close(); awaitClose() } }
@@ -179,3 +178,5 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
         }
     }
 }
+
+val Int.seconds: Long get() = this * 1000L

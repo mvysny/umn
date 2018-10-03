@@ -40,6 +40,9 @@ subprojects {
     compileKotlin {
         kotlinOptions {
             jvmTarget = "1.6" // because of Android compatibility
+            if (System.getProperty("kotlin.jdkHome") != null) {
+                jdkHome = System.getProperty("kotlin.jdkHome")
+            }
         }
     }
     compileTestKotlin {
