@@ -37,7 +37,7 @@ class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
     override fun exists(id: UUID): Boolean = map.containsKey(id)
 
     override fun update(id: UUID, document: Any) {
-        map.computeIfPresent(id) { _, _ -> document } ?: throw IllegalArgumentException("The document with id $id does not exist")
+        map.updateIfPresent(id) { _, _ -> document } ?: throw IllegalArgumentException("The document with id $id does not exist")
     }
 
     override fun delete(id: UUID) {

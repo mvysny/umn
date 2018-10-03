@@ -1,9 +1,11 @@
 package com.gitlab.mvysny.umn.core
 
+import org.h2.mvstore.MVMap
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.DataOutputStream
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * [MutableMap.put]s the [value] into the map under given [key] or [MutableMap.remove]s it if it's null.
@@ -49,3 +51,52 @@ fun <T: Closeable> T.tryInit(block: ()->Unit): T {
 
 fun serializeData(block: DataOutputStream.()->Unit): ByteArray =
     ByteArrayOutputStream().apply { DataOutputStream(this).block() } .toByteArray()
+
+
+/**
+ * Thread-safe. Updates the old value with a new one, but only when the old value is present.
+ *
+ * The default implementation may retry these steps when multiple threads
+ * attempt updates including potentially calling the remapping function
+ * multiple times.
+ * @param remappingFunction may be called multiple times if multiple threads barge into this method.
+ */
+fun <K, V> MVMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? = synchronized(this) {
+    var oldValue = get(key)
+    while (oldValue != null) {
+        val newValue = remappingFunction(key, oldValue)
+        if (newValue != null) {
+            if (replace(key, oldValue, newValue)) {
+                return newValue
+            }
+        } else if (remove(key, oldValue)) {
+            return null;
+        }
+        oldValue = get(key)
+    }
+    return null
+}
+
+/**
+ * Thread-safe. Updates the old value with a new one, but only when the old value is present.
+ *
+ * The default implementation may retry these steps when multiple threads
+ * attempt updates including potentially calling the remapping function
+ * multiple times.
+ * @param remappingFunction may be called multiple times if multiple threads barge into this method.
+ */
+fun <K, V> ConcurrentHashMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? {
+    var oldValue = get(key)
+    while (oldValue != null) {
+        val newValue = remappingFunction(key, oldValue)
+        if (newValue != null) {
+            if (replace(key, oldValue, newValue)) {
+                return newValue
+            }
+        } else if (remove(key, oldValue)) {
+            return null;
+        }
+        oldValue = get(key)
+    }
+    return null
+}

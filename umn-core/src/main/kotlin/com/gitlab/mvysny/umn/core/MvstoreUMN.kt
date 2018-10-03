@@ -133,7 +133,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
     override fun exists(id: UUID): Boolean = map.containsKey(id)
 
     override fun update(id: UUID, document: Any) {
-        map.computeIfPresent(id) { _, _ -> serialize(document) } ?: throw IllegalArgumentException("Document with $id does not exist" )
+        map.updateIfPresent(id) { _, _ -> serialize(document) } ?: throw IllegalArgumentException("Document with $id does not exist" )
     }
 
     override fun delete(id: UUID) {
