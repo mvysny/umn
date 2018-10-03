@@ -123,7 +123,7 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             withSync(awaitSync) {
                 // check that the documents were propagated properly to all nodes
                 nodes.forEach { node ->
-                    uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
+                    uuids.forEach { (id, doc) -> expect(doc) { node.get(id, Any::class) } }
                 }
             }
         }
@@ -142,7 +142,7 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             withSync(awaitSync) {
                 // check that the documents were propagated properly to all nodes
                 nodes.forEach { node ->
-                    uuids.forEach { id, doc -> expect(doc) { node.get(id, Any::class) } }
+                    uuids.forEach { (id, doc) -> expect(doc) { node.get(id, Any::class) } }
                 }
             }
         }
