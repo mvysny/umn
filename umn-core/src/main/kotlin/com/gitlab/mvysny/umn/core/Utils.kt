@@ -62,6 +62,8 @@ fun serializeData(block: DataOutputStream.()->Unit): ByteArray =
  * @param remappingFunction may be called multiple times if multiple threads barge into this method.
  */
 fun <K, V> MVMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? = synchronized(this) {
+    // we can't use ConcurrentMap.computeIfPresent() since that's Java 8/Android 24 and higher :(
+
     // use synchronized() - the remappingFunction may potentially be slow (since it serializes documents), so
     // it's generally better to obtain a lock (since that's way faster on Android's lowend CPU hardware)
     var oldValue = get(key)
@@ -88,6 +90,8 @@ fun <K, V> MVMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? 
  * @param remappingFunction may be called multiple times if multiple threads barge into this method.
  */
 fun <K, V> ConcurrentHashMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? = synchronized(this) {
+    // we can't use ConcurrentHashMap.computeIfPresent() since that's Java 8/Android 24 and higher :(
+
     // use synchronized() - the remappingFunction may potentially be slow (since it serializes documents), so
     // it's generally better to obtain a lock (since that's way faster on Android's lowend CPU hardware)
     var oldValue = get(key)
