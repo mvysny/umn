@@ -1,8 +1,8 @@
 package com.gitlab.mvysny.umn.proxy
 
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
+import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import io.javalin.Context
 import io.javalin.Javalin
 import io.javalin.json.FromJsonMapper
 import io.javalin.json.JavalinJson
@@ -15,25 +15,23 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
     private val service: Javalin
 
     init {
-        val gson = GsonBuilder().create()
-        JavalinJson.fromJsonMapper = object: FromJsonMapper {
-            override fun <T> map(json: String, targetClass: Class<T>): T = gson.fromJson<T>(json, targetClass)
-        }
-        JavalinJson.toJsonMapper = object: ToJsonMapper {
-            override fun map(obj: Any): String = gson.toJson(obj)
-        }
+        useGsonWithJavalin()
+        service = Javalin.create().server { Server(adr) }.start(adr.port).apply { restAPI() }
+    }
 
-        service = Javalin.create().server { Server(adr) }.start(adr.port)
-        service.get("/admin/users") { ctx -> ctx.json(mvstoreGlobalLog.listUsers()) }
-        service.put("/admin/users") { ctx ->
-            mvstoreGlobalLog.createOrUpdateUser(ctx.validatedQueryParam("username").getOrThrow(), ctx.validatedQueryParam("password").getOrThrow())
+    private fun Javalin.restAPI() {
+        get("/admin/users") { ctx -> ctx.json(mvstoreGlobalLog.listUsers()) }
+        put("/admin/users") { ctx ->
+            val username = ctx.validatedQueryParam("username").getOrThrow()
+            val password = ctx.validatedQueryParam("password").getOrThrow()
+            mvstoreGlobalLog.createOrUpdateUser(username, password)
             ctx.status(204)
         }
-        service.delete("/admin/users/:user") { ctx ->
+        delete("/admin/users/:user") { ctx ->
             mvstoreGlobalLog.deleteUser(ctx.pathParam("user"))
             ctx.status(204)
         }
-        service.get("/admin/stats/logsizes") { ctx ->
+        get("/admin/stats/logsizes") { ctx ->
             ctx.json(mvstoreGlobalLog.getLogSizes())
         }
     }
@@ -45,5 +43,17 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
     companion object {
         val mvstoreGlobalLog: MVStoreGlobalLog
             get() = (server.globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog
+    }
+}
+
+fun useGsonWithJavalin() {
+    GsonBuilder().create().applyToJavalin()
+}
+private fun Gson.applyToJavalin() {
+    JavalinJson.fromJsonMapper = object : FromJsonMapper {
+        override fun <T> map(json: String, targetClass: Class<T>): T = fromJson<T>(json, targetClass)
+    }
+    JavalinJson.toJsonMapper = object : ToJsonMapper {
+        override fun map(obj: Any): String = toJson(obj)
     }
 }
