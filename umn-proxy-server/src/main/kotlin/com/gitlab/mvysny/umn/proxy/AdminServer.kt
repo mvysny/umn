@@ -2,31 +2,40 @@ package com.gitlab.mvysny.umn.proxy
 
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
 import com.google.gson.GsonBuilder
-import spark.Request
-import spark.Response
-import spark.Service
+import io.javalin.Context
+import io.javalin.Javalin
+import io.javalin.json.FromJsonMapper
+import io.javalin.json.JavalinJson
+import io.javalin.json.ToJsonMapper
+import org.eclipse.jetty.server.Server
 import java.io.Closeable
 import java.net.InetSocketAddress
 
 class AdminServer(adr: InetSocketAddress) : Closeable {
-    private val service: Service
+    private val service: Javalin
 
     init {
         val gson = GsonBuilder().create()
-        service = Service.ignite().port(adr.port).ipAddress(adr.hostString)
-        service.get("/admin/users") { req, res -> gson.toJson(mvstoreGlobalLog.listUsers()) }
-        service.put("/admin/users") { req, res ->
-            mvstoreGlobalLog.createOrUpdateUser(req.queryParam("username"), req.queryParam("password"))
-            res.return204NoContent()
+        JavalinJson.fromJsonMapper = object: FromJsonMapper {
+            override fun <T> map(json: String, targetClass: Class<T>): T = gson.fromJson<T>(json, targetClass)
         }
-        service.delete("/admin/users/:user") { req, res ->
-            mvstoreGlobalLog.deleteUser(req.params("user"))
-            res.return204NoContent()
+        JavalinJson.toJsonMapper = object: ToJsonMapper {
+            override fun map(obj: Any): String = gson.toJson(obj)
         }
-        service.get("/admin/stats/logsizes") { req, res ->
-            gson.toJson(mvstoreGlobalLog.getLogSizes())
+
+        service = Javalin.create().server { Server(adr) }.start(adr.port)
+        service.get("/admin/users") { ctx -> ctx.json(mvstoreGlobalLog.listUsers()) }
+        service.put("/admin/users") { ctx ->
+            mvstoreGlobalLog.createOrUpdateUser(ctx.getQueryParam("username"), ctx.getQueryParam("password"))
+            ctx.status(204)
         }
-        service.awaitInitialization()
+        service.delete("/admin/users/:user") { ctx ->
+            mvstoreGlobalLog.deleteUser(ctx.pathParam("user"))
+            ctx.status(204)
+        }
+        service.get("/admin/stats/logsizes") { ctx ->
+            ctx.json(mvstoreGlobalLog.getLogSizes())
+        }
     }
 
     override fun close() {
@@ -39,8 +48,4 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
     }
 }
 
-fun Request.queryParam(name: String): String = requireNotNull(queryParams(name)) { "Query parameter $name is missing" }
-fun Response.return204NoContent() {
-    status(204)
-    body("")
-}
+fun Context.getQueryParam(name: String): String = requireNotNull(queryParam(name)) { "Query parameter $name is missing" }
