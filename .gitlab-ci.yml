@@ -14,4 +14,4 @@ cache:
 build:
   script:
     - ./gradlew build -x test
-    - ./gradlew umn-proxy-client:build -x test -Dkotlin.jdkHome=/jdk7
+    - ./gradlew clean umn-proxy-client:build -x test -Dkotlin.jdkHome=/jdk7
