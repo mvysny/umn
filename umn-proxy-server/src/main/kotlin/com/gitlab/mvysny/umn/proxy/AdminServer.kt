@@ -26,7 +26,7 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
         service = Javalin.create().server { Server(adr) }.start(adr.port)
         service.get("/admin/users") { ctx -> ctx.json(mvstoreGlobalLog.listUsers()) }
         service.put("/admin/users") { ctx ->
-            mvstoreGlobalLog.createOrUpdateUser(ctx.getQueryParam("username"), ctx.getQueryParam("password"))
+            mvstoreGlobalLog.createOrUpdateUser(ctx.validatedQueryParam("username").getOrThrow(), ctx.validatedQueryParam("password").getOrThrow())
             ctx.status(204)
         }
         service.delete("/admin/users/:user") { ctx ->
@@ -47,5 +47,3 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
             get() = (server.globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog
     }
 }
-
-fun Context.getQueryParam(name: String): String = requireNotNull(queryParam(name)) { "Query parameter $name is missing" }
