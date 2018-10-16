@@ -9,16 +9,17 @@ import com.mongodb.MongoClientSettings
 import java.time.Duration
 import java.util.*
 
+val mongoDBImage = "mongo:4.0"
 /**
  * Runs MongoDB 4.0 in Docker. To connect to this MongoDB, just connect to
  * `127.0.0.1:27017`.
  */
-fun Docker.startMongoDB() = Container("""docker run --rm -d -p 27017:27017 mongo:4.0""")
+fun Docker.startMongoDB() = Container(mongoDBImage, """docker run --rm -d -p 27017:27017 $mongoDBImage""")
 
 class SyncMongoDBClientTest : DynaTest({
-    if (Docker.isPresent) {
-        // we will only start Kafka once and make every test use a new topic.
-        // tests will run much faster this way than if we restarted Kafka after every test
+    if (Docker.isPresent && false) {
+        // we will only start MongoDB once and make every test use a new topic.
+        // tests will run much faster this way than if we restarted MongoDB after every test
         lateinit var dockerizedMongo: Container
         beforeGroup { dockerizedMongo = Docker.startMongoDB() }
         afterGroup { dockerizedMongo.closeQuietly() }
@@ -36,7 +37,7 @@ class SyncMongoDBClientTest : DynaTest({
                     it.maxSize(1)
                 }
             }.build()
-            SyncMongoDBClient(settings, "mydb", topic, 50)
+            SyncMongoDBClient(settings, "mydb", topic, 20)
         }
         globalLogClientTestBattery(clientProducer)
 

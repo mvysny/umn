@@ -2,7 +2,6 @@ dependencies {
     compile(project(":umn-core"))
     compile 'com.hazelcast:hazelcast-client:3.10.2'
     testCompile(project(":umn-sync-tester"))
-    testCompile("com.github.mvysny.dynatest:dynatest:${dynatest_version}")
 }
 
 publishing {

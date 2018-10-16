@@ -49,15 +49,17 @@ data class ContainerId(val id: String) {
 
 /**
  * Represents a running container.
+ * @param image the docker image to pull
  * @param dockerCommand the `docker run --rm -d ...` command. Must return the container ID as a response.
  */
-class Container(dockerCommand: String) : Closeable {
+class Container(image: String, dockerCommand: String) : Closeable {
     override fun close() {
         stop()
     }
 
     val id: ContainerId
     init {
+        exec("docker pull $image")
         val id: String = exec(dockerCommand).trim()
         this.id = ContainerId(id)
     }

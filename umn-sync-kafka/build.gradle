@@ -5,5 +5,4 @@ dependencies {
         exclude module: "lz4-java"
     }
     testCompile(project(":umn-sync-tester"))
-    testCompile("com.github.mvysny.dynatest:dynatest:${dynatest_version}")
 }

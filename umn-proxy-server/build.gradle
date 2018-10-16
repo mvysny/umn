@@ -12,7 +12,6 @@ dependencies {
 
     testCompile 'com.squareup.okhttp3:okhttp:3.11.0'
     testCompile(project(":umn-sync-tester"))
-    testCompile("com.github.mvysny.dynatest:dynatest:${dynatest_version}")
 }
 
 task zip(type: Zip) {
