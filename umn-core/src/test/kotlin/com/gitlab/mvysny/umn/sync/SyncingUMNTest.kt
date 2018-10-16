@@ -1,10 +1,7 @@
 package com.gitlab.mvysny.umn.sync
 
 import com.github.mvysny.dynatest.DynaTest
-import com.gitlab.mvysny.umn.core.AutoTypeResolver
-import com.gitlab.mvysny.umn.core.InMemoryUMN
-import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
-import com.gitlab.mvysny.umn.core.genericUmnTestBattery
+import com.gitlab.mvysny.umn.core.*
 import kotlin.concurrent.thread
 import kotlin.test.expect
 
@@ -31,6 +28,30 @@ class SyncingUMNTest : DynaTest({
             umn.create("foo")
             Thread.sleep(200)
             expect(1) { log.log.size }
+        }
+    }
+
+    group("forceRestartSync-related tests") {
+        val tempFile = createTempFile().absolutePath
+        lateinit var umn: SyncingUMN
+        fun createUMN(forceRestartSync: Boolean): SyncingUMN = createMvstoreUMN(tempFile).syncing(
+            { log.newClient() },
+            JavaDocumentSerializer,
+            true,
+            forceRestartSync
+        )
+        beforeEach { umn = createUMN(false) }
+        afterEach { umn.close() }
+
+        test("forceRestartSync will push everything to the server again") {
+            umn.create("foo")
+            Thread.sleep(200)
+            expect(1) { log.log.size }
+            umn.close()
+            Thread.sleep(200)
+            umn = createUMN(true)
+            Thread.sleep(200)
+            expect(2) { log.log.size }
         }
     }
 })

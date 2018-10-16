@@ -97,9 +97,18 @@ private class GlobalLogPusher(
  *
  * @param globalLogClient not closed by this class
  */
-private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient, val documentSerializer: DocumentSerializer, val typeToClassResolver: TypeToClassResolver) {
+private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient,
+                              val documentSerializer: DocumentSerializer,
+                              val typeToClassResolver: TypeToClassResolver,
+                              forceRestartSync: Boolean) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
     init {
+        if (forceRestartSync) {
+            // start from the beginning, pull all changes from the server.
+            currentLogPointer.put(false, null)
+        }
+
+        // continue pulling data where we left off
         var currentPtr = currentLogPointer.find(false) ?: 0L
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
             val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)
@@ -126,10 +135,12 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  * @param serializer serializes/deserializes documents
  * @receiver wrap this UMN
  * @param autoStart if true the syncer is started automatically. Defaults to false.
+ * @param forceRestartSync DANGEROUS. If true, all sync history is thrown out on this client, a fake sync history is reconstructed from the database
+ * and everything is pushed to the global log. Only use this if you are switching your clients to a new sync server.
  * @return a wrapped receiver which syncs all changes to the global log.
  */
-fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSerializer, autoStart: Boolean = false): SyncingUMN {
-    val syncingUMN = Syncer(this, serializer, clientProvider).syncingUMN
+fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSerializer, autoStart: Boolean = false, forceRestartSync: Boolean = false): SyncingUMN {
+    val syncingUMN = Syncer(this, serializer, clientProvider, forceRestartSync).syncingUMN
     if (autoStart) {
         syncingUMN.syncer.start()
     }
@@ -153,11 +164,14 @@ class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val 
  * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
  * and they will send same changes multiple times to other nodes!
  */
-class Syncer internal constructor(private val underlyingUMN: UMN, serializer: DocumentSerializer, private val clientProvider: ()->GlobalLogClient) : Closeable {
+class Syncer internal constructor(private val underlyingUMN: UMN,
+                                  serializer: DocumentSerializer,
+                                  private val clientProvider: ()->GlobalLogClient,
+                                  forceRestartSync: Boolean) : Closeable {
     /*
      * buffer which stores outgoing changes until they are correctly transmitted over given
       */
-    private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer)
+    private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer, forceRestartSync)
 
     private val eventLoop = Executors.newSingleThreadExecutor()
     //guarded-by: run in eventLoop
@@ -172,13 +186,16 @@ class Syncer internal constructor(private val underlyingUMN: UMN, serializer: Do
      */
     val syncingUMN = SyncingUMN(announcingUMN, this)
 
+    private var forceRestartSyncOnFirstStart = forceRestartSync
+
     /**
      * Starts syncing. Thread-safe. Attempt to start an already started syncer does nothing.
      */
     fun start() = event {
         if (client == null) {
             client = clientProvider()
-            GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver)
+            GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSyncOnFirstStart)
+            forceRestartSyncOnFirstStart = false
             // also starts the client in the background
             pusher = GlobalLogPusher(client!!, mutationLog.fifolog)
         }

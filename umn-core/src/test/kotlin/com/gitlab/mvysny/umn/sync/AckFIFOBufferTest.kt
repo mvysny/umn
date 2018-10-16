@@ -86,6 +86,26 @@ internal fun DynaNodeGroup.ackFifoBufferTestBattery(bufferProducer: () -> AckFIF
         expect("foo") { buf.poll() }
         expect(null) { buf.poll() }
     }
+    test("clear removes all items") {
+        buf.append("foo")
+        buf.clear()
+        expect(null) { buf.poll() }
+    }
+    test("clear doesn't disturb ack") {
+        buf.append("aaa")
+        buf.clear()
+        buf.append("foo")
+        expect("foo") { buf.poll() }
+        expect(null) { buf.poll() }
+        buf.append("bar")
+        expect("bar") { buf.poll() }
+        expect(null) { buf.poll() }
+        buf.ackLowest()
+        expect(null) { buf.poll() }
+        buf = bufferProducer()
+        expect("bar") { buf.poll() }
+        expect(null) { buf.poll() }
+    }
 }
 
 class AckFIFOBufferTest : DynaTest({

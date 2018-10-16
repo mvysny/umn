@@ -27,8 +27,10 @@ private object FailingSerializer : DocumentSerializer {
  * @param umn the underlying UMN database; just pass [AnnouncingUMN.delegate] here.
  * @param bufferName to which [UtilityMap] the mutation log will be stored.
  * @param serializer used to serialize documents to the log.
+ * @param forceRepopulate if true, the [fifolog] will be cleared out and repopulated from the database. This is helpful if we are to
+ * sync to another sync server.
  */
-class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSerializer) : AnnouncingUMN.Listener {
+class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSerializer, val forceRepopulate: Boolean) : AnnouncingUMN.Listener {
     val fifolog: AckFIFOBuffer<SerializedLogRecord>
 
     init {
@@ -36,7 +38,9 @@ class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSeri
         val map: UtilityMap<Long, SerializedLogRecord> = umn.openUtilityMap(bufferName)
         val initialPopulationMarker = umn.openUtilityMap<String, Boolean>("$bufferName-marker")
         fifolog = AckFIFOBuffer(map)
-        if (initialPopulationMarker.find("isPopulated") == null) {
+        if (forceRepopulate || initialPopulationMarker.find("isPopulated") == null) {
+            fifolog.clear()
+
             // this UMN has not been synced yet. We need to "fake" the history by creating DocumentCreated
             // records for all existing documents.
             initialPopulationMarker.put("isPopulated", true)

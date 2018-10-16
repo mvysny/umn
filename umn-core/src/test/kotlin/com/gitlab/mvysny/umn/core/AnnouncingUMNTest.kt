@@ -8,9 +8,11 @@ import com.gitlab.mvysny.umn.sync.MutationLog
 /**
  * Wraps this UMN in a capturing UMN which sends all mutation events to a log. Returns both the new capturing UMN and the log
  * which hosts the mutation events (in the form of [LogRecord]s).
+ * @param forceRepopulate DANGEROUS: if true, the [fifolog] will be cleared out and repopulated from the database. This is helpful if we are to
+ * sync to another sync server.
  */
-internal fun UMN.mutationLog(serializer: DocumentSerializer): Pair<AnnouncingUMN, MutationLog> {
-    val log = MutationLog(this, "MUTATION_LOG", serializer)
+internal fun UMN.mutationLog(serializer: DocumentSerializer, forceRepopulate: Boolean = false): Pair<AnnouncingUMN, MutationLog> {
+    val log = MutationLog(this, "MUTATION_LOG", serializer, forceRepopulate)
     val umn = AnnouncingUMN(this, log)
     return umn to log
 }
@@ -47,30 +49,6 @@ internal fun DynaNodeGroup.announcingTestBattery(storageProducer: ()->UMN) {
             val id = umn.create("kvak")
             umn.delete(id)
             expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id)) { log.drain() }
-            expectList() { log.drain() }
-        }
-    }
-
-    group("initial population") {
-        test("initial population ignores deleted documents") {
-            val storage = storageProducer()
-            storage.delete(storage.create("kvak"))
-            val log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList() { log.drain() }
-        }
-        test("initial population does not pick document updates") {
-            val storage = storageProducer()
-            val id = storage.create("kvak")
-            storage.update(id, "foo")
-            val log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), id)) { log.drain() }
-        }
-        test("initial population runs only once") {
-            val storage = storageProducer()
-            val id = storage.create("kvak")
-            var log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id)) { log.drain() }
-            log = storage.mutationLog(JavaDocumentSerializer).second
             expectList() { log.drain() }
         }
     }

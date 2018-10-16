@@ -10,10 +10,14 @@ import kotlin.concurrent.withLock
  * Thread-safe, but multiple buffers can not operate over one map at the same time.
  */
 class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
-    private var idToAddTo = (log.getLargestKey() ?: -1L) + 1L
-    private var idOfItemToPoll = log.getSmallestKey() ?: 0L
-    private var idOfItemToAck = idOfItemToPoll
+    private var idToAddTo: Long = -1
+    private var idOfItemToPoll: Long = -1
+    private var idOfItemToAck: Long = -1
     private val lock = ReentrantLock()
+
+    init {
+        resetStatus()
+    }
 
     /**
      * Inserts the specified element at the end of this queue.
@@ -49,5 +53,18 @@ class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
                 return null
             }
         }
+    }
+
+    fun clear() {
+        lock.withLock {
+            log.clear()
+            resetStatus()
+        }
+    }
+
+    private fun resetStatus() {
+        idToAddTo = (log.getLargestKey() ?: -1L) + 1L
+        idOfItemToPoll = log.getSmallestKey() ?: 0L
+        idOfItemToAck = idOfItemToPoll
     }
 }

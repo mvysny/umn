@@ -6,7 +6,7 @@ import kotlin.reflect.KClass
 /**
  * Creates an [UMN] backed by a file-based MV Store.
  */
-fun createMvstoreUMN(): MvstoreUMN = MvstoreUMN(MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer,
+fun createMvstoreUMN(dbFileName: String = createTempFile().absolutePath): MvstoreUMN = MvstoreUMN(MVStore.open(dbFileName), JavaDocumentSerializer,
     AutoTypeResolver)
 
 /**
