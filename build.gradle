@@ -1,5 +1,5 @@
 buildscript {
-    ext.dynatest_version = "0.9"
+    ext.dynatest_version = "0.10"
 
     ext.local = new Properties()
     if (project.rootProject.file('local.properties').exists()) {
@@ -12,26 +12,20 @@ plugins {
     id "com.jfrog.bintray" version "1.8.1"
 }
 
-repositories {
-    mavenCentral()
-    jcenter()
-}
-
 defaultTasks 'clean', 'build'
 
 allprojects {
     group 'com.gitlab.mvysny.umn'
     version '0.15-SNAPSHOT'
+    repositories {
+        jcenter()
+        maven { url "https://dl.bintray.com/mvysny/github" }
+    }
 }
 
 sourceCompatibility = 1.6
 
 subprojects {
-    repositories {
-        mavenCentral()
-        jcenter()
-        maven { url 'https://dl.bintray.com/mvysny/github' }
-    }
 
     apply plugin: 'maven-publish'
     apply plugin: 'kotlin'
