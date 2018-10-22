@@ -1,0 +1,6 @@
+dependencies {
+    compile(project(":umn-core"))
+    compile("com.github.mvysny.dynatest:dynatest-engine:${ext["dynatest_version"]}")
+    compile("ch.qos.logback:logback-classic:1.2.3")
+    compile("org.zeroturnaround:zt-exec:1.10")
+}
