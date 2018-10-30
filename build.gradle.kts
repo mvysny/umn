@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.*
 
 plugins {
-    kotlin("jvm") version "1.2.71"
+    kotlin("jvm") version "1.3.0"
     id("com.jfrog.bintray") version "1.8.1"
     `maven-publish`
 }
@@ -31,7 +31,7 @@ subprojects {
     }
 
     tasks.withType<KotlinCompile> {
-        kotlinOptions.jvmTarget = "1.6"
+        kotlinOptions.jvmTarget = "1.6"  // retain compatibility with Android
         if (System.getProperty("kotlin.jdkHome") != null) {
             kotlinOptions.jdkHome = System.getProperty("kotlin.jdkHome")
         }
