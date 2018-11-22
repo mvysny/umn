@@ -16,7 +16,11 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
 
     init {
         useGsonWithJavalin()
-        service = Javalin.create().server { Server(adr) }.start(adr.port).apply { restAPI() }
+        service = Javalin.create()
+                .disableStartupBanner()
+                .server { Server(adr) }
+                .apply { restAPI() }
+                .start(adr.port)
     }
 
     private fun Javalin.restAPI() {

@@ -1,6 +1,8 @@
 package com.gitlab.mvysny.umn.proxy
 
 import com.gitlab.mvysny.umn.core.closeQuietly
+import io.javalin.Javalin
+import io.javalin.core.util.Util
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 
