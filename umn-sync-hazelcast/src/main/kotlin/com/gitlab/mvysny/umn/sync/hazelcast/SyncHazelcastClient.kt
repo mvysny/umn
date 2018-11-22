@@ -8,6 +8,7 @@ import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.ItemEvent
 import com.hazelcast.core.ItemListener
 import java.net.ConnectException
+import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -28,14 +29,14 @@ class SyncHazelcastClient(val hostPort: String, val topic: String) : GlobalLogCl
     private fun checkNotClosed() = check(!closed.get()) { "Already closed" }
     private fun checkNotStarted() = check(!started.get()) { "Already started" }
 
-    @Synchronized
-    override fun start() {
-        checkNotClosed()
-        checkNotStarted()
+    /**
+     * Connects to Hazelcast (or throws [ConnectException] on IO error). Don't forget to call [HazelcastInstance.shutdown]!
+     */
+    private fun connect(): HazelcastInstance {
         val clientConfig = ClientConfig().apply {
             networkConfig.addresses.add(hostPort)
         }
-        val client: HazelcastInstance = try {
+        return try {
             HazelcastClient.newHazelcastClient(clientConfig)
         } catch (e: IllegalStateException) {
             if (e.message!!.contains("Unable to connect to any address!")) {
@@ -44,6 +45,24 @@ class SyncHazelcastClient(val hostPort: String, val topic: String) : GlobalLogCl
                 throw e
             }
         }
+    }
+
+    @Synchronized
+    override fun getUUID(): UUID {
+        val client = connect()
+        try {
+            val map = client.getMap<String, Any>("umn_metadata")
+            return map.computeIfAbsent("$topic/uuid") { UUID.randomUUID() } as UUID
+        } finally {
+            client.shutdown()
+        }
+    }
+
+    @Synchronized
+    override fun start() {
+        checkNotClosed()
+        checkNotStarted()
+        val client: HazelcastInstance = connect()
         this.client = client
         started.set(true)
 

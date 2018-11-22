@@ -137,12 +137,9 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
     private val closed = AtomicBoolean(false)
 
     init {
-        var uuid = properties["globalLogStorageUUID"] as UUID?
-        if (uuid == null) {
-            // backwards compatibility: the UUID was missing. Just auto-generate a new, unique one.
-            uuid = UUID.randomUUID()!!
-            properties["globalLogStorageUUID"] = uuid
-        }
+        // warning - not really thread-safe (MVMap provides no implementation), but anyways we only expect db to be manipulated
+        // by one JVM+class at a time.
+        properties.computeIfAbsent("globalLogStorageUUID") { UUID.randomUUID() } as UUID
     }
 
     /**

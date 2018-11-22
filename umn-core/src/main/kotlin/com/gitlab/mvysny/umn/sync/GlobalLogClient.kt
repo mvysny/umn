@@ -57,7 +57,16 @@ interface GlobalLogClient : Closeable {
     /**
      * Retrieves the unique ID of this global log. This allows [SyncingUMN] to potentially synchronize with multiple
      * globa logs (even though not at the same time), keeping the sync pointer per global log.
+     *
+     * Warning: makes a connection to the server, to retrieve the UUID.
+     * The method
+     * may throw [java.io.IOException] - in this case start should be re-attempted again after a small back-off period.
+     * Any other type of exception including [RuntimeException], [InvalidUsernamePasswordException] are considered fatal and the re-connection
+     * must not be reattempted.
+     *
+     * If [close] is called, the client must stop starting/connecting and return from this method, by throwing [CancellationException].
      */
+    @Throws(IOException::class, InvalidUsernamePasswordException::class, CancellationException::class)
     fun getUUID(): UUID
 
     /**

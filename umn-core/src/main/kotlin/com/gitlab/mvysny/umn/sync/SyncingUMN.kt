@@ -3,7 +3,7 @@ package com.gitlab.mvysny.umn.sync
 import com.gitlab.mvysny.umn.core.*
 import org.slf4j.LoggerFactory
 import java.io.Closeable
-import java.net.ConnectException
+import java.io.IOException
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
@@ -39,13 +39,8 @@ private class GlobalLogPusher(
     private val pusherThread = thread(isDaemon = true, name = "UMN Remote Log Pusher") {
 
         fun tryStartClient() {
-            try {
-                globalLogClient.start()
-                Thread.sleep(100)
-            } catch (e: ConnectException) {
-                log.info("Failed to connect to the server", e)
-                Thread.sleep(1000)
-            }
+            retryIO("connect to the server") { globalLogClient.start() }
+            Thread.sleep(100)
         }
 
         try {
@@ -78,7 +73,18 @@ private class GlobalLogPusher(
 
     companion object {
         @JvmStatic
-        private val log = LoggerFactory.getLogger(GlobalLogPusher::class.java)
+        internal val log = LoggerFactory.getLogger(GlobalLogPusher::class.java)
+    }
+}
+
+private fun <T> retryIO(activityName: String, block: () -> T): T {
+    while (true) {
+        try {
+            return block()
+        } catch (e: IOException) {
+            GlobalLogPusher.log.info("Failed to $activityName", e)
+            Thread.sleep(1000)
+        }
     }
 }
 
@@ -112,7 +118,7 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
         }
 
         // continue pulling data where we left off
-        val globalLogUUID = globalLogClient.getUUID()
+        val globalLogUUID = retryIO("obtain UUID") { globalLogClient.getUUID() }
         var currentPtr = currentLogPointer2.find(globalLogUUID)
         if (currentPtr == null) {
             // backwards compatibility - the pointer was stored in the currentLogPointer map previously.
