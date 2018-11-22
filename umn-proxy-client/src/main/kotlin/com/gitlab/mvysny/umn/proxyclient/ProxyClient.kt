@@ -13,13 +13,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * A client that connects to the UMN Proxy server.
  *
- * *NOTE*: It is a good idea to configure the client to send ping every 1 minute, to prevent the connection from timing out
- * (which happens by default in 5 minutes in Jetty).
+ * *NOTE*: It is a good idea to configure the [client] to send ping every 1 minute, to prevent the connection from timing out
+ * (which happens by default in 5 minutes in Jetty). Use [OkHttpClient.Builder.pingInterval] for that.
  *
  * *WARNING*: [client] is not closed by this client: [OkHttpClient] instances should be reused as stated in the [OkHttpClient]
  * docs. You should probably create one singleton instance and close it when JVM is being killed.
  *
- * @property client the client which will be used to WS-connect to the server. NOT CLOSED!
+ * @property client the client which will be used to WS-connect to the server. NOT CLOSED! You should remember to send
+ * ping every 1 minute.
  * @param requestBuilder the request builder with [Request.Builder.url] set.
  */
 class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder, val username: String, private val password: String) : GlobalLogClient {

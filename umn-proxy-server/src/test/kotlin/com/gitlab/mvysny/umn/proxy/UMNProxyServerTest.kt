@@ -14,12 +14,13 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.InetSocketAddress
 import java.util.*
+import java.util.concurrent.TimeUnit
 import kotlin.test.expect
 
 class UMNProxyServerTest : DynaTest({
     lateinit var httpClient: OkHttpClient
     beforeGroup {
-        httpClient = OkHttpClient()
+        httpClient = OkHttpClient.Builder().pingInterval(1, TimeUnit.MINUTES).build()
     }
     beforeEach {
         val dbDir = createTempDir().absoluteFile

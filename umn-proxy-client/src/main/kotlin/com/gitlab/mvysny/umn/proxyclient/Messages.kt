@@ -1,10 +1,12 @@
 package com.gitlab.mvysny.umn.proxyclient
 
+import com.gitlab.mvysny.umn.proxyclient.AbstractMessage.*
+import com.gitlab.mvysny.umn.proxyclient.AbstractMessage.Companion.WS_INVALID_USERNAME_PASSWORD
+import com.gitlab.mvysny.umn.proxyclient.AbstractMessage.Companion.WS_SERVER_ERROR
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.lang.IllegalArgumentException
 
 /**
  * The messages sent over a WebSocket as binary serialized blobs; the protocol generally resembles a RPC of the
