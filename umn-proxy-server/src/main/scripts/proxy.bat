@@ -9,7 +9,7 @@ rem Add platform runtime libraries
 for %%i in (lib\*.jar) do call :cpappend %%i
 
 rem Launch the runtime
-java %JAVA_OPTS% -classpath "%CLSPATH%" -Djava.util.logging.config.file=logging.properties com.gitlab.mvysny.umn.proxy.MainKt %1 %2 %3 %4 %5 %6 %7 %8 %9
+java %JAVA_OPTS% -classpath "%CLSPATH%" -Djava.util.logging.config.file=logging.properties com.gitlab.mvysny.umn.proxy.Main %1 %2 %3 %4 %5 %6 %7 %8 %9
 
 if "%OS%"=="Windows_NT" @endlocal
 

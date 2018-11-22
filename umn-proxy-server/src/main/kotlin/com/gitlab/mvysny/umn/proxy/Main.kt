@@ -4,6 +4,9 @@ import com.gitlab.mvysny.umn.core.closeQuietly
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 
+/**
+ * The UMN Proxy Server implementation, with given [cfg]. Call [main] to start.
+ */
 class Main(val cfg: Config) : Closeable {
     override fun close() {
         adminServer?.closeQuietly()
@@ -28,6 +31,10 @@ class Main(val cfg: Config) : Closeable {
     companion object {
         @JvmStatic
         private val log = LoggerFactory.getLogger(Main::class.java)
+
+        /**
+         * Starts the UMN Proxy Server.
+         */
         @JvmStatic
         fun main(args: Array<String>) {
             val cfg = Config.load()
@@ -59,8 +66,4 @@ Server is running on ${cfg.socketAddress}, admin is running on ${cfg.adminSocket
             }
         }
     }
-}
-
-fun main(args: Array<String>) {
-    Main.main(args)
 }
