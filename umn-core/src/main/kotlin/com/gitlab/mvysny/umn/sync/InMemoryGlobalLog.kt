@@ -1,6 +1,5 @@
 package com.gitlab.mvysny.umn.sync
 
-import java.util.*
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -17,7 +16,6 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
     internal var addCallback: () -> Unit = {}
     internal var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
     private var currentLogPointer: Long = 0L
-    private val uuid = UUID.randomUUID()
 
     private fun checkNotClosed() {
         check(!closed.get()) { "Already closed" }
@@ -65,8 +63,6 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
         receiveCallback(record)
         currentLogPointer++
     }
-
-    override fun getUUID(): UUID = uuid
 }
 
 /**

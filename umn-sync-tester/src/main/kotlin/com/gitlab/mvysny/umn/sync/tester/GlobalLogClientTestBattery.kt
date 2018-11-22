@@ -71,10 +71,6 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
                 client.setAddCallback {}
             }
         }
-        test("uuid is returned and doesn't change over multiple invocations") {
-            val uuid = client.getUUID()
-            expect(uuid) { client.getUUID() }
-        }
     }
 
     group("simple listener tests") {

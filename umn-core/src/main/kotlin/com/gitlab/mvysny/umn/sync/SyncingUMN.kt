@@ -109,34 +109,21 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
                               val typeToClassResolver: TypeToClassResolver,
                               forceRestartSync: Boolean) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
-    private val currentLogPointer2: UtilityMap<UUID, Long> = umn.openUtilityMap("CURRENT_LOG_PTR2")
     init {
         if (forceRestartSync) {
             // start from the beginning, pull all changes from the server.
             currentLogPointer.put(false, null)
-            currentLogPointer2.clear()
         }
 
         // continue pulling data where we left off
-        val globalLogUUID = retryIO("obtain UUID") { globalLogClient.getUUID() }
-        var currentPtr = currentLogPointer2.find(globalLogUUID)
-        if (currentPtr == null) {
-            // backwards compatibility - the pointer was stored in the currentLogPointer map previously.
-            currentPtr = currentLogPointer.find(false)
-            if (currentPtr != null) {
-                // yup, it was. Clear it, so that it won't act as "default" pointer for other UUIDs as well.
-                currentLogPointer.put(false, null)
-            } else {
-                currentPtr = 0L
-            }
-        }
+        var currentPtr: Long = currentLogPointer.find(false) ?: 0L
 
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
             if (serializedItem != null) {
                 val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
                 item.applyTo(umn)
             }
-            currentLogPointer2.put(globalLogUUID, ++currentPtr)
+            currentLogPointer.put(false, ++currentPtr)
         }
     }
 }

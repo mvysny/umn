@@ -108,50 +108,6 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
 
     private val startFuture = CompletableFutureCompat<Unit>()
 
-    override fun getUUID(): UUID {
-        val clone = requestBuilder.build().newBuilder()
-        val request = clone.addHeader("get_uuid", "true").build()
-        log.error("Sending request $request with headers ${request.headers()}")
-        val result = CompletableFutureCompat<UUID>()
-        val ws = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                result.completeExceptionally(t)
-            }
-
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String?) {
-                try {
-                    if (code == 1000) {
-                        val uuid = UUID.fromString(reason)
-                        result.complete(uuid)
-                    } else {
-                        throw RuntimeException("Unexpected close: $code $reason")
-                    }
-                } catch (t: Throwable) {
-                    result.completeExceptionally(t)
-                }
-            }
-
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                result.completeExceptionally(RuntimeException("Protocol error: unexpected text message: $text"))
-                webSocket.close(1002, "Unexpected text message: $text")
-            }
-
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                result.completeExceptionally(RuntimeException("Protocol error: unexpected bytes message"))
-                webSocket.close(1002, "Unexpected bytes message")
-            }
-
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String?) {
-                result.completeExceptionally(RuntimeException("closed: $code $reason"))
-            }
-        })
-        try {
-            return result.get()
-        } finally {
-            ws.close(1000, null)
-        }
-    }
-
     override fun start() {
         checkNotClosed()
         check(started.compareAndSet(false, true)) { "Already started" }

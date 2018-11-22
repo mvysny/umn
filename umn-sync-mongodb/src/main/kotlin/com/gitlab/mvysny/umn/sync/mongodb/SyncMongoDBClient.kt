@@ -12,7 +12,6 @@ import org.bson.Document
 import org.bson.types.Binary
 import org.slf4j.LoggerFactory
 import java.io.Closeable
-import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -53,41 +52,9 @@ class SyncMongoDBClient(
 
     private var watcher: ActivePollingMongoCollectionWatcher? = null
 
-    override fun getUUID(): UUID {
-        val client = MongoClients.create(clientSettings)
-        try {
-            val db = client.getDatabase(databaseName)
-            val c = db.getCollectionOrCreate("umn_meta", CreateCollectionOptions())
-            var uuid: UUID? = c.find().iterator().use {
-                if (it.hasNext()) {
-                    val doc = it.next()
-                    doc["uuid"] as UUID
-                } else {
-                    null
-                }
-            }
-            // @todo this is thread unsafe! Multiple clients can generate multiple different UUIDs
-            if (uuid == null) {
-                uuid = UUID.randomUUID()
-                c.insertOne(Document("uuid", uuid))
-            }
-            return uuid!!
-        } finally {
-            client.close()
-        }
-    }
-
-    private fun MongoDatabase.findCollection(name: String): Document? {
+    private fun MongoDatabase.findCollectionInfo(name: String): Document? {
         val collections = listCollections().toList()
         return collections.firstOrNull { it["name"] == name }
-    }
-
-    private fun MongoDatabase.getCollectionOrCreate(name: String, opts: CreateCollectionOptions): MongoCollection<Document> {
-        val c = findCollection(name)
-        if (c == null) {
-            createCollection(name, opts)
-        }
-        return getCollection(name)
     }
 
     @Synchronized
@@ -96,7 +63,7 @@ class SyncMongoDBClient(
         checkNotStarted()
         val client: MongoClient = MongoClients.create(clientSettings)
         val db = client.getDatabase(databaseName)
-        val c = db.findCollection("mycollection")
+        val c = db.findCollectionInfo("mycollection")
         if (c != null) {
             // check that it is capped
             check((c["options"] as? Document)?.get("capped") as? Boolean == true) {

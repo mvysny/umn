@@ -7,7 +7,6 @@ import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.websocket.api.RemoteEndpoint
 import org.eclipse.jetty.websocket.api.Session
-import org.eclipse.jetty.websocket.api.StatusCode
 import org.eclipse.jetty.websocket.api.WebSocketListener
 import org.eclipse.jetty.websocket.server.WebSocketHandler
 import org.slf4j.LoggerFactory
@@ -40,28 +39,12 @@ class UMNProxyWebsocketListener : WebSocketListener {
             val username: String? = session.upgradeRequest.getHeader("username")
             val password: String? = session.upgradeRequest.getHeader("password")
             val rewindStr: String? = session.upgradeRequest.getHeader("rewind")
-            if (username == null || password == null) {
+            if (username == null || password == null || rewindStr == null) {
                 throw InvalidUsernamePasswordException("Missing headers")
             }
             this.username = username
             logStorage = server.globalLogClientProvider.createClient(username, password)
 
-            // a special service: the client is just asking for the UUID. Close the socket but send the UUID in the response.
-            if (session.upgradeRequest.getHeader("get_uuid") != null) {
-                val uuid = try {
-                    logStorage.getUUID()
-                } finally {
-                    logStorage.closeQuietly()
-                }
-                log.info("Returning UUID $uuid")
-                session.close(StatusCode.NORMAL, uuid.toString())
-                return
-            }
-
-            // continue with regular service
-            if (rewindStr == null) {
-                throw InvalidUsernamePasswordException("Missing rewind headers")
-            }
             val rewind = rewindStr.toLong()
             logStorage.setAddCallback {
                 session.remote.send(AbstractMessage.OnAdded)

@@ -48,17 +48,6 @@ class SyncHazelcastClient(val hostPort: String, val topic: String) : GlobalLogCl
     }
 
     @Synchronized
-    override fun getUUID(): UUID {
-        val client = connect()
-        try {
-            val map = client.getMap<String, Any>("umn_metadata")
-            return map.computeIfAbsent("$topic/uuid") { UUID.randomUUID() } as UUID
-        } finally {
-            client.shutdown()
-        }
-    }
-
-    @Synchronized
     override fun start() {
         checkNotClosed()
         checkNotStarted()

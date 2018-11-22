@@ -36,8 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  * they can be passed wrapped in [LogRecord]s to the Kafka topic.
  */
 class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartition) : GlobalLogClient {
-    override fun getUUID(): UUID = TODO("not implemented")
-
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()

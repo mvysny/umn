@@ -19,12 +19,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * * The `$user__log` map maps `Long` ordinal to [SerializedLogRecord]. The ordering is strict (the key starts at 0 and increments by 1).
  *
  * Thread-safe.
- * @property globalLogStorageUUID the global log storage UUID
  * @property owner the owner log
  */
-class MVStoreGlobalLogClient internal constructor(val globalLogStorageUUID: UUID, val owner: MVStoreGlobalLog, val username: String, private val password: String) : GlobalLogClient {
-    override fun getUUID(): UUID = globalLogStorageUUID
-
+class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, val username: String, private val password: String) : GlobalLogClient {
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
@@ -132,26 +129,15 @@ fun <V: Any> MVMap<Long, V>.append(value: V): Long {
  * * `properties`: various properties of the MVStore: `globalLogStorageUUID` of type [UUID] is the global log storage UUID.
  */
 class MVStoreGlobalLog(val db: MVStore) : Closeable {
-    private val properties: MVMap<String, Any> = db.openMap("properties")
     private val startedClients = ConcurrentHashMap<String, BlockingQueue<MVStoreGlobalLogClient>>()
     private val closed = AtomicBoolean(false)
-
-    init {
-        // warning - not really thread-safe (MVMap provides no implementation), but anyways we only expect db to be manipulated
-        // by one JVM+class at a time.
-        if (properties["globalLogStorageUUID"] == null) {
-            properties["globalLogStorageUUID"] = UUID.randomUUID()
-        }
-    }
 
     /**
      * Creates a new client for given user. Authenticates the user with given [username] and [password] lazily, in the
      * [MVStoreGlobalLogClient.start] function.
      */
-    fun newClient(username: String, password: String) : GlobalLogClient {
-        val globalLogStorageUUID = properties["globalLogStorageUUID"] as UUID
-        return MVStoreGlobalLogClient(globalLogStorageUUID, this, username, password)
-    }
+    fun newClient(username: String, password: String) : GlobalLogClient =
+            MVStoreGlobalLogClient(this, username, password)
 
     internal fun startClient(client: MVStoreGlobalLogClient) {
         val clientsForUsername = startedClients.getOrPut(client.username) { LinkedBlockingQueue() }
