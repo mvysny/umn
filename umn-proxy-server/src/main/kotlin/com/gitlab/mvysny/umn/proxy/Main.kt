@@ -50,11 +50,18 @@ class Main(val cfg: Config) : Closeable {
                 }
             })
             main.start()
-            println("""
-******************************************************************************************
-Server is running on ${cfg.socketAddress}, admin is running on ${cfg.adminSocketAddress}.
-******************************************************************************************
-""")
+            println(buildString {
+                append("\n")
+                append("********************************************************************[ UMN Proxy Server ]***\n")
+                append("- Sync Server is running on ws://${cfg.socketAddress}\n")
+                append("- Admin is running on http://${cfg.adminSocketAddress}/admin\n")
+                if (cfg.secure != null) {
+                    append("- Secure Sync Server is running on wss://${cfg.secure!!.host}:${cfg.secure!!.port}\n")
+                } else {
+                    append("- Secure Sync Server access disabled\n")
+                }
+                append("******************************************************************************************\n")
+            })
             loop()
         }
 
