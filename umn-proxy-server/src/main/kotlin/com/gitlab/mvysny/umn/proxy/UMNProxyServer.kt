@@ -7,6 +7,7 @@ import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.websocket.api.RemoteEndpoint
 import org.eclipse.jetty.websocket.api.Session
+import org.eclipse.jetty.websocket.api.StatusCode
 import org.eclipse.jetty.websocket.api.WebSocketListener
 import org.eclipse.jetty.websocket.server.WebSocketHandler
 import org.slf4j.LoggerFactory
@@ -14,11 +15,14 @@ import java.io.Closeable
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 
+/**
+ * The web socket listener.
+ */
 class UMNProxyWebsocketListener : WebSocketListener {
     private lateinit var session: Session
     private lateinit var username: String
     private lateinit var logStorage: GlobalLogClient
-    override fun onWebSocketClose(statusCode: Int, reason: String) {
+    override fun onWebSocketClose(statusCode: Int, reason: String?) {
         log.info("$username: Closing web socket: statusCode=$statusCode, reason=$reason")
         logStorage.close()
     }
@@ -31,17 +35,37 @@ class UMNProxyWebsocketListener : WebSocketListener {
     override fun onWebSocketConnect(session: Session) {
         log.info("Got connection; headers=${session.upgradeRequest.headers}")
         this.session = session
+
         val username: String? = session.upgradeRequest.getHeader("username")
         val password: String? = session.upgradeRequest.getHeader("password")
         val rewindStr: String? = session.upgradeRequest.getHeader("rewind")
-        if (username == null || password == null || rewindStr == null) {
+        if (username == null || password == null) {
             log.warn("Missing headers")
             session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, "Missing headers")
             return
         }
         this.username = username
+        logStorage = server.globalLogClientProvider.createClient(username, password)
+
+        // a special service: the client is just asking for the UUID. Close the socket but send the UUID in the response.
+        if (session.upgradeRequest.getHeader("get_uuid") != null) {
+            val uuid = try {
+                logStorage.getUUID()
+            } finally {
+                logStorage.closeQuietly()
+            }
+            log.info("Returning UUID $uuid")
+            session.close(StatusCode.NORMAL, uuid.toString())
+            return
+        }
+
+        // continue with regular service
+        if (rewindStr == null) {
+            log.warn("Missing rewind header")
+            session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, "Missing rewind header")
+            return
+        }
         val rewind = rewindStr.toLong()
-        logStorage = server.createGlobalLogClient(username, password)
         logStorage.setAddCallback {
             session.remote.send(AbstractMessage.OnAdded)
         }
@@ -88,8 +112,17 @@ class UMNProxyWebsocketListener : WebSocketListener {
     }
 }
 
+/**
+ * The singleton server instance.
+ */
 lateinit var server: UMNProxyServer
 
+/**
+ * The UMN Proxy server itself. Call [start] to listen for websocket queries. Call [close] to stop the server.
+ * @param adr listen on this socket address
+ * @param secure optionally also listen on a secure socket address
+ * @param globalLogClientProvider [UMNProxyWebsocketListener] uses this guy to delegate the global log calls to.
+ */
 class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
     private val server = Server(adr)
     init {
@@ -97,11 +130,12 @@ class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClien
         secure?.registerJettyConnector(server)
     }
 
+    /**
+     * Starts the server asynchronously.
+     */
     fun start() {
         server.start()
     }
-
-    fun createGlobalLogClient(username: String, password: String): GlobalLogClient = globalLogClientProvider.createClient(username, password)
 
     override fun close() {
         server.stop()
