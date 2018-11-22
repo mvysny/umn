@@ -4,6 +4,7 @@ import com.gitlab.mvysny.umn.core.*
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.ConnectException
+import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -102,20 +103,34 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
                               val typeToClassResolver: TypeToClassResolver,
                               forceRestartSync: Boolean) {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
+    private val currentLogPointer2: UtilityMap<UUID, Long> = umn.openUtilityMap("CURRENT_LOG_PTR2")
     init {
         if (forceRestartSync) {
             // start from the beginning, pull all changes from the server.
             currentLogPointer.put(false, null)
+            currentLogPointer2.clear()
         }
 
         // continue pulling data where we left off
-        var currentPtr = currentLogPointer.find(false) ?: 0L
+        val globalLogUUID = globalLogClient.getUUID()
+        var currentPtr = currentLogPointer2.find(globalLogUUID)
+        if (currentPtr == null) {
+            // backwards compatibility - the pointer was stored in the currentLogPointer map previously.
+            currentPtr = currentLogPointer.find(false)
+            if (currentPtr != null) {
+                // yup, it was. Clear it, so that it won't act as "default" pointer for other UUIDs as well.
+                currentLogPointer.put(false, null)
+            } else {
+                currentPtr = 0L
+            }
+        }
+
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
             if (serializedItem != null) {
                 val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
                 item.applyTo(umn)
             }
-            currentLogPointer.put(false, ++currentPtr)
+            currentLogPointer2.put(globalLogUUID, ++currentPtr)
         }
     }
 }
@@ -133,7 +148,7 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  * and they will send same changes multiple times to other nodes!
  *
  * @param clientProvider creates new clients. The client produced must not be started yet. Closed when the [SyncingUMN] is closed or when
- * the [Syncer] is [Syncer.stop]ped.
+ * the [Syncer] is [Syncer.stop]ped. Both the client provider and client methods are called in a background thread.
  * @param serializer serializes/deserializes documents
  * @receiver wrap this UMN
  * @param autoStart if true the syncer is started automatically. Defaults to false.
@@ -165,6 +180,8 @@ class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val 
  *
  * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
  * and they will send same changes multiple times to other nodes!
+ * @property clientProvider provides clients. Always called in Syncer internal event loop (which is *not* the UI thread); also
+ * methods on [GlobalLogClient] are called on syncer internal event loop.
  */
 class Syncer internal constructor(private val underlyingUMN: UMN,
                                   serializer: DocumentSerializer,

@@ -4,6 +4,7 @@ import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.UMN
 import java.io.Closeable
 import java.io.IOException
+import java.util.*
 import java.util.concurrent.CancellationException
 
 /**
@@ -52,6 +53,12 @@ import java.util.concurrent.CancellationException
  * When the client is closed, it must not fire any callbacks anymore.
  */
 interface GlobalLogClient : Closeable {
+
+    /**
+     * Retrieves the unique ID of this global log. This allows [SyncingUMN] to potentially synchronize with multiple
+     * globa logs (even though not at the same time), keeping the sync pointer per global log.
+     */
+    fun getUUID(): UUID
 
     /**
      * Sets the receiver [callback]. The callback is invoked for every item with index equal to

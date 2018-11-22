@@ -4,6 +4,7 @@ import com.gitlab.mvysny.umn.core.closeQuietly
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
 import java.io.Closeable
+import java.util.*
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
@@ -18,9 +19,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  * * The `$user__log` map maps `Long` ordinal to [SerializedLogRecord]. The ordering is strict (the key starts at 0 and increments by 1).
  *
  * Thread-safe.
- * @property db the underlying database.
+ * @property globalLogStorageUUID the global log storage UUID
+ * @property owner the owner log
  */
-class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, val username: String, private val password: String) : GlobalLogClient {
+class MVStoreGlobalLogClient internal constructor(val globalLogStorageUUID: UUID, val owner: MVStoreGlobalLog, val username: String, private val password: String) : GlobalLogClient {
+    override fun getUUID(): UUID = globalLogStorageUUID
+
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
@@ -32,6 +36,14 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
      * We have broadcasted (invoked [receiveCallback]) for log items up to this pointer, including.
      */
     private var currentLogPointer: Long = 0L
+    /**
+     * The global log itself. Maps the log record ordinal to the serialized log record. Currently the ID sequence is monotonic
+     * (no IDs are missing and no holes are punched in the map).
+     *
+     * WARNING: If we eventually implement hole punching, make sure that null gets sent in [onNewItems] for every missing ID
+     * in the ID sequence, otherwise the client will not update its sync pointer properly and will seek to earlier item next
+     * time the client connects.
+     */
     private lateinit var log: MVMap<Long, SerializedLogRecord>
 
     private fun checkNotClosed() {
@@ -113,16 +125,34 @@ fun <V: Any> MVMap<Long, V>.append(value: V): Long {
  * Thread-safe. Stores logs for multiple users into given [db]. Call [newClient] to provide new client.
  *
  * Closes [db] when closed.
+ *
+ * Contains the following maps:
+ * * `users`: maps String username to String hashed password
+ * * `{username}__log`: contains the global log for given user. Maps the log record ordinal to the serialized log record.
+ * * `properties`: various properties of the MVStore: `globalLogStorageUUID` of type [UUID] is the global log storage UUID.
  */
 class MVStoreGlobalLog(val db: MVStore) : Closeable {
+    private val properties: MVMap<String, Any> = db.openMap("properties")
     private val startedClients = ConcurrentHashMap<String, BlockingQueue<MVStoreGlobalLogClient>>()
     private val closed = AtomicBoolean(false)
+
+    init {
+        var uuid = properties["globalLogStorageUUID"] as UUID?
+        if (uuid == null) {
+            // backwards compatibility: the UUID was missing. Just auto-generate a new, unique one.
+            uuid = UUID.randomUUID()!!
+            properties["globalLogStorageUUID"] = uuid
+        }
+    }
 
     /**
      * Creates a new client for given user. Authenticates the user with given [username] and [password] lazily, in the
      * [MVStoreGlobalLogClient.start] function.
      */
-    fun newClient(username: String, password: String) : GlobalLogClient = MVStoreGlobalLogClient(this, username, password)
+    fun newClient(username: String, password: String) : GlobalLogClient {
+        val globalLogStorageUUID = properties["globalLogStorageUUID"] as UUID
+        return MVStoreGlobalLogClient(globalLogStorageUUID, this, username, password)
+    }
 
     internal fun startClient(client: MVStoreGlobalLogClient) {
         val clientsForUsername = startedClients.getOrPut(client.username) { LinkedBlockingQueue() }
