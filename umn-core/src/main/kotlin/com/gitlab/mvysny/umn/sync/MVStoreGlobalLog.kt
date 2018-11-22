@@ -26,7 +26,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     internal var addCallback: () -> Unit = {}
-    internal var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
+    internal var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
 
     /**
      * We have broadcasted (invoked [receiveCallback]) for log items up to this pointer, including.
@@ -65,7 +65,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
         addCallback = callback
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         currentLogPointer = rewind

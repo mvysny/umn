@@ -21,12 +21,12 @@ import java.util.concurrent.CancellationException
  * as they were announced. The remote log maintains the proper
  * ordering and is the single source of truth.
  *
- * ### Optional Global Log optimizations
+ * ### Optional Global Log Optimizations
  *
  * The log may contain holes. Say a UMN document has been created and later on, deleted.
  * It is for example no longer necessary to synchronize all modifications to the document;
  * only the [LogRecord.DocumentDeleted] needs to be transmitted. Therefore we can safely
- * remove al [LogRecord.DocumentCreated] and [LogRecord.DocumentUpdated] related to this document from
+ * remove all [LogRecord.DocumentCreated] and [LogRecord.DocumentUpdated] related to this document from
  * the log, thus saving both the disk space and the network bandwidth.
  *
  * This is an optional optimization - some global log implementations may decide to not to
@@ -56,8 +56,7 @@ interface GlobalLogClient : Closeable {
     /**
      * Sets the receiver [callback]. The callback is invoked for every item with index equal to
      * or greater than given [rewind] parameter, for every new [LogRecord] available.
-     * The log items must be announced in the same order as they were introduced; the
-     * `orderNumber` parameter in the [callback] must increase as the callback is called.
+     * The log items must be announced in the same order as they were introduced.
      *
      * The internal item index is increased and next log item is retrieved to the listener
      * regardless of whether the listener succeeded or failed.
@@ -65,9 +64,12 @@ interface GlobalLogClient : Closeable {
      * The [callback] must be called by at most one thread at once.
      * @param rewind start announcing new messages from the log with this message. Must be 0 or
      * greater.
+     * @param callback invoked for every new item. Note that the record may be null in case when the Global Log
+     * punched a hole into it by removing insignificant log items (e.g. updates to a record that is known to be deleted).
+     * In case of null just do nothing, just increase internal sync pointer.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit)
+    fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit)
 
     /**
      * Invoked for every [LogRecord] sent by [addAsync] of this client, serves as a confirmation

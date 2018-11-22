@@ -85,7 +85,7 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
             var receiverCallbackCalled = false
             client.setReceiverCallback(0L) { record->
                 receiverCallbackCalled = true
-                expect(item) { LogRecord.fromByteArray(record, JavaDocumentSerializer, AutoTypeResolver) }
+                expect(item) { LogRecord.fromByteArray(record!!, JavaDocumentSerializer, AutoTypeResolver) }
             }
             client.start()
             client.addAsync(item)
@@ -149,7 +149,7 @@ private class ClientTester(offset: Long, client: GlobalLogClient) {
     fun getReceived(): List<LogRecord> = received.toList()
     init {
         client.setAddCallback { addCallbackCalledCount.incrementAndGet() }
-        client.setReceiverCallback(offset) { record -> received.add(LogRecord.fromByteArray(record, JavaDocumentSerializer, AutoTypeResolver)) }
+        client.setReceiverCallback(offset) { record -> received.add(LogRecord.fromByteArray(record!!, JavaDocumentSerializer, AutoTypeResolver)) }
         client.start()
     }
 }

@@ -187,8 +187,8 @@ sealed class LogRecord(open val id: UUID) {
             }
         }
 
-        fun fromByteArray(bytes: SerializedLogRecord, serializer: DocumentSerializer,
-                          typeToClassResolver: TypeToClassResolver): LogRecord =
-                readFrom(DataInputStream(bytes.inputStream()), serializer, typeToClassResolver)
+        fun fromByteArray(bytes: SerializedLogRecord?, serializer: DocumentSerializer,
+                          typeToClassResolver: TypeToClassResolver): LogRecord? =
+                if (bytes == null) null else readFrom(DataInputStream(bytes.inputStream()), serializer, typeToClassResolver)
     }
 }

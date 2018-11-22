@@ -66,7 +66,7 @@ class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSeri
      */
     fun drain(): List<LogRecord> =
         generateSequence { val item = fifolog.poll(); fifolog.ackLowest(); item }
-            .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver) }
+            .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver)!! }
             .toList()
 
     companion object {

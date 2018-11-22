@@ -80,7 +80,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     private var addCallback: () -> Unit = {}
-    private var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
+    private var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
 
     private fun checkNotClosed() {
         check(!closed.get()) { "Already closed" }
@@ -90,7 +90,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
         check(!started.get()) { "Already started" }
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         requestBuilder.header("rewind", rewind.toString())

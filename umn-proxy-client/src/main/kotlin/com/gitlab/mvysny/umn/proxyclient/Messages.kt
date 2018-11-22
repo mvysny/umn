@@ -76,17 +76,23 @@ sealed class AbstractMessage {
 
     /**
      * Sent by the server to all clients, notifying them that a record has been added to the global log (via the [AddAsync] message).
+     * @property record the added record, may be null in case a hole has been punched into the log. See [com.gitlab.mvysny.umn.sync.GlobalLogClient]
+     * for details.
      */
-    class OnLogRecord(val record: SerializedLogRecord) : AbstractMessage() {
+    class OnLogRecord(val record: SerializedLogRecord?) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ON_LOG_RECORD)
-            dout.writeInt(record.size)
-            dout.write(record)
+            if (record == null) {
+                dout.writeInt(0)
+            } else {
+                dout.writeInt(record.size)
+                dout.write(record)
+            }
         }
         companion object {
             fun read(din: DataInputStream): OnLogRecord {
-                val bytes = ByteArray(din.readInt())
-                din.readFully(bytes)
+                val size = din.readInt()
+                val bytes: ByteArray? = if (size == 0) null else ByteArray(size).apply { din.readFully(this) }
                 return OnLogRecord(bytes)
             }
         }

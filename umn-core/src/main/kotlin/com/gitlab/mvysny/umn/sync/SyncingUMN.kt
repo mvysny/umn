@@ -111,8 +111,10 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
         // continue pulling data where we left off
         var currentPtr = currentLogPointer.find(false) ?: 0L
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
-            val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)
-            item.applyTo(umn)
+            if (serializedItem != null) {
+                val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
+                item.applyTo(umn)
+            }
             currentLogPointer.put(false, ++currentPtr)
         }
     }
