@@ -43,8 +43,9 @@ class UMNProxyServerTest : DynaTest({
         beforeEach { client = createSyncClient(httpClient) }
         afterEach { client.close() }
 
-        test("uuid transfer") {
-            client.getUUID()
+        test("uuid transfer works and UUID doesn't change") {
+            val uuid = client.getUUID()
+            expect(uuid) { client.getUUID() }
         }
 
         test("closing websocket client also closes mvstorelog's client") {
