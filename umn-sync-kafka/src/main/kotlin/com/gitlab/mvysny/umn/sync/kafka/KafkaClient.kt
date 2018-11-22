@@ -41,7 +41,7 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     private var addCallback: () -> Unit = {}
-    private var receiveCallback: (record: SerializedLogRecord) -> Unit = {}
+    private var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
     private var offset: Long = 0L
     /**
      * The consumer thread polling [consumer]. Started in [start], killed in [close].
@@ -53,7 +53,7 @@ class KafkaClient(val bootstrapServers: String, val topicPartition: TopicPartiti
 
     private fun checkNotStarted() = check(!started.get()) { "Already started" }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
         checkNotClosed()
         checkNotStarted()

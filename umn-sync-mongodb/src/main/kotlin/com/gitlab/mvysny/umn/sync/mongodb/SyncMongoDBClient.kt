@@ -39,7 +39,7 @@ class SyncMongoDBClient(
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     private var addCallback: () -> Unit = {}
-    private var receiveCallback: (record: SerializedLogRecord) -> Unit = { _ -> }
+    private var receiveCallback: (record: SerializedLogRecord?) -> Unit = { _ -> }
     private var offset: Long = 0
     private val itemAddedQueue = LinkedBlockingQueue<SerializedLogRecord>()
     private val itemAddedLock = ReentrantLock()
@@ -86,7 +86,7 @@ class SyncMongoDBClient(
         }, collection!!, offset, pollDelayMs)
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
         require(rewind >= 0) { "rewind: $rewind must be 0 or greater" }
         checkNotClosed()
         checkNotStarted()
