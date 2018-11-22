@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.core
 
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
+import org.w3c.dom.DocumentType
 import java.io.*
 import java.util.*
 import kotlin.reflect.KClass
@@ -34,15 +35,6 @@ interface DocumentSerializer {
     }.toByteArray()
 
     fun <T: Any> deserialize(clazz: KClass<T>, bytes: ByteArray): T = deserialize(clazz, DataInputStream(bytes.inputStream()))
-}
-
-/**
- * Every document stored has a type associated. This resolver is able to provide a [KClass] for document type,
- * so that we can load and deserialize the document properly.
- */
-interface TypeToClassResolver {
-    fun toClass(type: Short): KClass<*>
-    fun toType(clazz: KClass<*>): Short
 }
 
 /**
@@ -115,7 +107,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
 
     private fun deserialize(bytes: SerializedDocument): Pair<Any, Short> {
         val din = DataInputStream(ByteArrayInputStream(bytes))
-        val type = din.readShort()
+        val type: DocType = din.readShort()
         return serializer.deserialize(typeToClassResolver.toClass(type), din) to type
     }
 

@@ -25,8 +25,7 @@ interface UMN : Closeable {
 
     /**
      * Finds a document with given [id] and converts it to given [clazz]. If there is no such document or it has been deleted, returns null.
-     *
-     * The [clazz] parameter is only for casting purposes - the actual document type is stored in the database.
+     * @param clazz only used for casting purposes - the actual document type is stored in the database.
      */
     fun <V : Any> find(id: UUID, clazz: KClass<V>): V?
 
@@ -42,6 +41,7 @@ interface UMN : Closeable {
 
     /**
      * Retrieves a document with given [id], failing if no such document exists.
+     * @param clazz only used for casting purposes - the actual document type is stored in the database.
      * @throws IllegalArgumentException if no document with given ID exists.
      */
     fun <V : Any> get(id: UUID, clazz: KClass<V>): V = find(id, clazz) ?: throw IllegalArgumentException("No document with id $id")
@@ -72,20 +72,28 @@ interface UMN : Closeable {
      * INTERNAL USE ONLY. Puts a [document] with given [id] to the database.
      * Does nothing if there already is a document with given ID.
      *
-     * Never use directly! Only used by [GlobalLogPuller] to apply changes. This function breaks the guarantee that a document
+     * Never use directly! Only used by [com.gitlab.mvysny.umn.sync.SyncingUMN] to apply changes. This function breaks the guarantee that a document
      * delete with given id is permanent and irreversible. @todo mavi why is this guarantee important and what would breaking of this cause?
      * @return true if the document was non-existent and was created, false if it already existed and nothing was done
      */
     fun create(document: Any, id: UUID): Boolean
 
+    /**
+     * UMN employs the delegate pattern, e.g. [IndexingUMN] allows you to have document indices but it uses delegate [UMN]
+     * to store those documents. Having delegate in the API allows you to find particular UMN wrapper in the chain of delegates.
+     */
     val delegate: UMN?
 
+    /**
+     * Resolves [DocType] to Class so that [find]/[get] can deserialize document properly from the storage. Also used by [IndexingUMN.delete]
+     * since it needs to load the document first, to properly remove indices.
+     */
     val typeToClassResolver: TypeToClassResolver
 
     /**
      * Returns a lazily evaluated sequence of all document IDs. No specific order is imposed.
      *
-     * This function is faster than [getSequenceOfDocs] since it doesn't load the documents.
+     * This function is faster than [getSequenceOfSerializedDocs] since it doesn't load the documents.
      *
      * It is safe to modify the UMN database (e.g. deleting documents) while iterating.
      * The sequence must not reflect further modifications; the sequence may thus return IDs of documents that were meanwhile deleted.
@@ -106,11 +114,29 @@ interface UMN : Closeable {
         if (doc == null) null else id to doc
     }
 
+    /**
+     * If true, the UMN is empty (there are no documents).
+     */
     fun isEmpty(): Boolean = getSequenceOfIDs().none()
 }
 
 /**
- * The serialized document itself. First two bytes are [Short] - the document type; remaining bytes is the
+ * Every document stored has a type associated. This resolver is able to provide a [KClass] for document type,
+ * so that we can load and deserialize the document properly.
+ */
+interface TypeToClassResolver {
+    fun toClass(type: DocType): KClass<*>
+    fun toType(clazz: KClass<*>): DocType
+}
+
+/**
+ * The type of the document. [TypeToClassResolver] is used, to resolve type to class, which then is used by [DocumentSerializer]
+ * to serialize/deserialize documents when they are sent to the global log. Every document must have a type.
+ */
+typealias DocType = Short
+
+/**
+ * The serialized document itself. First two bytes are [DocType]; remaining bytes is the
  * serialized document itself, saved via the [DocumentSerializer].
  */
 typealias SerializedDocument = ByteArray
