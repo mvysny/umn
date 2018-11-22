@@ -139,7 +139,9 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
     init {
         // warning - not really thread-safe (MVMap provides no implementation), but anyways we only expect db to be manipulated
         // by one JVM+class at a time.
-        properties.computeIfAbsent("globalLogStorageUUID") { UUID.randomUUID() } as UUID
+        if (properties["globalLogStorageUUID"] == null) {
+            properties["globalLogStorageUUID"] = UUID.randomUUID()
+        }
     }
 
     /**
