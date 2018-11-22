@@ -32,61 +32,55 @@ class UMNProxyWebsocketListener : WebSocketListener {
         logStorage.close()
     }
 
-    override fun onWebSocketConnect(session: Session) {
-        log.info("Got connection; headers=${session.upgradeRequest.headers}")
-        this.session = session
-
-        val username: String? = session.upgradeRequest.getHeader("username")
-        val password: String? = session.upgradeRequest.getHeader("password")
-        val rewindStr: String? = session.upgradeRequest.getHeader("rewind")
-        if (username == null || password == null) {
-            log.warn("Missing headers")
-            session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, "Missing headers")
-            return
-        }
-        this.username = username
-        logStorage = server.globalLogClientProvider.createClient(username, password)
-
-        // a special service: the client is just asking for the UUID. Close the socket but send the UUID in the response.
-        if (session.upgradeRequest.getHeader("get_uuid") != null) {
-            val uuid = try {
-                logStorage.getUUID()
-            } finally {
-                logStorage.closeQuietly()
-            }
-            log.info("Returning UUID $uuid")
-            session.close(StatusCode.NORMAL, uuid.toString())
-            return
-        }
-
-        // continue with regular service
-        if (rewindStr == null) {
-            log.warn("Missing rewind header")
-            session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, "Missing rewind header")
-            return
-        }
-        val rewind = rewindStr.toLong()
-        logStorage.setAddCallback {
-            session.remote.send(AbstractMessage.OnAdded)
-        }
-        logStorage.setReceiverCallback(rewind) { record ->
-            session.remote.send(AbstractMessage.OnLogRecord(record))
-        }
+    override fun onWebSocketConnect(session: Session): Unit {
         try {
+            log.info("Got connection; headers=${session.upgradeRequest.headers}")
+            this.session = session
+
+            val username: String? = session.upgradeRequest.getHeader("username")
+            val password: String? = session.upgradeRequest.getHeader("password")
+            val rewindStr: String? = session.upgradeRequest.getHeader("rewind")
+            if (username == null || password == null) {
+                throw InvalidUsernamePasswordException("Missing headers")
+            }
+            this.username = username
+            logStorage = server.globalLogClientProvider.createClient(username, password)
+
+            // a special service: the client is just asking for the UUID. Close the socket but send the UUID in the response.
+            if (session.upgradeRequest.getHeader("get_uuid") != null) {
+                val uuid = try {
+                    logStorage.getUUID()
+                } finally {
+                    logStorage.closeQuietly()
+                }
+                log.info("Returning UUID $uuid")
+                session.close(StatusCode.NORMAL, uuid.toString())
+                return
+            }
+
+            // continue with regular service
+            if (rewindStr == null) {
+                throw InvalidUsernamePasswordException("Missing rewind headers")
+            }
+            val rewind = rewindStr.toLong()
+            logStorage.setAddCallback {
+                session.remote.send(AbstractMessage.OnAdded)
+            }
+            logStorage.setReceiverCallback(rewind) { record ->
+                session.remote.send(AbstractMessage.OnLogRecord(record))
+            }
             logStorage.start()
+            session.remote.send(AbstractMessage.Started)
+            log.info("Connection successful, sent handshake AbstractMessage.Started")
         } catch (e: InvalidUsernamePasswordException) {
             logStorage.closeQuietly()
             log.warn("Invalid username/password", e)
             session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, e.message)
-            return
         } catch (e: Throwable) {
             logStorage.closeQuietly()
             log.warn("General storage error", e)
             session.close(AbstractMessage.WS_SERVER_ERROR, e.message)
-            return
         }
-        session.remote.send(AbstractMessage.Started)
-        log.info("Connection successful, sent handshake AbstractMessage.Started")
     }
 
     override fun onWebSocketText(message: String) {
