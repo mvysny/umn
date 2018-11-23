@@ -77,6 +77,9 @@ private class GlobalLogPusher(
     }
 }
 
+/**
+ * Retries given [block] indefinitely when it fails with [IOException]. Back-offs for 1s. Rethrows any non-[IOException].
+ */
 private fun <T> retryIO(activityName: String, block: () -> T): T {
     while (true) {
         try {
