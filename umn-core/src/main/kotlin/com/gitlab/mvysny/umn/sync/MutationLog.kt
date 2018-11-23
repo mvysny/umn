@@ -27,7 +27,7 @@ private object FailingSerializer : DocumentSerializer {
  * @param umn the underlying UMN database; just pass [AnnouncingUMN.delegate] here.
  * @param bufferName to which [UtilityMap] the mutation log will be stored.
  * @param serializer used to serialize documents to the log.
- * @param forceRepopulate if true, the [fifolog] will be cleared out and repopulated from the database. This is helpful if we are to
+ * @param forceRepopulate if true, the [fifolog] will be destroyed and repopulated from the database. Use this when moving
  * sync to another sync server.
  */
 class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSerializer, val forceRepopulate: Boolean) : AnnouncingUMN.Listener {

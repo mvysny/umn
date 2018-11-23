@@ -243,7 +243,8 @@ any other UMN type) is found.
 
 ## Syncing
 
-UMN is able to synchronize the data to all nodes connected to a common server. UMN Sync converts
+UMN is able to synchronize the data to all nodes connected to a common _global log_, stored on
+some server. UMN Sync converts
 all database modifications into a stream of events (called *log records*), and transmits that log over a common server
 to all other clients. Every client contains a queue of log records; the queue is emptied as the events
 are confirmed to be received by the server.
@@ -318,9 +319,24 @@ via `.syncing` and keep using only the wrapped instance.
 - However, if you decide to remove syncing capabilities by removing the `.syncing` call, any further changes will never be
 picked up by the syncer.
 
-There is only one client log. Once it's transmitted to the server, it's purged from the client, to save space. This works unless you
+### Switching To Another Global Log
+
+There is only one client log. Once it's transmitted to the server, it's purged from the client, to save space.
+This optimization works fine unless you
 decide to reconfigure syncing to some other server. The new server will never be repopulated by data from
-the clients (because the log has been purged). Switching servers is therefore unsupported.
+the clients (because the log has been purged). There is however still a possibility to
+switch server, but it's experimental and unsupported. Read on.
+
+To switch to another sync server, make sure that the global log stored on that server is empty.
+Then, call `UMN.syncing()` function with `forceRestartSync` set to true. That will make
+the node throw away the current mutation log, rebuild a new one and send it to the server.
+It will also reset the polling pointer and will poll everything from the server - however
+the server is empty so this is fine.
+
+Make sure to do this with ONE NODE ONLY - completely destroy other node's database and make
+them start from a clean state. That way, the state from one node will propagate to all
+other nodes. If the database is not cleaned from other nodes, all nodes will push their
+log into the server, resulting in mass log duplication and random data overwrite.
 
 ### Syncing behind a firewall
 

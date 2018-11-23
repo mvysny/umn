@@ -150,6 +150,8 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  * @param autoStart if true the syncer is started automatically. Defaults to false.
  * @param forceRestartSync DANGEROUS. If true, all sync history is thrown out on this client, a fake sync history is reconstructed from the database
  * and everything is pushed to the global log. Only use this if you are switching your clients to a new sync server.
+ * Re-pulls all events from the server - may result in duplicated records and data overwrite.
+ * Always pass `false` here unless you know what you're doing!
  * @return a wrapped receiver which syncs all changes to the global log.
  */
 fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSerializer, autoStart: Boolean = false, forceRestartSync: Boolean = false): SyncingUMN {
@@ -177,15 +179,20 @@ class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val 
  * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
  * and they will send same changes multiple times to other nodes!
  * @property clientProvider provides clients. Always called in Syncer internal event loop (which is *not* the UI thread); also
- * methods on [GlobalLogClient] are called on syncer internal event loop.
+ * methods on [GlobalLogClient] are called on syncer internal event loop. An [GlobalLogClient] instance is acquired when the syncer is
+ * started.
+ * @param forceRestartSync DANGEROUS: completely destroys the sync log, rebuilds it with the current DB content and pushes it
+ * to the server. Re-pulls all events from the server.
+ * May result in duplicated records and data overwrite.
+ * Always pass `false` here unless you know what you're doing!
  */
 class Syncer internal constructor(private val underlyingUMN: UMN,
                                   serializer: DocumentSerializer,
                                   private val clientProvider: ()->GlobalLogClient,
                                   forceRestartSync: Boolean) : Closeable {
-    /*
-     * buffer which stores outgoing changes until they are correctly transmitted over given
-      */
+    /**
+     * buffer which stores outgoing changes until they are correctly transmitted over [GlobalLogClient] (produced by [clientProvider]).
+     */
     private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer, forceRestartSync)
 
     private val eventLoop = Executors.newSingleThreadExecutor()
