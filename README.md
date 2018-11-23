@@ -1,3 +1,5 @@
+[![pipeline status](https://gitlab.com/mvysny/umn/badges/master/pipeline.svg)](https://gitlab.com/mvysny/umn/commits/master)
+
 # U.M.N.
 
 The U.M.N. is a NoSQL data storage designed to have the following properties:
@@ -317,14 +319,20 @@ It's important to remember that:
 - If you used UMN without syncing capabilities in your app, it is OK to add sync support: simply wrap the old UMN
 via `.syncing` and keep using only the wrapped instance.
 - However, if you decide to remove syncing capabilities by removing the `.syncing` call, any further changes will never be
-picked up by the syncer.
+picked up by the syncer. Never do that, or your node will never sync changes, even if you decide to
+re-enable sync later on.
 
 ### Switching To Another Global Log
 
-There is only one client log. Once it's transmitted to the server, it's purged from the client, to save space.
-This optimization works fine unless you
-decide to reconfigure syncing to some other server. The new server will never be repopulated by data from
-the clients (because the log has been purged). There is however still a possibility to
+Every `syncingUMN` builds its own mutation log, which it then tries to send to
+the global log. Once the log is transmitted to the server it is purged from the client,
+to save disk space.
+This optimization generally works fine, but it start to bit when you
+decide to reconfigure syncing to some other server. Since there is only one
+log pointer (there is no separate log pointer for different servers), the new
+server will never be repopulated by data from
+the clients (because the log pointer already points after the last log item,
+and also because the log has been purged). There is however still a possibility to
 switch server, but it's experimental and unsupported. Read on.
 
 To switch to another sync server, make sure that the global log stored on that server is empty.
@@ -337,6 +345,9 @@ Make sure to do this with ONE NODE ONLY - completely destroy other node's databa
 them start from a clean state. That way, the state from one node will propagate to all
 other nodes. If the database is not cleaned from other nodes, all nodes will push their
 log into the server, resulting in mass log duplication and random data overwrite.
+
+See [Issue #3](https://gitlab.com/mvysny/umn/issues/3) for more info on why it's
+impossible to sync to multiple servers with the current UMN architecture.
 
 ### Syncing behind a firewall
 
