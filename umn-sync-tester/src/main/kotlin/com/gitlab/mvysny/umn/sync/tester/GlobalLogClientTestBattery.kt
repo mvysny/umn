@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.sync.tester
 
 import com.github.mvysny.dynatest.DynaNodeGroup
 import com.github.mvysny.dynatest.expectThrows
+import com.gitlab.mvysny.umn.core.AutoTypeResolver
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.closeQuietly
