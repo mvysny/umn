@@ -13,7 +13,7 @@ defaultTasks("clean", "build")
 
 allprojects {
     group = "com.gitlab.mvysny.umn"
-    version = "0.15"
+    version = "0.16-SNAPSHOT"
     repositories {
         jcenter()
         maven { setUrl("https://dl.bintray.com/mvysny/github") }
