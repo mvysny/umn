@@ -13,7 +13,7 @@ defaultTasks("clean", "build")
 
 allprojects {
     group = "com.gitlab.mvysny.umn"
-    version = "0.15-SNAPSHOT"
+    version = "0.15"
     repositories {
         jcenter()
         maven { setUrl("https://dl.bintray.com/mvysny/github") }
@@ -84,7 +84,7 @@ subprojects {
             user = local.getProperty("bintray.user")
             key = local.getProperty("bintray.key")
             pkg(closureOf<BintrayExtension.PackageConfig> {
-                repo = "github"
+                repo = "gitlab"
                 name = "com.gitlab.mvysny.umn"
                 setLicenses("MIT")
                 vcsUrl = "https://gitlab.com/mvysny/umn"
