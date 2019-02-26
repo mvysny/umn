@@ -3,6 +3,7 @@ package com.gitlab.mvysny.umn.core
 import com.github.mvysny.vokdataloader.DataLoader
 import com.github.mvysny.vokdataloader.Filter
 import com.github.mvysny.vokdataloader.SortClause
+import com.github.mvysny.vokdataloader.intRange
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
 import java.io.ByteArrayInputStream

@@ -1,5 +1,7 @@
 package com.gitlab.mvysny.umn.core
 
+import com.github.mvysny.vokdataloader.intersection
+import com.github.mvysny.vokdataloader.subList
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
