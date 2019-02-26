@@ -1,19 +1,9 @@
 package com.gitlab.mvysny.umn.proxy.adminclient
 
-import com.google.gson.FieldNamingPolicy
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonParseException
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
-import java.io.FileNotFoundException
-import java.io.IOException
-import java.lang.reflect.Type
-
-private val gson = GsonBuilder()
-        .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
-        .create()
 
 class AdminClient(val client: OkHttpClient, val baseUrl: String) {
     init {
