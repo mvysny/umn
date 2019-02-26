@@ -148,6 +148,15 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
  * Thread-safe.
  */
 class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : UtilityMap<K, V> {
+    override fun keyCount(): Int = map.size
+
+    override fun keyPage(indexRange: IntRange): List<K> {
+        if (indexRange.isEmpty()) return listOf()
+        require(indexRange.start >= 0) { "$indexRange contains negative indices" }
+        val startingKey = map.getKey(indexRange.first.toLong()) ?: return listOf()
+        return map.keyIterator(startingKey).asSequence().take(1).toList()
+    }
+
     override fun containsKey(key: K): Boolean = map.containsKey(key)
 
     override fun keyIterator(range: ClosedRange<K>?): Sequence<K> {

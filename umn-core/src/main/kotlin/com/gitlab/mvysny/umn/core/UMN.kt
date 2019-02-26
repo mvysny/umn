@@ -218,4 +218,16 @@ interface UtilityMap<K: Comparable<K>, V> {
      * such key exists.
      */
     fun lowerKey(key: K): K?
+
+    /**
+     * Returns the number of keys in this map.
+     */
+    fun keyCount(): Int
+
+    /**
+     * Returns keys in given index range. O(log(keyCount()) + range.size).
+     * The range may exceed [keyCount], in such case fewer keys are returned.
+     * @throws IllegalArgumentException if range includes negative numbers.
+     */
+    fun keyPage(indexRange: IntRange): List<K>
 }

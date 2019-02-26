@@ -67,21 +67,29 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             expect(null) { map.getLargestKey() }
             expect(null) { map.getSmallestKey() }
             expect(true) { map.isEmpty() }
+            expectList() { map.keyIterator().toList() }
+            expectList() { map.keyPage(0..10000).toList() }
+            expectList() { map.keyPage(IntRange.EMPTY).toList() }
             (0..1000).forEach { key ->
                 expect(null) { map.find(key.toLong()) }
             }
             expectList() { map.keyIterator(0L..10000L).asSequence().toList() }
+            expect(0) { map.keyCount() }
         }
 
         test("Adding one item") {
             map.put(10L, "Hello world")
             expect(10L) { map.getLargestKey() }
             expect(10L) { map.getSmallestKey() }
+            expectList(10L) { map.keyIterator().toList() }
+            expectList(10L) { map.keyPage(0..10000).toList() }
+            expectList() { map.keyPage(IntRange.EMPTY).toList() }
             (0..1000).forEach { key ->
                 expect(if (key == 10) "Hello world" else null) { map.find(key.toLong()) }
             }
             expectList(10L) { map.keyIterator(0L..10000L).asSequence().toList() }
             expect(false) { map.isEmpty() }
+            expect(1) { map.keyCount() }
         }
 
         test("Adding one item and removing it falls back to empty map") {
@@ -90,12 +98,19 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             expect(null) { map.getLargestKey() }
             expect(null) { map.getSmallestKey() }
             expectList() { map.keyIterator(0L..10000L).asSequence().toList() }
+            expectList() { map.keyIterator().toList() }
+            expectList() { map.keyPage(0..10000).toList() }
+            expectList() { map.keyPage(IntRange.EMPTY).toList() }
+            expect(0) { map.keyCount() }
         }
 
         test("values() returns all values") {
             map.put(10L, "Hello world")
             map.put(20L, "Goodbye world")
             expect(listOf("Goodbye world", "Hello world")) { map.values().asSequence().toList().sorted() }
+            expect(2) { map.keyCount() }
+            expectList(10L, 20L) { map.keyPage(0..10000).toList() }
+            expectList() { map.keyPage(IntRange.EMPTY).toList() }
         }
 
         test("values() is empty for an empty map") {
@@ -108,6 +123,10 @@ fun DynaNodeGroup.genericUmnTestBattery(emptyStorageProvider: () -> UMN) {
             expect(null) { map.getLargestKey() }
             expect(null) { map.getSmallestKey() }
             expect(true) { map.isEmpty() }
+            expectList() { map.keyIterator().toList() }
+            expectList() { map.keyPage(0..10000).toList() }
+            expectList() { map.keyPage(IntRange.EMPTY).toList() }
+            expect(0) { map.keyCount() }
         }
 
         test("iterating values works even if the mappings are meanwhile deleted") {

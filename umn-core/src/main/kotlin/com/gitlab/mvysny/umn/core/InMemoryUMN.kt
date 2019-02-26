@@ -64,6 +64,15 @@ class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
  * Thread-safe.
  */
 class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
+    override fun keyCount(): Int = map.size
+
+    override fun keyPage(indexRange: IntRange): List<K> {
+        if (indexRange.isEmpty()) return listOf()
+        require(indexRange.start >= 0) { "$indexRange contains negative indices" }
+        val allKeys = map.keys.toList().sorted()
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
     override fun containsKey(key: K): Boolean = map.containsKey(key)
 
     private val map = ConcurrentHashMap<K, V>()
