@@ -112,7 +112,7 @@ fun <K, V> ConcurrentHashMap<K, V>.updateIfPresent(key:K, remappingFunction: (K,
 
 /**
  * Dynamically assigns type to a class. Not persistent - the numbering may change as the JVM restarts.
- * **Don't use for production!**
+ * **Don't use for production!** Only use for evaluation or testing purposes.
  */
 object AutoTypeResolver : TypeToClassResolver {
     private val toClass = mutableMapOf<Short, KClass<*>>()
