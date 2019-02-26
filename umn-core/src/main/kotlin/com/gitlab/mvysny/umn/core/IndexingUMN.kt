@@ -6,7 +6,6 @@ import com.github.mvysny.vokdataloader.SortClause
 import com.github.mvysny.vokdataloader.intRange
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
-import java.io.ByteArrayInputStream
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
