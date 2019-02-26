@@ -63,7 +63,9 @@ fun main(args: Array<String>) {
     val dbfile = "/home/mavi/temp/testdb.db"
     val mvstore = MVStore.Builder().compress().fileName(dbfile).open()
     
-    var umn: UMN = MvstoreUMN(mvstore, JavaDocumentSerializer)
+    // beware! Don't use JavaDocumentSerializer nor AutoTypeResolver for production!
+    // see those classes's javadoc for more info.
+    var umn: UMN = MvstoreUMN(mvstore, JavaDocumentSerializer, AutoTypeResolver)
     // optionally to add indices: umn = IndexingUMN(umn, umnIndices)
 
     umn.use {

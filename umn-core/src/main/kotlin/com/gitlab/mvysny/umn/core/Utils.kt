@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.DataOutputStream
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.reflect.KClass
 
 /**
  * [MutableMap.put]s the [value] into the map under given [key] or [MutableMap.remove]s it if it's null. Thread-safe.
@@ -107,4 +108,26 @@ fun <K, V> ConcurrentHashMap<K, V>.updateIfPresent(key:K, remappingFunction: (K,
         oldValue = get(key)
     }
     return null
+}
+
+/**
+ * Dynamically assigns type to a class. Not persistent - the numbering may change as the JVM restarts.
+ * **Don't use for production!**
+ */
+object AutoTypeResolver : TypeToClassResolver {
+    private val toClass = mutableMapOf<Short, KClass<*>>()
+    private val toType = mutableMapOf<KClass<*>, Short>()
+    private var nextType = 0.toShort()
+
+    override fun toClass(type: Short): KClass<*> = requireNotNull(toClass[type]) { "type $type has not yet been registered" }
+
+    override fun toType(clazz: KClass<*>): Short {
+        var type = toType[clazz]
+        if (type == null) {
+            type = nextType++
+            toClass[type] = clazz
+            toType[clazz] = type
+        }
+        return type
+    }
 }

@@ -38,7 +38,10 @@ interface DocumentSerializer {
 }
 
 /**
- * Uses standard Java Serialization to serialize/deserialize objects. Slow, should only be used for testing purposes.
+ * Uses standard Java Serialization to serialize/deserialize objects. **Do not use for production!**
+ * * Unstable: The serialization format can change between different JVMs and between different JVM versions
+ * * Slow
+ * You should only be used for **testing** purposes.
  */
 object JavaDocumentSerializer : DocumentSerializer {
     override fun serialize(document: Any, dout: DataOutputStream) {
