@@ -346,6 +346,19 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         }
 
         /**
+         * Finds all keys matching [keys].
+         */
+        fun keySequence(keys: For<K>): Sequence<K> {
+            if (keys.isEmpty) return emptySequence()
+            return when (keys) {
+                is For.All -> indexStore.keyIterator()
+                is For.Key -> indexStore.keyIterator(keys.key..keys.key)
+                is For.KeyRange -> indexStore.keyIterator(keys.range)
+                is For.KeySet -> keys.set.asSequence().filter { indexStore.containsKey(it) }
+            }
+        }
+
+        /**
          * Private since the sequence reflects modifications.
          */
         private fun getDescSequenceOfDocs(forKeys: For<K>): Sequence<Pair<UUID, V>> = getDescSequenceOfIDs(forKeys).mapNotNull { id ->

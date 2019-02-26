@@ -100,6 +100,68 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
+    group("keySequence()") {
+        group("For.Key") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expectList() { umn.getIndex(idxIdentity).keySequence(For.Key("")).toList() }
+                expectList() { umn.getIndex(idxIdentity).keySequence(For.Key("foo")).toList() }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.Key("kvak")).toList() }
+                expectList() { umn.getIndex(idxIdentity).keySequence(For.Key("kvak2")).toList() }
+            }
+        }
+
+        group("For.KeySet()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expectList() { umn.getIndex(idxIdentity).keySequence(For.KeySet("", "foo", "bar", "baz")).toList() }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeySet("", "foo", "kvak")).toList() }
+                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeySet("kvak", "foo", "")).toList() }
+            }
+        }
+
+        group("For.all()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expectList() { umn.getIndex(idxIdentity).keySequence(For.all()).toList() }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expectList("kvak", "zzz") { umn.getIndex(idxIdentity).keySequence(For.all()).toList() }
+            }
+        }
+
+        group("For.KeyRange()") {
+            test("returns null on empty map") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                expectList() { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."z")).toList() }
+            }
+
+            test("correctly finds the document") {
+                val umn = IndexingUMN(storageProvider(), indices)
+                val id = umn.create("kvak")
+                val id2 = umn.create("zzz")
+                expectList("kvak", "zzz") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."zzzzz")).toList() }
+                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."z")).toList() }
+                expectList("zzz") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("z".."zzzzzz")).toList() }
+            }
+        }
+    }
+
     group("findLastDoc()") {
         group("For.Key") {
             test("returns null on empty map") {

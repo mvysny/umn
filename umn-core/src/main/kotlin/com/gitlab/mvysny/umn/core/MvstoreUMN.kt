@@ -148,7 +148,10 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
  * Thread-safe.
  */
 class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : UtilityMap<K, V> {
-    override fun keyIterator(range: ClosedRange<K>): Sequence<K> {
+    override fun containsKey(key: K): Boolean = map.containsKey(key)
+
+    override fun keyIterator(range: ClosedRange<K>?): Sequence<K> {
+        if (range == null) return map.keyIterator(null).asSequence()
         if (range.isEmpty()) return emptySequence()
         val keySequence = map.keyIterator(range.start).asSequence()
         return keySequence.takeWhile { key -> key in range }

@@ -64,9 +64,14 @@ class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
  * Thread-safe.
  */
 class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
+    override fun containsKey(key: K): Boolean = map.containsKey(key)
+
     private val map = ConcurrentHashMap<K, V>()
 
-    override fun keyIterator(range: ClosedRange<K>): Sequence<K> = map.keys.filter { key -> key in range }.sorted().asSequence()
+    override fun keyIterator(range: ClosedRange<K>?): Sequence<K> {
+        if (range == null) return map.keys.asSequence()
+        return map.keys.filter { key -> key in range }.sorted().asSequence()
+    }
 
     override fun find(key: K): V? = map[key]
 

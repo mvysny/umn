@@ -185,12 +185,15 @@ interface UtilityMap<K: Comparable<K>, V> {
     fun getLargestKey(): K?
 
     /**
-     * Returns an iterator which walks over keys in given range in ascending order.
+     * Returns an iterator which walks over keys in given [range] in ascending order.
      *
      * The iterator must not throw [ConcurrentModificationException]
      * and must not be affected by any further modifications to the map.
+     * @param range if null, all keys are enumerated.
      */
-    fun keyIterator(range: ClosedRange<K>): Sequence<K>
+    fun keyIterator(range: ClosedRange<K>? = null): Sequence<K>
+
+    fun containsKey(key: K): Boolean
 
     /**
      * Iterates over all values present in this map. The iteration follows the key order, ascending.
