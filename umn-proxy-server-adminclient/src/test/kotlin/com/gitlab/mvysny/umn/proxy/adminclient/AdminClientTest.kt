@@ -9,13 +9,11 @@ import com.gitlab.mvysny.umn.proxy.MVStoreGlobalLogProvider
 import com.gitlab.mvysny.umn.proxy.UMNProxyServer
 import com.gitlab.mvysny.umn.proxy.server
 import com.google.gson.JsonParseException
-import com.google.gson.stream.MalformedJsonException
 import io.javalin.InternalServerErrorResponse
 import io.javalin.Javalin
 import io.javalin.core.util.HttpResponseExceptionMapper
 import java.io.FileNotFoundException
 import java.io.IOException
-import java.lang.RuntimeException
 import java.net.ConnectException
 import java.net.InetSocketAddress
 import kotlin.test.expect
@@ -45,7 +43,7 @@ class AdminClientTest : DynaTest({
         afterEach { javalin.stop() }
 
         test("json parsing fails with proper exception") {
-            expectThrows(MalformedJsonException::class) {
+            expectThrows(JsonParseException::class) {
                 client.getUsers()
             }
         }

@@ -6,12 +6,12 @@ dependencies {
     // REST Admin API
     compile("io.javalin:javalin:${properties["javalin_version"]}")
     compile(kotlin("stdlib-jdk8"))
-    compile("com.google.code.gson:gson:2.8.5")
+    compile("com.google.code.gson:gson:${properties["gson_version"]}")
 
     // config file parsing
     compile("org.yaml:snakeyaml:1.23")
 
-    testCompile("com.squareup.okhttp3:okhttp:3.11.0")
+    testCompile("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
     testCompile(project(":umn-sync-tester"))
 }
 
