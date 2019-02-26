@@ -4,16 +4,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.*
 
 plugins {
-    kotlin("jvm") version "1.3.10"
-    id("com.jfrog.bintray") version "1.8.1"
+    kotlin("jvm") version "1.3.21"
+    id("com.jfrog.bintray") version "1.8.3"
     `maven-publish`
 }
 
 defaultTasks("clean", "build")
 
 allprojects {
-    ext["dynatest_version"] = "0.12"
-
     group = "com.gitlab.mvysny.umn"
     version = "0.15-SNAPSHOT"
     repositories {
