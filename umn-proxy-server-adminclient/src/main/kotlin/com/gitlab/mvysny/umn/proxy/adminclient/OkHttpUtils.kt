@@ -8,6 +8,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody
+import java.io.FileNotFoundException
+import java.io.IOException
 import java.io.Reader
 
 /**
@@ -26,8 +28,8 @@ fun OkHttpClient.destroy() {
 fun Response.checkOk(): Response {
     if (!isSuccessful) {
         val msg = "${code()}: ${body()!!.string()} (${request().url()})"
-        if (code() == 404) throw java.io.FileNotFoundException(msg)
-        throw java.io.IOException(msg)
+        if (code() == 404) throw FileNotFoundException(msg)
+        throw IOException(msg)
     }
     return this
 }
@@ -60,7 +62,7 @@ fun <T> Gson.fromJsonArray(json: String, itemClass: Class<T>): List<T> {
 }
 
 /**
- * Parses [json] as a map of items with class [itemClass] and returns that.
+ * Parses [json] as a map of items with class [valueClass] and returns that.
  */
 fun <T> Gson.fromJsonMap(json: String, valueClass: Class<T>): Map<String, T> {
     val type = TypeToken.getParameterized(Map::class.java, String::class.java, valueClass).type
@@ -76,7 +78,7 @@ fun <T> Gson.fromJsonArray(reader: Reader, itemClass: Class<T>): List<T> {
 }
 
 /**
- * Parses [json] as a map of items with class [itemClass] and returns that.
+ * Parses [json] as a map of items with class [valueClass] and returns that.
  */
 fun <T> Gson.fromJsonMap(reader: Reader, valueClass: Class<T>): Map<String, T> {
     val type = TypeToken.getParameterized(Map::class.java, String::class.java, valueClass).type
