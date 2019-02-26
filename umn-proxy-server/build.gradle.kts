@@ -4,7 +4,7 @@ dependencies {
     compile("ch.qos.logback:logback-classic:1.2.3")
 
     // REST Admin API
-    compile("io.javalin:javalin:2.4.0")
+    compile("io.javalin:javalin:${properties["javalin_version"]}")
     compile(kotlin("stdlib-jdk8"))
     compile("com.google.code.gson:gson:2.8.5")
 

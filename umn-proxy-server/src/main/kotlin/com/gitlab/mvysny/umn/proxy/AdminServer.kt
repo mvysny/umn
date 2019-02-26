@@ -3,11 +3,14 @@ package com.gitlab.mvysny.umn.proxy
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import io.javalin.InternalServerErrorResponse
 import io.javalin.Javalin
+import io.javalin.core.util.HttpResponseExceptionMapper
 import io.javalin.json.FromJsonMapper
 import io.javalin.json.JavalinJson
 import io.javalin.json.ToJsonMapper
 import org.eclipse.jetty.server.Server
+import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.InetSocketAddress
 
@@ -38,6 +41,10 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
         get("/admin/stats/logsizes") { ctx ->
             ctx.json(mvstoreGlobalLog.getLogSizes())
         }
+        exception(Exception::class.java) { e, ctx ->
+            log.error("Server error: $e", e)
+            HttpResponseExceptionMapper.handle(InternalServerErrorResponse(e.message ?: "Internal server error"), ctx)
+        }
     }
 
     override fun close() {
@@ -47,6 +54,8 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
     companion object {
         val mvstoreGlobalLog: MVStoreGlobalLog
             get() = (server.globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog
+        @JvmStatic
+        private val log = LoggerFactory.getLogger(AdminServer::class.java)
     }
 }
 

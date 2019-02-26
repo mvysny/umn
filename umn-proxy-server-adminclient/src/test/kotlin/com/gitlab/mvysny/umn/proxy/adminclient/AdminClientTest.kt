@@ -8,7 +8,11 @@ import com.gitlab.mvysny.umn.proxy.AdminServer
 import com.gitlab.mvysny.umn.proxy.MVStoreGlobalLogProvider
 import com.gitlab.mvysny.umn.proxy.UMNProxyServer
 import com.gitlab.mvysny.umn.proxy.server
+import com.google.gson.JsonParseException
+import com.google.gson.stream.MalformedJsonException
+import io.javalin.InternalServerErrorResponse
 import io.javalin.Javalin
+import io.javalin.core.util.HttpResponseExceptionMapper
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.lang.RuntimeException
@@ -24,6 +28,30 @@ class AdminClientTest : DynaTest({
         test("user retrieval fails") {
             expectThrows(ConnectException::class) {
                 client.getUsers()
+            }
+        }
+    }
+
+    group("with invalid server") {
+        lateinit var javalin: Javalin
+        beforeEach {
+            javalin = Javalin.create()
+                    .disableStartupBanner()
+                    .get("admin/users") { ctx -> ctx.result("foo") }
+                    .get("admin/stats/logsizes") { ctx -> throw RuntimeException("dummy fail") }
+                    .exception(Exception::class.java) { e, ctx -> HttpResponseExceptionMapper.handle(InternalServerErrorResponse(e.message!!), ctx) }
+                    .start(10145)
+        }
+        afterEach { javalin.stop() }
+
+        test("json parsing fails with proper exception") {
+            expectThrows(MalformedJsonException::class) {
+                client.getUsers()
+            }
+        }
+        test("internal server error fails with proper exception") {
+            expectThrows(IOException::class, "500: dummy fail") {
+                client.getLogSizes()
             }
         }
     }
