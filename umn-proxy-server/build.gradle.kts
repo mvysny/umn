@@ -11,7 +11,6 @@ dependencies {
     // config file parsing
     compile("org.yaml:snakeyaml:1.23")
 
-    testCompile("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
     testCompile(project(":umn-sync-tester"))
 }
 

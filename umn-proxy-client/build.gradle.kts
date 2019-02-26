@@ -1,6 +1,6 @@
 dependencies {
     compile(project(":umn-core"))
-    compile("com.squareup.okhttp3:okhttp:3.11.0")
+    compile("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
     testCompile(project(":umn-sync-tester"))
 }
 

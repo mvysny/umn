@@ -3,7 +3,6 @@ package com.gitlab.mvysny.umn.proxy
 import okhttp3.*
 import okio.ByteString
 import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.server.ServerConnector
 import org.eclipse.jetty.websocket.api.Session
 import org.eclipse.jetty.websocket.server.WebSocketHandler
 import java.util.concurrent.TimeUnit
@@ -88,7 +87,7 @@ fun OkHttpClient.close() {
     dispatcher().executorService().shutdown()
 }
 
-fun main(args: Array<String>) {
+fun main() {
     val server = Server(8080)
     server.handler = WebSocketHandler.Simple(EchoServer::class.java)
     server.start()
