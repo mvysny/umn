@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.sync.hazelcast
 
 import com.github.mvysny.dynatest.DynaTest
+import com.gitlab.mvysny.umn.core.AutoTypeResolver
 import com.gitlab.mvysny.umn.core.InMemoryUMN
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.sync.tester.*

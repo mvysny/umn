@@ -2,7 +2,6 @@ package com.gitlab.mvysny.umn.sync.kafka
 
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
-import com.gitlab.mvysny.umn.sync.tester.AutoTypeResolver
 import org.apache.kafka.common.TopicPartition
 import java.util.*
 

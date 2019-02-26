@@ -1,12 +1,12 @@
 package com.gitlab.mvysny.umn.proxy
 
 import com.github.mvysny.dynatest.DynaTest
+import com.gitlab.mvysny.umn.core.AutoTypeResolver
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.proxyclient.ProxyClient
 import com.gitlab.mvysny.umn.proxyclient.destroy
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
-import com.gitlab.mvysny.umn.sync.tester.AutoTypeResolver
 import com.gitlab.mvysny.umn.sync.tester.addAsync
 import com.gitlab.mvysny.umn.sync.tester.expectAsync
 import com.gitlab.mvysny.umn.sync.tester.globalLogClientTestBattery
