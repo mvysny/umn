@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import com.github.mvysny.vokdataloader.length
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
 import org.w3c.dom.DocumentType
@@ -154,7 +155,7 @@ class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String) : Uti
         if (indexRange.isEmpty()) return listOf()
         require(indexRange.start >= 0) { "$indexRange contains negative indices" }
         val startingKey = map.getKey(indexRange.first.toLong()) ?: return listOf()
-        return map.keyIterator(startingKey).asSequence().take(1).toList()
+        return map.keyIterator(startingKey).asSequence().take(indexRange.length).toList()
     }
 
     override fun containsKey(key: K): Boolean = map.containsKey(key)

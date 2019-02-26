@@ -1,5 +1,8 @@
 package com.gitlab.mvysny.umn.core
 
+import com.github.mvysny.vokdataloader.DataLoader
+import com.github.mvysny.vokdataloader.Filter
+import com.github.mvysny.vokdataloader.SortClause
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
 import java.io.ByteArrayInputStream
@@ -405,6 +408,11 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * Highly inefficient operation! O(n)
          */
         fun containsValueDocument(id: UUID): Boolean = getSequenceOfIDs(For.all()).contains(id)
+
+        /**
+         * Returns a paged data loader which loads keys of this index.
+         */
+        fun keyLoader(): DataLoader<K> = KeyLoader(indexStore)
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)
@@ -490,5 +498,18 @@ sealed class For<K: Comparable<K>> {
     class All<K: Comparable<K>>: For<K>() {
         override val isEmpty: Boolean
             get() = false
+    }
+}
+
+class KeyLoader<K : Comparable<K>>(private val map: UtilityMap<K, *>) : DataLoader<K> {
+    override fun fetch(filter: Filter<K>?, sortBy: List<SortClause>, range: LongRange): List<K> {
+        require(filter == null) { "filtering is unsupported: $filter" }
+        require(sortBy.isEmpty()) { "sorting is unsupported: $sortBy" }
+        return map.keyPage(range.intRange)
+    }
+
+    override fun getCount(filter: Filter<K>?): Long {
+        require(filter == null) { "filtering is unsupported: $filter" }
+        return map.keyCount().toLong()
     }
 }
