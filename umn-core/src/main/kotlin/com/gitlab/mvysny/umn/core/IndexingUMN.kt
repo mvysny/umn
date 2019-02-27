@@ -467,7 +467,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
 /**
  * The key matching criteria. There are four criteria:
  * * [Key] - a single key
- * * [All] - all possible keys
+ * * [All] - all possible keys (the *universal set* of all possible keys)
  * * [KeySet] - a set of keys
  * * [KeyRange] - a range of keys
  * @param K the type of the key.
