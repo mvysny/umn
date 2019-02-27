@@ -225,12 +225,15 @@ them up by using appropriate indices.
 
 ### Displaying Index In An UI
 
-Often you need to show a list of documents. In the list, only a few fields should appear (e.g. the Title of an Article);
-loading all documents into memory, deserializing them and reading the title would be quite an overkill. What you can do
+In your UI, you often you need to show a list of documents, such as articles. In the UI, only a few fields of a document will appear
+(e.g. the Title of an Article). Loading all documents into memory, deserializing them and reading the title in order to populate the UI
+would be quite an overkill. Instead, what you can do
 is that you can create a (String) index that extracts that information from the documents as they are created or updated.
-You can then load a paged lazy view of all index keys and display them in your UI.
+You can then load a paged lazy view of all index keys and display them in your UI. This is very fast since the strings are
+read directly from a NoSQL table. You can even use keys of different type than String: you can use any Serializable
+Java/Kotlin object you wish, it only needs a proper `equals()/hashCode()`.
 
-For example, imagine that you have an index that extracts title from your Articles, and you want to display that in Android's
+For example, imagine that you have an index that extracts titles from your Articles, and you want to display that in Android's
 `ListView`. Just do:
 
 ```kotlin
