@@ -112,10 +112,11 @@ Great. Now how do I search for my data in this 'log' you speak about?
 
 ## Index
 
-In UMN, Index serves two purposes (which may be used separately, or combined):
+In UMN, Index serves the following purposes (which may be used separately, or combined):
 
 * A way to quickly find documents based on a key (say, a first name)
 * A way to order documents based on a key (say, surname)
+* A way to have an extract of a document that you can then show in an UI
 
 ### Quick Lookup
 
@@ -221,6 +222,28 @@ of documents. In the database there are typically lots of different document typ
 `Department`, `Ticket` etc. To look up instances of those documents, simply define separate indices
 for them. This way, even though all documents will be stored in one map, you will be able to look
 them up by using appropriate indices.
+
+### Displaying Index In An UI
+
+Often you need to show a list of documents. In the list, only a few fields should appear (e.g. the Title of an Article);
+loading all documents into memory, deserializing them and reading the title would be quite an overkill. What you can do
+is that you can create a (String) index that extracts that information from the documents as they are created or updated.
+You can then load a paged lazy view of all index keys and display them in your UI.
+
+For example, imagine that you have an index that extracts title from your Articles, and you want to display that in Android's
+`ListView`. Just do:
+
+```kotlin
+val articleTitleIdxDef: IndexingUMN.IndexDef<String, Article, Article> = IndexingUMN.IndexDef.simple("article_title",
+        { doc -> setOf(doc.title) }, Article::class)
+val index = indexingUMN.getIndex(articleTitleIdxDef)
+val dataLoader: DataLoader<String> = index.keyLoader()
+val pagedList: List<T> = PageFetchingList(dataLoader, 30, "Please refresh")
+listView.adapter = ArrayAdapter(ctx, android.R.layout.simple_list_item_1, Collections.unmodifiableList(pagedList))
+```
+
+The adapter will use `PageFetchingList` to lazily fetch pages of keys via the `keyLoader()` as the user scrolls the `ListView`.
+The `PageFetchingList` will only cache three pages so this solution works even with large amount of documents.
 
 ## Facet / Layouts
 
