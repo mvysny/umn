@@ -505,6 +505,7 @@ class KeyLoader<K : Comparable<K>>(private val map: UtilityMap<K, *>) : DataLoad
     override fun fetch(filter: Filter<K>?, sortBy: List<SortClause>, range: LongRange): List<K> {
         require(filter == null) { "filtering is unsupported: $filter" }
         require(sortBy.isEmpty()) { "sorting is unsupported: $sortBy" }
+        require(range.isEmpty() || range.first >= 0) { "range $range contains negative indices" }
         return map.keyPage(range.intRange)
     }
 
