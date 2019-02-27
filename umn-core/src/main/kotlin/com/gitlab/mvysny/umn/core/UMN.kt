@@ -225,9 +225,9 @@ interface UtilityMap<K: Comparable<K>, V> {
     fun keyCount(): Int
 
     /**
-     * Returns keys in given index range. O(log(keyCount()) + range.size).
+     * Returns keys in given index range. O(log([keyCount]) + indexRange.size).
      * The range may exceed [keyCount], in such case fewer keys are returned.
-     * @throws IllegalArgumentException if range includes negative numbers.
+     * @throws IllegalArgumentException if range includes negative indices.
      */
     fun keyPage(indexRange: IntRange): List<K>
 }
