@@ -8,8 +8,6 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 * Designed to be enhanced easily with indices and synchronization capabilities
 * Blazingly fast - [H2's MVStore](https://www.h2database.com/html/mvstore.html) storage is 10-100x faster than sqlite3 or any other SQL database.
 
-UMN requires Android SDK 19 or higher ([H2's MVStore](https://www.h2database.com/html/mvstore.html) only runs on SDK 19 or higher).
-
 > The U.M.N. is an acronym of Unus Mundus Network, a reference to a network in the Xenosaga game series.
 Literally meaning "One Word", the database is designed to quickly propagate changes across all participants,
 ensuring the "One" "truth" across all devices.
@@ -37,6 +35,11 @@ The database API is stable at this point and is being battle-tested in the
 [Aedict Japanese Dictionary](http://www.aedict.eu/), so you are free to use that.
 
 The syncing part is beta-quality and battle-tested in the Aedict Japanese Dictionary.
+
+### Android Compatibility
+
+UMN itself runs on pretty old Android APIs. However, most recent [H2's MVStore](https://www.h2database.com/html/mvstore.html)
+only runs on SDK 19 or higher. If you need compatibility with older Androids, downgrade MVStore version to 1.4.196.
 
 ## Adding it to your project
 
