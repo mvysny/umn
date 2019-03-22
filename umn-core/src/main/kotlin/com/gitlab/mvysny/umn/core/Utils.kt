@@ -135,6 +135,15 @@ object AutoTypeResolver : TypeToClassResolver {
     }
 }
 
+/**
+ * Caches instances of [T] per-thread, into a [ThreadLocal] wrapped by [SoftReference]. Ideal for caching thread-unsafe
+ * objects such as `SimpleDateFormat` etc.
+ *
+ * Example of use:
+ * ```
+ * val formatter: SimpleDateFormat by ThreadLocalCache { SimpleDateFormat("yyyy-MM-dd HH:mm:ss") }
+ * ```
+ */
 class ThreadLocalCache<T>(private val producer: ()->T) : ReadOnlyProperty<Nothing?, T> {
     private val tlc = ThreadLocal<SoftReference<T>>()
     override fun getValue(thisRef: Nothing?, property: KProperty<*>): T {
