@@ -30,6 +30,9 @@ import kotlin.reflect.KClass
  * ### Implementation
  * Intercepts all calls and passes them to underlying map, but updates the indices on the fly.
  *
+ * Optimized for unique indices or indices with low number of collisions. If the index is expected to have high number of
+ * collisions, use TODO.
+ *
  * @property delegate delegate all calls to the underlying UMN storage. Typically either one of [InMemoryUMN] or [MvstoreUMN].
  * @param indices the indices definition. WARNING: the same set of indices must be provided upon every UMN open! New indices not yet present
  * in the database will not reindex existing documents to build the index and searches will not find those documents. Changing the indexing
