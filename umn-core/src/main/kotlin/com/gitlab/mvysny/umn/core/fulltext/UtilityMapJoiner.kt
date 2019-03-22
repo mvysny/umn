@@ -33,12 +33,12 @@ internal fun <T> mergeJoin(iterators: List<Iterator<T>>): Sequence<T> where T: C
         val firstIterator = iterators[0]
         while (true) {
             // run one cycle through all iterators; try to find a common item (a barrier).
-            var barrier: T = firstIterator.current ?: break
+            var barrier: T = firstIterator.current ?: return@sequence
             var barrierHit = true
 
             // bump every other iterator and try to reach the common barrier
             for (i in 1 until iterators.size) {
-                val next: T = iterators[i].skipUntil(barrier) ?: break
+                val next: T = iterators[i].skipUntil(barrier) ?: return@sequence
                 if (next != barrier) {
                     // this iterator doesn't contain the 'barrier' item, cannot hit barrier. Still, bump other
                     // iterators
@@ -49,13 +49,13 @@ internal fun <T> mergeJoin(iterators: List<Iterator<T>>): Sequence<T> where T: C
 
             // bump first iterator to the largest item found. No point in trying lower items since they're not present
             // in other iterators.
-            firstIterator.skipUntil(barrier) ?: break
+            firstIterator.skipUntil(barrier) ?: return@sequence
 
             if (barrierHit) {
                 // we have found a common item. return it.
                 yield(barrier)
                 if (!firstIterator.hasNext()) {
-                    break
+                    return@sequence
                 } else {
                     firstIterator.next()
                 }
