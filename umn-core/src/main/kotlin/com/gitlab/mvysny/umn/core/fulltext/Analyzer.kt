@@ -5,6 +5,9 @@ import java.text.BreakIterator
 import java.text.Normalizer
 import java.util.*
 
+/**
+ * A text analyzer. See [JavaSimpleAnalyzer] for the simple default implementation.
+ */
 interface Analyzer {
     /**
      * Splits given text to words. Removes all punctuation marks.
