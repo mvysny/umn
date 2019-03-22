@@ -5,8 +5,11 @@ import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.DataOutputStream
+import java.lang.ref.SoftReference
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KClass
+import kotlin.reflect.KProperty
 
 /**
  * [MutableMap.put]s the [value] into the map under given [key] or [MutableMap.remove]s it if it's null. Thread-safe.
@@ -129,5 +132,18 @@ object AutoTypeResolver : TypeToClassResolver {
             toType[clazz] = type
         }
         return type
+    }
+}
+
+class ThreadLocalCache<T>(private val producer: ()->T) : ReadOnlyProperty<Nothing?, T> {
+    private val tlc = ThreadLocal<SoftReference<T>>()
+    override fun getValue(thisRef: Nothing?, property: KProperty<*>): T {
+        var result: T? = tlc.get()?.get()
+        if (result == null) {
+            result = producer()
+            tlc.set(SoftReference(result))
+            return result
+        }
+        return result
     }
 }
