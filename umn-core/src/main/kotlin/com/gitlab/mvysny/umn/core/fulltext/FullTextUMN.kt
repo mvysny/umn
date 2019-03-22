@@ -5,6 +5,7 @@ import com.gitlab.mvysny.umn.core.UtilityMap
 import java.util.*
 
 /**
+ * Not thread-safe.
  * @param tokens produces tokens for a document, see [Analyzer.getTokens] for more info.
  */
 class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<String>) : UMN by delegate {
@@ -40,8 +41,7 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
     }
 
     fun search(tokens: Set<String>): Sequence<UUID> {
-        val sequences = tokens.map { token -> getTokenMap(token).keyIterator() }
-        // todo intersect sequences? or lookup map keys?
-        return emptySequence()
+        val maps: List<UtilityMap<UUID, Boolean>> = tokens.map { token -> getTokenMap(token) }
+        return maps.join()
     }
 }
