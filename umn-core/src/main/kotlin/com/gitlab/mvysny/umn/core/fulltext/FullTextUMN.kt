@@ -4,6 +4,7 @@ import com.gitlab.mvysny.umn.core.UMN
 import com.gitlab.mvysny.umn.core.UtilityMap
 import org.h2.mvstore.WriteBuffer
 import org.h2.mvstore.type.DataType
+import org.h2.mvstore.type.StringDataType
 import java.nio.ByteBuffer
 import java.util.*
 
@@ -13,7 +14,7 @@ import java.util.*
  * set, that document is then ignored.
  */
 class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<String>) : UMN by delegate {
-    private fun getTokenMap(token: String): UtilityMap<MyKey, Boolean> = delegate.openUtilityMap("_FT_$token", MyKey.Type())
+    private fun getTokenMap(token: String): UtilityMap<MyKey, Boolean> = delegate.openUtilityMap("_FT_$token", MyKey.Type(), StringDataType.INSTANCE)
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
         tokens(document).forEach { token -> getTokenMap(token).put(key(document, id), true) }

@@ -137,7 +137,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
         map.remove(id)
     }
 
-    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?): UtilityMap<K, V> = MvstoreUtilityMap(store, name, keyType)
+    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> = MvstoreUtilityMap(store, name, keyType, valueType)
 
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
 
@@ -149,7 +149,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
 /**
  * Thread-safe.
  */
-class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String, keyType: DataType?) : UtilityMap<K, V> {
+class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String, keyType: DataType?, valueType: DataType?) : UtilityMap<K, V> {
     override fun keyCount(): Int = map.size
 
     override fun keyPage(indexRange: IntRange): List<K> {
@@ -168,7 +168,7 @@ class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String, keyTy
         return keySequence.takeWhile { key -> key in range }
     }
 
-    private val map: MVMap<K, V> = store.openMap("__$name", MVMap.Builder<K, V>().keyType(keyType))
+    private val map: MVMap<K, V> = store.openMap("__$name", MVMap.Builder<K, V>().keyType(keyType).valueType(valueType))
     override fun find(key: K): V? = map[key]
     override fun put(key: K, value: V?) {
         map.putOrRemove(key, value)

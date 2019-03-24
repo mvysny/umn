@@ -53,7 +53,7 @@ class AnnouncingUMN(override val delegate: UMN, val listener: Listener) : UMN {
         listener.onRecord(LogRecord.DocumentDeleted(id))
     }
 
-    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType)
+    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType, valueType)
 
     override fun close() {
         delegate.close()

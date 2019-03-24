@@ -439,7 +439,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         }
     }
 
-    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType)
+    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType, valueType)
 
     override fun close() {
         delegate.close()
