@@ -45,8 +45,9 @@ fun main() {
         }
         Thread.sleep(1000)
         time("10000 queries") {
+            println(umn.query("de la san", 200))
             repeat(10000) {
-                val query = umn.query("de la san", 30)
+                val query: List<String> = umn.query("de la san", 30)
                 require(query.size == 30) { "$query" }
             }
         }

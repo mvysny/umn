@@ -6,6 +6,7 @@ import com.github.mvysny.vokdataloader.SortClause
 import com.github.mvysny.vokdataloader.intRange
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
+import org.h2.mvstore.type.DataType
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -438,7 +439,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         }
     }
 
-    override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)
+    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType)
 
     override fun close() {
         delegate.close()

@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.core
 
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
+import org.h2.mvstore.type.DataType
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.*
@@ -52,7 +53,7 @@ class AnnouncingUMN(override val delegate: UMN, val listener: Listener) : UMN {
         listener.onRecord(LogRecord.DocumentDeleted(id))
     }
 
-    override fun <K : Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V> = delegate.openUtilityMap(name)
+    override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType)
 
     override fun close() {
         delegate.close()

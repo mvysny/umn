@@ -1,5 +1,6 @@
 package com.gitlab.mvysny.umn.core
 
+import org.h2.mvstore.type.DataType
 import java.io.Closeable
 import java.util.*
 import kotlin.reflect.KClass
@@ -66,7 +67,7 @@ interface UMN : Closeable {
      * This map is for internal storage purposes for this device only and must not be synced over network to other clients.
      * @param K the key type, must be one of the simple and easily serializable types: String, Long.
      */
-    fun <K: Comparable<K>, V> openUtilityMap(name: String): UtilityMap<K, V>
+    fun <K: Comparable<K>, V> openUtilityMap(name: String, keyType: DataType? = null): UtilityMap<K, V>
 
     /**
      * INTERNAL USE ONLY. Puts a [document] with given [id] to the database.

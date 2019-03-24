@@ -1,14 +1,13 @@
 package com.gitlab.mvysny.umn.core.fulltext
 
 import com.gitlab.mvysny.umn.core.UtilityMap
-import java.util.*
 
 /**
  * Returns a sequence of keys present in all of given maps. The sequence returns the keys in ascending order.
  */
-fun Iterable<UtilityMap<UUID, *>>.join(): Sequence<UUID> {
-    val smallestFirst: List<UtilityMap<UUID, *>> = sortedBy { it.keyCount() }
-    val smallest: UtilityMap<UUID, *> = smallestFirst.firstOrNull() ?: return emptySequence()
+fun <T> Iterable<UtilityMap<T, *>>.join(): Sequence<T> where T: Comparable<T>, T: Any {
+    val smallestFirst: List<UtilityMap<T, *>> = sortedBy { it.keyCount() }
+    val smallest: UtilityMap<T, *> = smallestFirst.firstOrNull() ?: return emptySequence()
     if (smallest.isEmpty()) {
         return emptySequence()
     }
@@ -21,8 +20,8 @@ fun Iterable<UtilityMap<UUID, *>>.join(): Sequence<UUID> {
     return mergeJoin(smallestFirst.map { it.keyIterator().iterator() })
 }
 
-private fun hashJoin(smallestFirst: List<UtilityMap<UUID, *>>): Sequence<UUID> {
-    val smallest: UtilityMap<UUID, *> = smallestFirst.first()
+private fun <T> hashJoin(smallestFirst: List<UtilityMap<T, *>>): Sequence<T>  where T: Comparable<T>, T: kotlin.Any {
+    val smallest: UtilityMap<T, *> = smallestFirst.first()
     val rest = smallestFirst.subList(1, smallestFirst.size)
     return smallest.keyIterator().filter { id -> rest.all { it.containsKey(id) } }
 }
