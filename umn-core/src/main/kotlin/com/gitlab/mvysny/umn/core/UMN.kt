@@ -65,7 +65,23 @@ interface UMN : Closeable {
      * * [ReplayLogUmn] stores the log entries there
      *
      * This map is for internal storage purposes for this device only and must not be synced over network to other clients.
-     * @param K the key type, must be one of the simple and easily serializable types: String, Long.
+     *
+     * ## Serialization
+     *
+     * UMN by default supports fast well-defined serialization of the following types: all primitive types and their wrappers,
+     * String, UUID, Date, BigInteger, BigDecimal, and an array of previous types. See [org.h2.mvstore.type.ObjectDataType] for
+     * more details.
+     *
+     * All other types are stored using
+     * Java Serialization which is slow and the binary format is prone to changes. If you need other types of keys or values,
+     * you should provide [keyType] and [valueType] to offer a custom fast serialization/deserialization.
+     *
+     * @param K the key type, see above for serialization issues.
+     * @param V the value type, see above for serialization issues.
+     * @param name the name of the map
+     * @param keyType optional type of the key, implements serialization for custom key types. See [org.h2.mvstore.type.ObjectDataType]
+     * for implementing tips.
+     * @param keyValue optional type of the value, implements serialization for custom key types.
      */
     fun <K: Comparable<K>, V> openUtilityMap(name: String, keyType: DataType? = null, valueType: DataType? = null): UtilityMap<K, V>
 
