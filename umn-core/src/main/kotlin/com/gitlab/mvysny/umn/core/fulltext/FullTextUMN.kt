@@ -9,6 +9,7 @@ import java.nio.ByteBuffer
 import java.util.*
 
 /**
+ * EXPERIMENTAL, UNDER DEVELOPMENT, DON'T USE.
  * Not thread-safe.
  * @param tokens produces tokens for a document, see [Analyzer.getTokens] for more info. If the closure returns an empty
  * set, that document is then ignored.
