@@ -17,7 +17,7 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
     private fun getTokenMap(token: String): UtilityMap<MyKey, Boolean> = delegate.openUtilityMap("_FT_$token", MyKey.Type(), StringDataType.INSTANCE)
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
-        tokens(document).forEach { token -> getTokenMap(token).put(key(document, id), true) }
+        tokens(document).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
         return id
     }
 
@@ -26,20 +26,20 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
         val oldTokens = tokens(oldDoc)
         val newTokens = tokens(document)
         delegate.update(id, document)
-        (oldTokens - newTokens).forEach { token -> getTokenMap(token).put(key(document, id), null) }
-        (newTokens - oldTokens).forEach { token -> getTokenMap(token).put(key(document, id), true) }
+        (oldTokens - newTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), null) }
+        (newTokens - oldTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
     }
 
     override fun delete(id: UUID) {
         val oldDoc: Any = get(id, Any::class)
         val oldTokens = tokens(oldDoc)
         delegate.delete(id)
-        oldTokens.forEach { token -> getTokenMap(token).put(key(oldDoc, id), null) }
+        oldTokens.forEach { token -> getTokenMap(token).put(key(oldDoc, token, id), null) }
     }
 
     override fun create(document: Any, id: UUID): Boolean {
         if (delegate.create(document, id)) {
-            tokens(document).forEach { token -> getTokenMap(token).put(key(document, id), true) }
+            tokens(document).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
             return true
         }
         return false
@@ -93,4 +93,4 @@ data class MyKey(val importance: Int, val id: UUID) : Comparable<MyKey> {
     }
 }
 
-fun key(document: Any, id: UUID) = MyKey((document as String).length, id)
+inline fun key(document: Any, token: String, id: UUID) = MyKey((document as String).length, id)
