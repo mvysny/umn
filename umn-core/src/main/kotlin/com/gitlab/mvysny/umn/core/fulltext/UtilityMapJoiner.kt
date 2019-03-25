@@ -26,7 +26,13 @@ private fun <T> hashJoin(smallestFirst: List<UtilityMap<T, *>>): Sequence<T>  wh
     return smallest.keyIterator().filter { id -> rest.all { it.containsKey(id) } }
 }
 
+/**
+ * Returns a stream that only contains items present in all of given [iterators].
+ * All of the [iterators] must produce items in ascending order, otherwise the algorithm will produce random results.
+ * @param iterators must be at least 2 or more items.
+ */
 internal fun <T> mergeJoin(iterators: List<Iterator<T>>): Sequence<T> where T: Comparable<T>, T: Any {
+    require(iterators.size >= 2) { "Expected at least 2 iterators but received ${iterators.size}" }
     val iterators: List<IteratorWrapper<T>> = iterators.map { IteratorWrapper(it) }
     return sequence {
         val firstIterator = iterators[0]

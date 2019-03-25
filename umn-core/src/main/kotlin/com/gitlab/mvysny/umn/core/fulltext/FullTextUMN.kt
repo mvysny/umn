@@ -53,9 +53,9 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
 
 data class MyKey(val importance: Int, val id: UUID) : Comparable<MyKey> {
     override fun compareTo(other: MyKey): Int {
-        val result = importance.compareTo(other.importance)
-        if (result == 0) {
-            return id.compareTo(other.id)
+        var result = importance.compareTo(other.importance)
+        if (result != 0) {
+            result = id.compareTo(other.id)
         }
         return result
     }
