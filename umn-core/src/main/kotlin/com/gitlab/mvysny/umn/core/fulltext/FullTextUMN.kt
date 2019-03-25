@@ -64,8 +64,9 @@ data class MyKey(val importance: Int, val id: UUID) : Comparable<MyKey> {
         override fun write(buff: WriteBuffer, obj: Any) {
             val key = obj as MyKey
             buff.putInt(key.importance)
-            buff.putLong(key.id.mostSignificantBits)
-            buff.putLong(key.id.leastSignificantBits)
+            val id = key.id
+            buff.putLong(id.mostSignificantBits)
+            buff.putLong(id.leastSignificantBits)
         }
 
         override fun write(buff: WriteBuffer, obj: Array<out Any>, len: Int, key: Boolean) {
