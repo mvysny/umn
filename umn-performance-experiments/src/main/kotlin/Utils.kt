@@ -4,8 +4,10 @@ import com.gitlab.mvysny.umn.core.*
 import org.h2.mvstore.MVStore
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.File
 import java.lang.IllegalArgumentException
 import kotlin.reflect.KClass
+import java.nio.file.Files
 
 object FastTypeResolver : TypeToClassResolver {
     override fun toClass(type: DocType): KClass<*> {
@@ -30,11 +32,16 @@ object FastSerializer : DocumentSerializer {
     }
 }
 
-fun createMvstoreUMN(dbFileName: String = createTempFile().absolutePath): MvstoreUMN = MvstoreUMN(MVStore.open(dbFileName), FastSerializer,
-        FastTypeResolver)
+fun createMvstoreUMN(dbFileName: String = createTempFile().absolutePath): MvstoreUMN {
+    val mvStore: MVStore = MVStore.Builder().compress().fileName(dbFileName).open()
+    return MvstoreUMN(mvStore, FastSerializer,
+            FastTypeResolver)
+}
 
 fun time(what: String, block: ()->Unit) {
     val start = System.currentTimeMillis()
     block()
     println("$what took ${System.currentTimeMillis() - start}ms")
 }
+
+fun File.calculateDirSize(): Long = Files.walk(toPath()).mapToLong { p -> p.toFile().length() }.sum()

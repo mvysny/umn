@@ -14,7 +14,7 @@ import java.io.File
 
 fun withFullTextUMN(block: (umn: FullTextUMN)->Unit) {
     val analyzer = JavaSimpleAnalyzer()
-    FullTextUMN(createMvstoreUMN(umnDir.absolutePath)) { analyzer.getTokens(it as String) } .use { block(it) }
+    FullTextUMN(createMvstoreUMN(umnFile.absolutePath)) { analyzer.getTokens(it as String) } .use { block(it) }
 }
 
 fun FullTextUMN.query(text: String, limit: Int = Integer.MAX_VALUE): List<String> {
@@ -36,6 +36,8 @@ fun main() {
             cityNames.forEach { umn.create(it) }
         }
     }
+    println("UMN produced $umnFile - ${umnFile.length()} bytes")
+
     withFullTextUMN { umn ->
         Thread.sleep(1000)
         time("100 queries") {
@@ -62,9 +64,10 @@ fun main() {
             }
         }
     }
-    Thread.sleep(1000)
+    println("Lucene produced $luceneDir - ${luceneDir.calculateDirSize()} bytes")
 
     withLucSearch { searcher, parser ->
+        Thread.sleep(1000)
         time("100 queries") {
             repeat(100) {
                 val docs = searcher.search(parser.parse("State"), null, 30).scoreDocs.map { searcher.doc(it.doc) }
@@ -85,7 +88,7 @@ fun main() {
 }
 
 private val luceneDir = createTempDir()
-private val umnDir = createTempFile()
+private val umnFile = createTempFile()
 
 fun withLucene(block: (luceneWriter: IndexWriter)->Unit) {
     FSDirectory.open(luceneDir).use { directory ->
