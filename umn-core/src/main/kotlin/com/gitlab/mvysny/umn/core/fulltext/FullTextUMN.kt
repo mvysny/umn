@@ -2,9 +2,9 @@ package com.gitlab.mvysny.umn.core.fulltext
 
 import com.gitlab.mvysny.umn.core.UMN
 import com.gitlab.mvysny.umn.core.UtilityMap
+import org.h2.mvstore.DataUtils
 import org.h2.mvstore.WriteBuffer
 import org.h2.mvstore.type.DataType
-import org.h2.mvstore.type.StringDataType
 import java.nio.ByteBuffer
 import java.util.*
 
@@ -15,10 +15,28 @@ import java.util.*
  * set, that document is then ignored.
  */
 class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<String>) : UMN by delegate {
-    private fun getTokenMap(token: String): UtilityMap<MyKey, Boolean> = delegate.openUtilityMap("_FT_$token", MyKey.Type(), StringDataType.INSTANCE)
+    private val tokensIndex = delegate.openUtilityMap<String, Int>("FT___tokens")
+    private fun tokenToInt(token: String): Int {
+        var index = tokensIndex.find(token)
+        if (index == null) {
+            index = tokensIndex.keyCount()
+            tokensIndex.put(token, index)
+        }
+        return index
+    }
+    private val tokenMap = delegate.openUtilityMap<MyKey, Boolean>("_FT___tokenmap", MyKey.Type(), BooleanType())
+
+    fun dumpStats() {
+        println(tokensIndex.keyCount())
+        println("token char size=${tokensIndex.keyIterator().sumBy { it.length }}")
+        println(tokenMap.keyCount())
+        println(tokenMap.keyCount() * (4+4+16+1))
+    }
+
+    private fun getTokenMap(token: String): UtilityMap<MyKey, Boolean> = tokenMap
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
-        tokens(document).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
+        tokens(document).forEach { token -> getTokenMap(token).put(key(document, tokenToInt(token), id), true) }
         return id
     }
 
@@ -27,43 +45,59 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
         val oldTokens = tokens(oldDoc)
         val newTokens = tokens(document)
         delegate.update(id, document)
-        (oldTokens - newTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), null) }
-        (newTokens - oldTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
+        (oldTokens - newTokens).forEach { token -> getTokenMap(token).put(key(document, tokenToInt(token), id), null) }
+        (newTokens - oldTokens).forEach { token -> getTokenMap(token).put(key(document, tokenToInt(token), id), true) }
     }
 
     override fun delete(id: UUID) {
         val oldDoc: Any = get(id, Any::class)
         val oldTokens = tokens(oldDoc)
         delegate.delete(id)
-        oldTokens.forEach { token -> getTokenMap(token).put(key(oldDoc, token, id), null) }
+        oldTokens.forEach { token -> getTokenMap(token).put(key(oldDoc, tokenToInt(token), id), null) }
     }
 
     override fun create(document: Any, id: UUID): Boolean {
         if (delegate.create(document, id)) {
-            tokens(document).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
+            tokens(document).forEach { token -> getTokenMap(token).put(key(document, tokenToInt(token), id), true) }
             return true
         }
         return false
     }
 
     fun search(tokens: Set<String>): Sequence<UUID> {
-        val maps: List<UtilityMap<MyKey, Boolean>> = tokens.map { token -> getTokenMap(token) }
-        return maps.join().map { it.id }
+        val ranges = tokens.map { token -> tokenMap.keyIterator(MyKey.getRange(tokenToInt(token))).map { it.toSubKey() } }
+        return ranges.mergeJoin2().map { it.id }
     }
 }
 
-data class MyKey(val importance: Int, val id: UUID) : Comparable<MyKey> {
-    override fun compareTo(other: MyKey): Int {
+data class MySubKey(val importance: Int, val id: UUID) : Comparable<MySubKey> {
+    override fun compareTo(other: MySubKey): Int {
         var result = importance.compareTo(other.importance)
         if (result == 0) {
             result = id.compareTo(other.id)
         }
         return result
     }
+}
+
+data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable<MyKey> {
+    override fun compareTo(other: MyKey): Int {
+        var result = token.compareTo(other.token)
+        if (result == 0) {
+            result = importance.compareTo(other.importance)
+        }
+        if (result == 0) {
+            result = id.compareTo(other.id)
+        }
+        return result
+    }
+
+    fun toSubKey() = MySubKey(importance, id)
 
     class Type : DataType {
         override fun write(buff: WriteBuffer, obj: Any) {
             val key = obj as MyKey
+            buff.putVarInt(key.token)
             buff.putInt(key.importance)
             val id = key.id
             buff.putLong(id.mostSignificantBits)
@@ -78,13 +112,14 @@ data class MyKey(val importance: Int, val id: UUID) : Comparable<MyKey> {
 
         override fun compare(a: Any, b: Any): Int = (a as MyKey).compareTo(b as MyKey)
 
-        override fun getMemory(obj: Any?): Int = 40 + 4 + 24
+        override fun getMemory(obj: Any?): Int = 24 + 4 + 4 + 16
 
         override fun read(buff: ByteBuffer): Any {
+            val token = DataUtils.readVarInt(buff)
             val importance = buff.int
             val msb = buff.long
             val lsb = buff.long
-            return MyKey(importance, UUID(msb, lsb))
+            return MyKey(token, importance, UUID(msb, lsb))
         }
 
         override fun read(buff: ByteBuffer, obj: Array<Any>, len: Int, key: Boolean) {
@@ -93,6 +128,41 @@ data class MyKey(val importance: Int, val id: UUID) : Comparable<MyKey> {
             }
         }
     }
+
+    companion object {
+        private val minUUID = UUID(Long.MIN_VALUE, Long.MIN_VALUE)
+        private val maxUUID = UUID(Long.MAX_VALUE, Long.MAX_VALUE)
+        fun getRange(token:Int): ClosedRange<MyKey> {
+            val min = MyKey(token, Int.MIN_VALUE, minUUID)
+            val max = MyKey(token, Int.MAX_VALUE, maxUUID)
+            return min..max
+        }
+    }
 }
 
-inline fun key(document: Any, token: String, id: UUID) = MyKey((document as String).length, id)
+inline fun key(document: Any, token: Int, id: UUID) = MyKey(token, (document as String).length, id)
+
+class BooleanType : DataType {
+    override fun write(buff: WriteBuffer, obj: Any) {
+        val o = obj as Boolean
+        buff.put(if (o) 1.toByte() else 0)
+    }
+
+    override fun write(buff: WriteBuffer, obj: Array<out Any>, len: Int, key: Boolean) {
+        for (i in 0 until len) {
+            write(buff, obj[i])
+        }
+    }
+
+    override fun compare(a: Any, b: Any): Int = (a as Boolean).compareTo(b as Boolean)
+
+    override fun getMemory(obj: Any?): Int = 0
+
+    override fun read(buff: ByteBuffer): Any = buff.get() != 0.toByte()
+
+    override fun read(buff: ByteBuffer, obj: Array<Any>, len: Int, key: Boolean) {
+        for (i in 0 until len) {
+            obj[i] = read(buff)
+        }
+    }
+}

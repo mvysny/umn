@@ -26,6 +26,13 @@ private fun <T> hashJoin(smallestFirst: List<UtilityMap<T, *>>): Sequence<T>  wh
     return smallest.keyIterator().filter { id -> rest.all { it.containsKey(id) } }
 }
 
+fun <T> List<Sequence<T>>.mergeJoin2(): Sequence<T> where T: Comparable<T>, T: Any = when {
+    isEmpty() -> emptySequence()
+    size == 1 -> get(0)
+    else -> mergeJoin(map { it.iterator() })
+}
+
+
 /**
  * Returns a stream that only contains items present in all of given [iterators].
  * All of the [iterators] must produce items in ascending order, otherwise the algorithm will produce random results.

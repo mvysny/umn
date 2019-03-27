@@ -10,7 +10,10 @@ import org.apache.lucene.queryParser.QueryParser
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.util.Version
+import org.h2.mvstore.MVMap
+import org.h2.mvstore.MVStore
 import java.io.File
+import java.util.*
 
 fun withFullTextUMN(block: (umn: FullTextUMN)->Unit) {
     val analyzer = JavaSimpleAnalyzer()
@@ -30,6 +33,33 @@ fun main() {
     val wordCount = mutableMapOf<String, Int>()
     cityNames.forEach { analyzer.getTokens(it).forEach { wordCount.compute(it) { _, cnt -> if (cnt == null) 1 else cnt + 1 } } }
     println(wordCount.toList().sortedBy { it.second } .reversed().take(10))
+    println("Loaded ${cityNames.size} cities, total chars: ${cityNames.sumBy { it.length }}")
+
+    time("MVStore direct API") {
+        val temp = createTempFile()
+        val r = Random()
+        val mvStore: MVStore = MVStore.Builder().compress().fileName(temp.absolutePath).open()
+        try {
+//            val map = mvStore.openMap("RAW", MVMap.Builder<Long, ByteArray>().valueType(ByteArrayType()))
+            val map = mvStore.openMap("RAW", MVMap.Builder<Long, ByteArray>())
+            (0..210000).forEach { map.put(r.nextLong(), it.toString().toByteArray()) }
+            time("compacting") {
+                mvStore.compactRewriteFully()
+                mvStore.compactMoveChunks()
+            }
+        } finally {
+            mvStore.close()
+        }
+        println("MVStore: $temp - ${temp.length()} bytes")
+    }
+
+    time("simple umn create") {
+        val temp = createTempFile()
+        createMvstoreUMN(temp.absolutePath).use { umn ->
+            cityNames.forEach { umn.create(it) }
+        }
+        println("UMN: $temp - ${temp.length()} bytes")
+    }
 
     withFullTextUMN { umn ->
         time("create") {
@@ -59,7 +89,7 @@ fun main() {
         withLucene { luceneWriter ->
             cityNames.forEach {
                 val doc = Document()
-                doc.add(Field("contents", it, Field.Store.NO, Field.Index.ANALYZED))
+                doc.add(Field("contents", it, Field.Store.YES, Field.Index.ANALYZED))
                 luceneWriter.addDocument(doc)
             }
         }

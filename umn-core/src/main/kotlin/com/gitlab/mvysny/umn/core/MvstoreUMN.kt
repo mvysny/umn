@@ -4,7 +4,6 @@ import com.github.mvysny.vokdataloader.length
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
 import org.h2.mvstore.type.DataType
-import org.w3c.dom.DocumentType
 import java.io.*
 import java.util.*
 import kotlin.reflect.KClass
@@ -63,6 +62,11 @@ object JavaDocumentSerializer : DocumentSerializer {
  */
 class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer,
                  override val typeToClassResolver: TypeToClassResolver) : UMN {
+    init {
+        // this radically decreases database size: https://github.com/h2database/h2database/issues/1835
+        store.compactRewriteFully()
+        store.compactMoveChunks()
+    }
     override val delegate: UMN?
         get() = null
 
@@ -70,10 +74,13 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
             = map.putIfAbsent(id, serialize(document)) == null
 
     override fun close() {
+        // this radically decreases database size: https://github.com/h2database/h2database/issues/1835
+        store.compactRewriteFully()
+        store.compactMoveChunks()
         store.close()
     }
 
-    private val map: MVMap<UUID, SerializedDocument> = store.openMap("ROOT2")
+    private val map: MVMap<UUID, SerializedDocument> = store.openMap("ROOT2", MVMap.Builder<UUID, SerializedDocument>())
 
     /**
      * Migrates v1 database to v2. Only needs to be run once. Warning: thread-unsafe! Needs to be run after this class
