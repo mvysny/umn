@@ -64,8 +64,9 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
                  override val typeToClassResolver: TypeToClassResolver) : UMN {
     init {
         // this radically decreases database size: https://github.com/h2database/h2database/issues/1835
-        store.compactRewriteFully()
-        store.compactMoveChunks()
+        // but this could introduce huge initial pause. Investigate setRetentionTime()
+//        store.compactRewriteFully()
+//        store.compactMoveChunks()
     }
     override val delegate: UMN?
         get() = null
@@ -75,8 +76,9 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
 
     override fun close() {
         // this radically decreases database size: https://github.com/h2database/h2database/issues/1835
-        store.compactRewriteFully()
-        store.compactMoveChunks()
+        // but this could introduce huge initial pause. Investigate setRetentionTime()
+//        store.compactRewriteFully()
+//        store.compactMoveChunks()
         store.close()
     }
 
