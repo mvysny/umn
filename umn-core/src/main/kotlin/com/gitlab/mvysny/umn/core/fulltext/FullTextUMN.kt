@@ -11,6 +11,11 @@ import java.util.*
 /**
  * EXPERIMENTAL, UNDER DEVELOPMENT, DON'T USE.
  * Not thread-safe.
+ *
+ * Disadvantages of this impl:
+ * * Writes are slow (3x slower than Lucene).
+ * * Produces 2x bigger file than Lucene (15 mb versus 7 mb of Lucene)
+ * * The same read speed as Lucene
  * @param tokens produces tokens for a document, see [Analyzer.getTokens] for more info. If the closure returns an empty
  * set, that document is then ignored.
  */
@@ -68,6 +73,11 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
 /**
  * EXPERIMENTAL, UNDER DEVELOPMENT, DON'T USE.
  * Not thread-safe.
+ *
+ * Disadvantages of this impl:
+ * * Writes are slow (6x slower than Lucene, 3x slower than [FullTextUMN].
+ * * Produces ENORMOUS data files (300 megabytes versus 15 mb of [FullTextUMN] versus 7 mb of Lucene)
+ * * Very fast to read (2x times faster than [FullTextUMN] and Lucene)
  * @param tokens produces tokens for a document, see [Analyzer.getTokens] for more info. If the closure returns an empty
  * set, that document is then ignored.
  */
@@ -172,7 +182,7 @@ data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable
         override fun write(buff: WriteBuffer, obj: Any) {
             val key = obj as MyKey
             buff.putVarInt(key.token)
-            buff.putInt(key.importance)
+            buff.putVarInt(key.importance)
             val id = key.id
             buff.putLong(id.mostSignificantBits)
             buff.putLong(id.leastSignificantBits)
@@ -190,7 +200,7 @@ data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable
 
         override fun read(buff: ByteBuffer): Any {
             val token = DataUtils.readVarInt(buff)
-            val importance = buff.int
+            val importance = DataUtils.readVarInt(buff)
             val msb = buff.long
             val lsb = buff.long
             return MyKey(token, importance, UUID(msb, lsb))
