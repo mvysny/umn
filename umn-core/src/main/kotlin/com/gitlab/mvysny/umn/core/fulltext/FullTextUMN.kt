@@ -26,13 +26,6 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
     }
     private val tokenMap = delegate.openUtilityMap<MyKey, Boolean>("_FT___tokenmap", MyKey.Type(), BooleanType())
 
-    fun dumpStats() {
-        println(tokensIndex.keyCount())
-        println("token char size=${tokensIndex.keyIterator().sumBy { it.length }}")
-        println(tokenMap.keyCount())
-        println(tokenMap.keyCount() * (4+4+16+1))
-    }
-
     private fun getTokenMap(token: String): UtilityMap<MyKey, Boolean> = tokenMap
     override fun create(document: Any): UUID {
         val id = delegate.create(document)

@@ -153,6 +153,14 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
     override fun findSerialized(id: UUID): SerializedDocument? = map[id]
 
     override fun isEmpty(): Boolean = map.isEmpty()
+
+    /**
+     * Compacts the database file.
+     */
+    fun compact() {
+        store.compactRewriteFully()
+        store.compactMoveChunks()
+    }
 }
 
 /**

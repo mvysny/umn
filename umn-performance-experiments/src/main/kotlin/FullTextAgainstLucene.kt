@@ -1,5 +1,7 @@
 package com.gitlab.mvysny.umn.core.fulltext
 
+import com.gitlab.mvysny.umn.core.MvstoreUMN
+import com.gitlab.mvysny.umn.core.facet
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Document
 import org.apache.lucene.document.Field
@@ -57,6 +59,7 @@ fun main() {
         val temp = createTempFile()
         createMvstoreUMN(temp.absolutePath).use { umn ->
             cityNames.forEach { umn.create(it) }
+            umn.compact()
         }
         println("UMN: $temp - ${temp.length()} bytes")
     }
@@ -64,6 +67,7 @@ fun main() {
     withFullTextUMN { umn ->
         time("create") {
             cityNames.forEach { umn.create(it) }
+            umn.facet<MvstoreUMN>().compact()
         }
     }
     println("UMN produced $umnFile - ${umnFile.length()} bytes")
