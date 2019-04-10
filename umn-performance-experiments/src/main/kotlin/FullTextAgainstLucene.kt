@@ -19,10 +19,26 @@ import java.util.*
 
 fun withFullTextUMN(block: (umn: FullTextUMN)->Unit) {
     val analyzer = JavaSimpleAnalyzer()
-    FullTextUMN(createMvstoreUMN(umnFile.absolutePath)) { analyzer.getTokens(it as String) } .use { block(it) }
+    FullTextUMN(createMvstoreUMN(umnFile.absolutePath)) { analyzer.getTokens(it as String) } .use {
+        block(it)
+        it.facet<MvstoreUMN>().compact()
+    }
+}
+
+fun withFullText2UMN(block: (umn: FullText2UMN)->Unit) {
+    val analyzer = JavaSimpleAnalyzer()
+    FullText2UMN(createMvstoreUMN(umnFile.absolutePath)) { analyzer.getTokens(it as String) } .use {
+        block(it)
+        it.facet<MvstoreUMN>().compact()
+    }
 }
 
 fun FullTextUMN.query(text: String, limit: Int = Integer.MAX_VALUE): List<String> {
+    val analyzer = JavaSimpleAnalyzer()
+    return search(analyzer.getTokens(text)).map { get(it, String::class) } .take(limit).toList()
+}
+
+fun FullText2UMN.query(text: String, limit: Int = Integer.MAX_VALUE): List<String> {
     val analyzer = JavaSimpleAnalyzer()
     return search(analyzer.getTokens(text)).map { get(it, String::class) } .take(limit).toList()
 }
@@ -67,7 +83,6 @@ fun main() {
     withFullTextUMN { umn ->
         time("create") {
             cityNames.forEach { umn.create(it) }
-            umn.facet<MvstoreUMN>().compact()
         }
     }
     println("UMN produced $umnFile - ${umnFile.length()} bytes")
@@ -81,6 +96,30 @@ fun main() {
         }
         Thread.sleep(1000)
         time("10000 queries") {
+            println(umn.query("de la san", 200))
+            repeat(10000) {
+                val query: List<String> = umn.query("de la san", 30)
+                require(query.size == 30) { "$query" }
+            }
+        }
+    }
+
+    withFullText2UMN { umn ->
+        time("create 2") {
+            cityNames.forEach { umn.create(it) }
+        }
+    }
+    println("UMN2 produced $umnFile - ${umnFile.length()} bytes")
+
+    withFullText2UMN { umn ->
+        Thread.sleep(1000)
+        time("100 queries 2") {
+            repeat(100) {
+                umn.query("State", 30)
+            }
+        }
+        Thread.sleep(1000)
+        time("10000 queries 2") {
             println(umn.query("de la san", 200))
             repeat(10000) {
                 val query: List<String> = umn.query("de la san", 30)
