@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.gitlab.mvysny.umn.core.fulltext
 
 import com.gitlab.mvysny.umn.core.MvstoreUMN

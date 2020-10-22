@@ -162,7 +162,6 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
 
         test("late sync syncs only once") {
             val id = nodes[0].create("foo")
-            val oldNodes = nodes
             withSync(awaitSync) {
                 nodes.forEach { it.get(id, String::class) }  // check that the change is propagated
             }

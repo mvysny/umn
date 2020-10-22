@@ -35,7 +35,7 @@ class AdminClientTest : DynaTest({
         beforeEach {
             javalin = Javalin.create { it.showJavalinBanner = false }
                     .get("admin/users") { ctx -> ctx.result("foo") }
-                    .get("admin/stats/logsizes") { ctx -> throw RuntimeException("dummy fail") }
+                    .get("admin/stats/logsizes") { _ -> throw RuntimeException("dummy fail") }
                     .exception(Exception::class.java) { e, ctx -> HttpResponseExceptionMapper.handle(InternalServerErrorResponse(e.message!!), ctx) }
                     .start(10145)
         }

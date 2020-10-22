@@ -47,7 +47,7 @@ class MvstoreUMNTest : DynaTest({
         test("migration runs only once") {
             val id = UUID.randomUUID()
             root[id] = JavaDocumentSerializer.serialize("foo")
-            umn.migrateV1V2 { uuid -> AutoTypeResolver.toType(String::class) }
+            umn.migrateV1V2 { _ -> AutoTypeResolver.toType(String::class) }
             expect("foo") { umn.get(id, String::class) }
             umn.update(id, "bar")
             umn.migrateV1V2 { org.junit.jupiter.api.fail { "should not be called since there are no records" } }

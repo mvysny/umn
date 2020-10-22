@@ -27,6 +27,7 @@ object FastSerializer : DocumentSerializer {
         dout.writeUTF(str)
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun <T : Any> deserialize(clazz: KClass<T>, din: DataInputStream): T {
         return din.readUTF() as T
     }

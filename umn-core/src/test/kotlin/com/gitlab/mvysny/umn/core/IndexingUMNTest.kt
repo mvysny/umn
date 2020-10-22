@@ -110,7 +110,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
 
             test("correctly finds the document") {
                 val umn = IndexingUMN(storageProvider(), indices)
-                val id = umn.create("kvak")
+                umn.create("kvak")
                 expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.Key("kvak")).toList() }
                 expectList() { umn.getIndex(idxIdentity).keySequence(For.Key("kvak2")).toList() }
             }
@@ -124,8 +124,8 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
 
             test("correctly finds the document") {
                 val umn = IndexingUMN(storageProvider(), indices)
-                val id = umn.create("kvak")
-                val id2 = umn.create("zzz")
+                umn.create("kvak")
+                umn.create("zzz")
                 expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeySet("", "foo", "kvak")).toList() }
                 expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeySet("kvak", "foo", "")).toList() }
             }
@@ -153,8 +153,8 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
 
             test("correctly finds the document") {
                 val umn = IndexingUMN(storageProvider(), indices)
-                val id = umn.create("kvak")
-                val id2 = umn.create("zzz")
+                umn.create("kvak")
+                umn.create("zzz")
                 expectList("kvak", "zzz") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."zzzzz")).toList() }
                 expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."z")).toList() }
                 expectList("zzz") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("z".."zzzzzz")).toList() }
@@ -486,7 +486,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
         test("not empty when there are indexed documents") {
             val umn = IndexingUMN(storageProvider(), indices)
-            val ids: Set<UUID> = (0..100).map { umn.create("$it") } .toSet()
+            (0..100).forEach { umn.create("$it") }
             expect(false) { umn.getIndex(idxIdentity).isEmpty() }
             expect(false) { umn.getIndex(idxLength).isEmpty() }
         }
