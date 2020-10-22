@@ -28,7 +28,7 @@ class SyncHazelcastClientTest : DynaTest({
 
     globalLogClientTestBattery { newClient() }
 
-    if (false) {
+    if (true) {
         writerReaderTestBattery("in-memory", 1, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
 
         writerReaderTestBattery("in-memory", 10, { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }, { newClient() })
