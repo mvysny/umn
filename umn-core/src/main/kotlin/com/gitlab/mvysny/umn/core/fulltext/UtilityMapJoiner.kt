@@ -5,7 +5,7 @@ import com.gitlab.mvysny.umn.core.UtilityMap
 /**
  * Returns a sequence of keys present in all of given maps. The sequence returns the keys in ascending order.
  */
-fun <T> Iterable<UtilityMap<T, *>>.join(): Sequence<T> where T: Comparable<T>, T: Any {
+public fun <T> Iterable<UtilityMap<T, *>>.join(): Sequence<T> where T: Comparable<T>, T: Any {
     val smallestFirst: List<UtilityMap<T, *>> = sortedBy { it.keyCount() }
     val smallest: UtilityMap<T, *> = smallestFirst.firstOrNull() ?: return emptySequence()
     if (smallest.isEmpty()) {
@@ -26,7 +26,7 @@ private fun <T> hashJoin(smallestFirst: List<UtilityMap<T, *>>): Sequence<T>  wh
     return smallest.keyIterator().filter { id -> rest.all { it.containsKey(id) } }
 }
 
-fun <T> List<Sequence<T>>.mergeJoin2(): Sequence<T> where T: Comparable<T>, T: Any = when {
+public fun <T> List<Sequence<T>>.mergeJoin2(): Sequence<T> where T: Comparable<T>, T: Any = when {
     isEmpty() -> emptySequence()
     size == 1 -> get(0)
     else -> mergeJoin(map { it.iterator() })
@@ -107,7 +107,7 @@ private class IteratorWrapper<T>(val iterator: Iterator<T>) : Iterator<T> where 
         // @todo mavi this could be optimized if MVStore Cursor will offer such functionality.
         while (current != null && current!! < item) {
             if (!hasNext()) {
-                current = null;
+                current = null
                 return null
             }
             next()

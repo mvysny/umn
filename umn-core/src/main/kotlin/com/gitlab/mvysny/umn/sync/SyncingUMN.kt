@@ -154,7 +154,7 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  * Always pass `false` here unless you know what you're doing!
  * @return a wrapped receiver which syncs all changes to the global log.
  */
-fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSerializer, autoStart: Boolean = false, forceRestartSync: Boolean = false): SyncingUMN {
+public fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSerializer, autoStart: Boolean = false, forceRestartSync: Boolean = false): SyncingUMN {
     val syncingUMN = Syncer(this, serializer, clientProvider, forceRestartSync).syncingUMN
     if (autoStart) {
         syncingUMN.syncer.start()
@@ -165,7 +165,7 @@ fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSeria
 /**
  * Syncs all documents as they are modified in this UMN. To start the synchronization, call [Syncer.start].
  */
-class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val syncer: Syncer) : UMN by delegate {
+public class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, public val syncer: Syncer) : UMN by delegate {
     override fun close() {
         syncer.close()
         syncer.awaitClose()
@@ -186,7 +186,7 @@ class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, val 
  * May result in duplicated records and data overwrite.
  * Always pass `false` here unless you know what you're doing!
  */
-class Syncer internal constructor(private val underlyingUMN: UMN,
+public class Syncer internal constructor(private val underlyingUMN: UMN,
                                   serializer: DocumentSerializer,
                                   private val clientProvider: ()->GlobalLogClient,
                                   forceRestartSync: Boolean) : Closeable {
@@ -206,14 +206,14 @@ class Syncer internal constructor(private val underlyingUMN: UMN,
      * Use this UMN to interact with the database. All actions done on this UMN will be stored in the mutation log
      * and synced (once the syncing is [start]ed).
      */
-    val syncingUMN = SyncingUMN(announcingUMN, this)
+    public val syncingUMN: SyncingUMN = SyncingUMN(announcingUMN, this)
 
     private var forceRestartSyncOnFirstStart = forceRestartSync
 
     /**
      * Starts syncing. Thread-safe. Attempt to start an already started syncer does nothing.
      */
-    fun start() = event {
+    public fun start(): Unit = event {
         if (client == null) {
             client = clientProvider()
             GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSyncOnFirstStart)
@@ -238,7 +238,7 @@ class Syncer internal constructor(private val underlyingUMN: UMN,
     /**
      * Stops syncing. Thread-safe. Attempt to stop an already stopped syncer does nothing.
      */
-    fun stop() = event(true) {
+    public fun stop(): Unit = event(true) {
         // tu musim dat forceRun=true, inak close() by nefungoval:
         // lebo close() zavola stop() a hned shutdowne eventLoop, co je race condition, lebo ked je stop kod konecne zavolany,
         // zisti ze eventLoop je shutdownuty a nic neurobi.
@@ -257,11 +257,11 @@ class Syncer internal constructor(private val underlyingUMN: UMN,
         eventLoop.shutdown()
     }
 
-    fun awaitClose() {
+    public fun awaitClose() {
         eventLoop.awaitTermination(1, TimeUnit.SECONDS)
     }
 
-    companion object {
+    public companion object {
         @JvmStatic
         private val log = LoggerFactory.getLogger(Syncer::class.java)
     }

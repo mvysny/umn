@@ -14,7 +14,7 @@ import kotlin.reflect.KProperty
 /**
  * [MutableMap.put]s the [value] into the map under given [key] or [MutableMap.remove]s it if it's null. Thread-safe.
  */
-fun <K, V> MutableMap<K, V>.putOrRemove(key: K, value: V?) {
+public fun <K, V> MutableMap<K, V>.putOrRemove(key: K, value: V?) {
     if (value == null) {
         remove(key)
     } else {
@@ -25,7 +25,7 @@ fun <K, V> MutableMap<K, V>.putOrRemove(key: K, value: V?) {
 /**
  * Closes receiver quietly, logging any exceptions thrown by the [Closeable.close] method.
  */
-fun Closeable.closeQuietly() {
+public fun Closeable.closeQuietly() {
     try {
         close()
     } catch (t: Exception) {
@@ -38,7 +38,7 @@ fun Closeable.closeQuietly() {
  * The [Closeable] is closed if [block] fails. If the block succeeds, the [Closeable]
  * remains opened.
  */
-fun <T: Closeable> T.tryInit(block: ()->Unit): T {
+public fun <T: Closeable> T.tryInit(block: ()->Unit): T {
     try {
         block()
     } catch (t: Throwable) {
@@ -53,7 +53,7 @@ fun <T: Closeable> T.tryInit(block: ()->Unit): T {
     return this
 }
 
-fun serializeData(block: DataOutputStream.()->Unit): ByteArray =
+public fun serializeData(block: DataOutputStream.()->Unit): ByteArray =
     ByteArrayOutputStream().apply { DataOutputStream(this).block() } .toByteArray()
 
 
@@ -65,7 +65,7 @@ fun serializeData(block: DataOutputStream.()->Unit): ByteArray =
  * multiple times.
  * @param remappingFunction may be called multiple times if multiple threads barge into this method.
  */
-fun <K, V> MVMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? = synchronized(this) {
+public fun <K, V> MVMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? = synchronized(this) {
     // we can't use ConcurrentMap.computeIfPresent() since that's Java 8/Android 24 and higher :(
 
     // use synchronized() - the remappingFunction may potentially be slow (since it serializes documents), so
@@ -93,7 +93,7 @@ fun <K, V> MVMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? 
  * multiple times.
  * @param remappingFunction may be called multiple times if multiple threads barge into this method.
  */
-fun <K, V> ConcurrentHashMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? = synchronized(this) {
+public fun <K, V> ConcurrentHashMap<K, V>.updateIfPresent(key:K, remappingFunction: (K, V)->V): V? = synchronized(this) {
     // we can't use ConcurrentHashMap.computeIfPresent() since that's Java 8/Android 24 and higher :(
 
     // use synchronized() - the remappingFunction may potentially be slow (since it serializes documents), so
@@ -117,7 +117,7 @@ fun <K, V> ConcurrentHashMap<K, V>.updateIfPresent(key:K, remappingFunction: (K,
  * Dynamically assigns type to a class. Not persistent - the numbering may change as the JVM restarts.
  * **Don't use for production!** Only use for evaluation or testing purposes.
  */
-object AutoTypeResolver : TypeToClassResolver {
+public object AutoTypeResolver : TypeToClassResolver {
     private val toClass = mutableMapOf<Short, KClass<*>>()
     private val toType = mutableMapOf<KClass<*>, Short>()
     private var nextType = 0.toShort()
@@ -144,7 +144,7 @@ object AutoTypeResolver : TypeToClassResolver {
  * val formatter: SimpleDateFormat by ThreadLocalCache { SimpleDateFormat("yyyy-MM-dd HH:mm:ss") }
  * ```
  */
-class ThreadLocalCache<T>(private val producer: ()->T) : ReadOnlyProperty<Nothing?, T> {
+public class ThreadLocalCache<T>(private val producer: ()->T) : ReadOnlyProperty<Nothing?, T> {
     private val tlc = ThreadLocal<SoftReference<T>>()
     override fun getValue(thisRef: Nothing?, property: KProperty<*>): T {
         var result: T? = tlc.get()?.get()

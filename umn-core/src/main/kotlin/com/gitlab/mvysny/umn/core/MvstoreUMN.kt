@@ -14,14 +14,14 @@ import kotlin.reflect.KClass
  * * You can store the documents as JSON (say by using `Gson`)
  * * You can provide a completely custom serialization solution
  */
-interface DocumentSerializer {
+public interface DocumentSerializer {
     /**
      * Serializes the [document] into the [dout] stream. Don't close the stream - it is automatically closed afterwards.
      * @param document the document to write to the stream.
      * @param dout write the document data here. Don't close. The stream is buffered or backed by a [ByteArrayOutputStream] so there is no
      * need to buffer it.
      */
-    fun serialize(document: Any, dout: DataOutputStream)
+    public fun serialize(document: Any, dout: DataOutputStream)
 
     /**
      * Deserializes the object of given [clazz] from given [din] input stream.
@@ -29,13 +29,13 @@ interface DocumentSerializer {
      * @param din read the document data from here. No need to close. The stream is buffered or backed by a [ByteArrayInputStream] so
      * there is no need to buffer it.
      */
-    fun <T: Any> deserialize(clazz: KClass<T>, din: DataInputStream): T
+    public fun <T: Any> deserialize(clazz: KClass<T>, din: DataInputStream): T
 
-    fun serialize(document: Any): ByteArray = ByteArrayOutputStream().apply {
+    public fun serialize(document: Any): ByteArray = ByteArrayOutputStream().apply {
         serialize(document, DataOutputStream(this))
     }.toByteArray()
 
-    fun <T: Any> deserialize(clazz: KClass<T>, bytes: ByteArray): T = deserialize(clazz, DataInputStream(bytes.inputStream()))
+    public fun <T: Any> deserialize(clazz: KClass<T>, bytes: ByteArray): T = deserialize(clazz, DataInputStream(bytes.inputStream()))
 }
 
 /**
@@ -44,7 +44,7 @@ interface DocumentSerializer {
  * * Slow
  * You should only be used for **testing** purposes.
  */
-object JavaDocumentSerializer : DocumentSerializer {
+public object JavaDocumentSerializer : DocumentSerializer {
     override fun serialize(document: Any, dout: DataOutputStream) {
         ObjectOutputStream(dout).writeObject(document)
     }
@@ -60,7 +60,7 @@ object JavaDocumentSerializer : DocumentSerializer {
  *
  * @property store the underlying store to use, closed when this UMN is closed.
  */
-class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer,
+public class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer,
                  override val typeToClassResolver: TypeToClassResolver) : UMN {
     init {
         // this radically decreases database size: https://github.com/h2database/h2database/issues/1835
@@ -99,7 +99,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
      * you had every document indexed by its type previously :-D
      * since that only works on v2 database (which is not yet populated).
      */
-    fun migrateV1V2(typeResolver: (UUID)->Short) {
+    public fun migrateV1V2(typeResolver: (UUID)->Short) {
         // migrate to v2 with types
         val oldMap: MVMap<UUID, ByteArray> = store.openMap("ROOT")
         if (oldMap.isNotEmpty()) {
@@ -157,7 +157,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
     /**
      * Compacts the database file.
      */
-    fun compact() {
+    public fun compact() {
         store.compactRewriteFully()
         store.compactMoveChunks()
     }
@@ -166,7 +166,7 @@ class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSer
 /**
  * Thread-safe.
  */
-class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String, keyType: DataType?, valueType: DataType?) : UtilityMap<K, V> {
+public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String, keyType: DataType?, valueType: DataType?) : UtilityMap<K, V> {
     override fun keyCount(): Int = map.size
 
     override fun keyPage(indexRange: IntRange): List<K> {

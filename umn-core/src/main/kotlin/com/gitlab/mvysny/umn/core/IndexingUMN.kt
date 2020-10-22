@@ -39,7 +39,7 @@ import kotlin.reflect.KClass
  * in the database will not reindex existing documents to build the index and searches will not find those documents. Changing the indexing
  * function will not reindex existing documents. Removing an index will not clear the associated index map.
  */
-class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) : UMN {
+public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) : UMN {
 
     /**
      * Maps index name to the index implementor.
@@ -91,8 +91,13 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
      * @property valueIdGetter which ID to actually associate with the key. Receives the document ID and the document itself. By default simply
      * returns the ID
      */
-    class IndexDef<K: Comparable<K>, D: Any, V: Any>(val name: String, val keyGetter: (D) -> Set<K>, val documentType: KClass<D>,
-                                             val valueType: KClass<V>, val valueIdGetter: (UUID, D) -> UUID) {
+    public class IndexDef<K : Comparable<K>, D : Any, V : Any>(
+            public val name: String,
+            public val keyGetter: (D) -> Set<K>,
+            public val documentType: KClass<D>,
+            public val valueType: KClass<V>,
+            public val valueIdGetter: (UUID, D) -> UUID
+    ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (javaClass != other?.javaClass) return false
@@ -106,7 +111,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
 
         internal fun toImpl(umn: IndexingUMN): IndexImpl<K, D, V> = umn.IndexImpl(this)
 
-        companion object {
+        public companion object {
             /**
              * Creates a simple index which simply maps keys to the ID of the document.
              * @param name the unique name of the index
@@ -116,7 +121,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
              * @property documentType the type of documents indexed by this index. The [keyGetter] will only be called for documents of this type -
              * all other document types will be ignored and will not be indexed by this index.
              */
-            fun <K: Comparable<K>, D: Any> simple(name: String, keyGetter: (D) -> Set<K>, documentType: KClass<D>) : IndexDef<K, D, D> =
+            public fun <K: Comparable<K>, D: Any> simple(name: String, keyGetter: (D) -> Set<K>, documentType: KClass<D>) : IndexDef<K, D, D> =
                     IndexDef(name, keyGetter, documentType, documentType, { id, _ -> id })
         }
     }
@@ -134,7 +139,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
      * @property D the type of documents indexed by this index.
      * @property V the type of documents referenced by the keys.
      */
-    inner class IndexImpl<K: Comparable<K>, D: Any, V: Any>(val def: IndexDef<K, D, V>) {
+    public inner class IndexImpl<K: Comparable<K>, D: Any, V: Any>(public val def: IndexDef<K, D, V>) {
 
         /**
          * Maps key to a set of documents IDs (the [V] documents). Don't use Set since that's serialized using Java serialization; use Arrays
@@ -169,33 +174,33 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * Finds document matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun findFirstDoc(forKeys: For<K>): Pair<UUID, V>? = getSequenceOfDocs(forKeys).firstOrNull()
+        public fun findFirstDoc(forKeys: For<K>): Pair<UUID, V>? = getSequenceOfDocs(forKeys).firstOrNull()
 
         /**
          * Finds document ID matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun findFirstID(forKeys: For<K>): UUID? = getSequenceOfIDs(forKeys).firstOrNull()
+        public fun findFirstID(forKeys: For<K>): UUID? = getSequenceOfIDs(forKeys).firstOrNull()
 
         /**
          * Finds all document IDs matching given keys. Returns an ordered set of IDs; documents with lower keys appearing sooner in the set.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun findAllIDs(forKeys: For<K>): Set<UUID> = getSequenceOfIDs(forKeys).toSet()
+        public fun findAllIDs(forKeys: For<K>): Set<UUID> = getSequenceOfIDs(forKeys).toSet()
 
         /**
          * Finds all documents matching given keys. Returns an ordered map of IDs mapped to documents;
          * documents with lower keys appearing sooner in the set.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun findAllDocs(forKeys: For<K>): Map<UUID, V> = getSequenceOfDocs(forKeys).toMap()
+        public fun findAllDocs(forKeys: For<K>): Map<UUID, V> = getSequenceOfDocs(forKeys).toMap()
 
         /**
          * Returns all documents matching given keys. The returned map is ordered - the keys are enumerated in increasing order.
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a map of documents and their respective IDs. The map is ordered by the matching keys, ascending. May be empty.
          */
-        fun findAllDocsPaged(forKeys: For<K>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
+        public fun findAllDocsPaged(forKeys: For<K>, page: IntRange = 0..Int.MAX_VALUE): Map<UUID, V> {
             if (page.isEmpty() || forKeys.isEmpty) return mapOf()
             if (page == 0..Int.MAX_VALUE) return findAllDocs(forKeys)
 
@@ -219,7 +224,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * @param page the offset and the limit. By default retrieves all matching documents.
          * @return a set of document IDs. The set is ordered by the matching keys, ascending. May be empty.
          */
-        fun findAllIDsPaged(forKeys: For<K>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
+        public fun findAllIDsPaged(forKeys: For<K>, page: IntRange = 0..Int.MAX_VALUE): Set<UUID> {
             if (page.isEmpty() || forKeys.isEmpty) return setOf()
             if (page == 0..Int.MAX_VALUE) return findAllIDs(forKeys)
 
@@ -244,7 +249,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * of this function.
          * @return count of matching documents, 0 or greater.
          */
-        fun getCount(forKeys: For<K>): Int {
+        public fun getCount(forKeys: For<K>): Int {
             // @todo mavi unique index size can simply be computed as indexStore.size()
             if (forKeys.isEmpty) return 0
             return when (forKeys) {
@@ -253,7 +258,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
             }
         }
 
-        fun getSize(): Int = getCount(For.all())
+        public fun getSize(): Int = getCount(For.all())
 
         internal fun onCreated(id: UUID, document: Any) {
             val docType = def.documentType.java
@@ -307,7 +312,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         /**
          * Checks whether there are no documents in this index.
          */
-        fun isEmpty(): Boolean = indexStore.isEmpty()
+        public fun isEmpty(): Boolean = indexStore.isEmpty()
 
         /**
          * Returns a lazily evaluated sequence of document IDs stored under given [forKeys]. The sequence will follow key ordering:
@@ -323,7 +328,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * Note: the returned IDs may not be unique and may repeat in the sequence.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun getSequenceOfIDs(forKeys: For<K>): Sequence<UUID> {
+        public fun getSequenceOfIDs(forKeys: For<K>): Sequence<UUID> {
             if (forKeys.isEmpty) return emptySequence()
             return when (forKeys) {
                 is For.All -> indexStore.values().asSequence().flatMap { it.asSequence() }
@@ -347,7 +352,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * Note: the returned IDs may not be unique and may repeat in the sequence.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun getSequenceOfDocs(forKeys: For<K>): Sequence<Pair<UUID, V>> = getSequenceOfIDs(forKeys).mapNotNull { id ->
+        public fun getSequenceOfDocs(forKeys: For<K>): Sequence<Pair<UUID, V>> = getSequenceOfIDs(forKeys).mapNotNull { id ->
             val doc = delegate.find(id, def.valueType)
             if (doc == null) null else id to doc
         }
@@ -355,7 +360,7 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
         /**
          * Finds all keys matching [keys].
          */
-        fun keySequence(keys: For<K>): Sequence<K> {
+        public fun keySequence(keys: For<K>): Sequence<K> {
             if (keys.isEmpty) return emptySequence()
             return when (keys) {
                 is For.All -> indexStore.keyIterator()
@@ -398,30 +403,30 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
          * Finds document matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun findLastDoc(forKeys: For<K>): Pair<UUID, V>? = getDescSequenceOfDocs(forKeys).firstOrNull()
+        public fun findLastDoc(forKeys: For<K>): Pair<UUID, V>? = getDescSequenceOfDocs(forKeys).firstOrNull()
 
         /**
          * Finds document ID matching lowest key. If there are multiple documents matching the lowest key, one is picked arbitrarily.
          * @param forKeys only consider documents mapped to these keys.
          */
-        fun findLastID(forKeys: For<K>): UUID? = getDescSequenceOfIDs(forKeys).firstOrNull()
+        public fun findLastID(forKeys: For<K>): UUID? = getDescSequenceOfIDs(forKeys).firstOrNull()
 
         /**
          * Checks whether the index contains *value* document with given [id].
          *
          * Highly inefficient operation! O(n)
          */
-        fun containsValueDocument(id: UUID): Boolean = getSequenceOfIDs(For.all()).contains(id)
+        public fun containsValueDocument(id: UUID): Boolean = getSequenceOfIDs(For.all()).contains(id)
 
         /**
          * Returns a paged data loader which loads keys of this index.
          */
-        fun keyLoader(): DataLoader<K> = KeyLoader(indexStore)
+        public fun keyLoader(): DataLoader<K> = KeyLoader(indexStore)
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)
 
-    override fun exists(id: UUID) = delegate.exists(id)
+    override fun exists(id: UUID): Boolean = delegate.exists(id)
 
     override fun delete(id: UUID) {
         indexUpdaterGlobalLock.withLock {
@@ -449,12 +454,12 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
      * Returns a particular index with given [name], failing if no such index was provided to the constructor.
      */
     @Suppress("UNCHECKED_CAST")
-    fun <K: Comparable<K>, D: Any, V: Any> getIndex(name: String): IndexImpl<K, D, V> {
+    public fun <K: Comparable<K>, D: Any, V: Any> getIndex(name: String): IndexImpl<K, D, V> {
         return indexMap[name] as IndexImpl<K, D, V>? ?: throw IllegalStateException("Unknown index name $name, available indices: ${indexMap.keys}")
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <K: Comparable<K>, D: Any, V: Any> getIndex(index: IndexDef<K, D, V>): IndexImpl<K, D, V> {
+    public fun <K: Comparable<K>, D: Any, V: Any> getIndex(index: IndexDef<K, D, V>): IndexImpl<K, D, V> {
         return indexMap[index.name] as IndexImpl<K, D, V>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
     }
 
@@ -476,36 +481,36 @@ class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) :
  * * [KeyRange] - a range of keys
  * @param K the type of the key.
  */
-sealed class For<K: Comparable<K>> {
-    abstract val isEmpty: Boolean
+public sealed class For<K: Comparable<K>> {
+    public abstract val isEmpty: Boolean
 
-    data class KeyRange<K: Comparable<K>>(val range: ClosedRange<K>) : For<K>() {
+    public data class KeyRange<K: Comparable<K>>(val range: ClosedRange<K>) : For<K>() {
         override val isEmpty: Boolean
             get() = range.isEmpty()
     }
 
-    data class KeySet<K: Comparable<K>>(val set: Set<K>) : For<K>() {
-        constructor(vararg set: K) : this(set.toSet())
+    public data class KeySet<K: Comparable<K>>(val set: Set<K>) : For<K>() {
+        public constructor(vararg set: K) : this(set.toSet())
         override val isEmpty: Boolean
             get() = set.isEmpty()
     }
 
-    data class Key<K: Comparable<K>>(val key: K) : For<K>() {
+    public data class Key<K: Comparable<K>>(val key: K) : For<K>() {
         override val isEmpty: Boolean
             get() = false
     }
 
-    companion object {
-        fun <K: Comparable<K>> all(): For<K> = All()
+    public companion object {
+        public fun <K: Comparable<K>> all(): For<K> = All()
     }
 
-    class All<K: Comparable<K>>: For<K>() {
+    public class All<K: Comparable<K>>: For<K>() {
         override val isEmpty: Boolean
             get() = false
     }
 }
 
-class KeyLoader<K : Comparable<K>>(private val map: UtilityMap<K, *>) : DataLoader<K> {
+public class KeyLoader<K : Comparable<K>>(private val map: UtilityMap<K, *>) : DataLoader<K> {
     override fun fetch(filter: Filter<K>?, sortBy: List<SortClause>, range: LongRange): List<K> {
         require(filter == null) { "filtering is unsupported: $filter" }
         require(sortBy.isEmpty()) { "sorting is unsupported: $sortBy" }

@@ -8,33 +8,33 @@ import java.util.*
 /**
  * A text analyzer. See [JavaSimpleAnalyzer] for the simple default implementation.
  */
-interface Analyzer {
+public interface Analyzer {
     /**
      * Splits given text to words. Removes all punctuation marks.
      */
-    fun splitToWords(text: String): List<String>
+    public fun splitToWords(text: String): List<String>
 
     /**
      * Checks if given [word] is a stop word.
      * @param word not blank, stemmed, normalized.
      */
-    fun isStopWord(word: String): Boolean
+    public fun isStopWord(word: String): Boolean
 
     /**
      * Normalizes the word - removes diacritic such as caron and accents, and uses lower-case.
      */
-    fun normalize(word: String): String
+    public fun normalize(word: String): String
 
     /**
      * Computes the basic stem for given [word] if possible. If not, just return the original word.
      * @param word the word to stem, not blank, normalized.
      */
-    fun stem(word: String): String
+    public fun stem(word: String): String
 
     /**
      * Returns search tokens from given text.
      */
-    fun getTokens(text: String): Set<String> = splitToWords(text)
+    public fun getTokens(text: String): Set<String> = splitToWords(text)
             .map { stem(normalize(it)) }
             .filter { !isStopWord(it) }
             .toSet()
@@ -49,7 +49,7 @@ private val porterStemmerCache: PorterStemmer by ThreadLocalCache { PorterStemme
  * * Uses English [STOP_WORDS] for [isStopWord].
  * * Uses [BreakIterator.getWordInstance] to [splitToWords].
  */
-class JavaSimpleAnalyzer : Analyzer {
+public class JavaSimpleAnalyzer : Analyzer {
     override fun stem(word: String): String = porterStemmerCache.stem(word)
     override fun normalize(word: String): String {
         var string = Normalizer.normalize(word, Normalizer.Form.NFKD)
@@ -60,9 +60,9 @@ class JavaSimpleAnalyzer : Analyzer {
 
     override fun isStopWord(word: String): Boolean = STOP_WORDS.contains(word)
 
-    companion object {
-        val ACCENT_MATCHER = "\\p{M}".toRegex()
-        val STOP_WORDS = setOf("a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it", "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these", "they", "this", "to", "was", "will", "with")
+    public companion object {
+        public val ACCENT_MATCHER: Regex = "\\p{M}".toRegex()
+        public val STOP_WORDS: Set<String> = setOf("a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it", "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these", "they", "this", "to", "was", "will", "with")
     }
 
     override fun splitToWords(text: String): List<String> {
@@ -110,7 +110,7 @@ class JavaSimpleAnalyzer : Analyzer {
  *          character, <code>false</code> otherwise.
  * @since   1.7
  */
-fun Int.isAlphabetic(): Boolean {
+public fun Int.isAlphabetic(): Boolean {
     // do not use Character.isAlphabetic(c) - only present since Android API 19
     val type = Character.getType(this)
     // triedy su zobrate z javadocu k Character.isAlphabetic

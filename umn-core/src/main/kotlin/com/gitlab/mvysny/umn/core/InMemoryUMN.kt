@@ -12,7 +12,7 @@ import kotlin.reflect.KClass
  *
  * Since it's in-memory only, it supports all key types: any class classes can act as a key.
  */
-class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
+public class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
                   private val serializer: DocumentSerializer) : UMN {
     override val delegate: UMN?
         get() = null
@@ -66,7 +66,7 @@ class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
 /**
  * Thread-safe.
  */
-class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
+public class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
     override fun keyCount(): Int = map.size
 
     override fun keyPage(indexRange: IntRange): List<K> {
@@ -103,5 +103,5 @@ class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
 
     override fun isEmpty(): Boolean = map.isEmpty()
 
-    override fun lowerKey(key: K): K? = map.keys.asSequence().filter { it < key } .max()
+    override fun lowerKey(key: K): K? = map.keys.asSequence().filter { it < key }.maxOrNull()
 }

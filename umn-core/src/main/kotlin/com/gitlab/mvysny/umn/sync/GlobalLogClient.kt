@@ -52,7 +52,7 @@ import java.util.concurrent.CancellationException
  *
  * When the client is closed, it must not fire any callbacks anymore.
  */
-interface GlobalLogClient : Closeable {
+public interface GlobalLogClient : Closeable {
     /**
      * Sets the receiver [callback]. The callback is invoked for every item with index equal to
      * or greater than given [rewind] parameter, for every new [LogRecord] available.
@@ -69,7 +69,7 @@ interface GlobalLogClient : Closeable {
      * In case of null just do nothing, just increase internal sync pointer.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit)
+    public fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit)
 
     /**
      * Invoked for every [LogRecord] sent by [addAsync] of this client, serves as a confirmation
@@ -80,7 +80,7 @@ interface GlobalLogClient : Closeable {
      * The [callback] must be called by at most one thread at once.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    fun setAddCallback(callback: () -> Unit)
+    public fun setAddCallback(callback: () -> Unit)
 
     /**
      * Starts the client - connects to the global log (if it hasn't been connected already)
@@ -103,7 +103,7 @@ interface GlobalLogClient : Closeable {
      * @throws RuntimeException on other general fatal exception.
      */
     @Throws(IOException::class, InvalidUsernamePasswordException::class, CancellationException::class)
-    fun start()
+    public fun start()
 
     /**
      * Appends given [record] into the global log asynchronously. Does not wait while the
@@ -121,12 +121,12 @@ interface GlobalLogClient : Closeable {
      * @throws IllegalStateException if the client is not yet started or has been closed.
      */
     @Throws(IOException::class)
-    fun addAsync(record: SerializedLogRecord)
+    public fun addAsync(record: SerializedLogRecord)
 
     /**
      * Returns true after [start] has been called. Returns false if the client is closed.
      */
-    val isStarted: Boolean
+    public val isStarted: Boolean
 }
 
-class InvalidUsernamePasswordException(message: String, cause: Throwable? = null) : Exception(message, cause)
+public class InvalidUsernamePasswordException(message: String, cause: Throwable? = null) : Exception(message, cause)

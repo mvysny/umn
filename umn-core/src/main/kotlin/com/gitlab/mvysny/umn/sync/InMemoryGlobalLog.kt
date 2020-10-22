@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * Should be thread-safe :-D
  */
-class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog) : GlobalLogClient {
+public class InMemoryGlobalLogClient internal constructor(public val owner: InMemoryGlobalLog) : GlobalLogClient {
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
@@ -68,14 +68,14 @@ class InMemoryGlobalLogClient internal constructor(val owner: InMemoryGlobalLog)
 /**
  * Should be thread-safe :-D Check [log] for all messages sent by any of clients produced by [newClient].
  */
-class InMemoryGlobalLog() {
+public class InMemoryGlobalLog() {
     private val clients = CopyOnWriteArrayList<InMemoryGlobalLogClient>()
     /**
      * Any message sent by any client produced by [newClient] is stored here.
      */
     internal val log = CopyOnWriteArrayList<SerializedLogRecord>()
 
-    fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)
+    public fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)
 
     @Synchronized
     internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long): List<SerializedLogRecord> {

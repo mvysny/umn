@@ -9,3 +9,7 @@ dependencies {
 
 val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit
 configureBintray("umn-core", "UMN: Core")
+
+kotlin {
+    explicitApi()
+}

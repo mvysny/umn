@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Thread-safe.
  * @property owner the owner log
  */
-class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, val username: String, private val password: String) : GlobalLogClient {
+public class MVStoreGlobalLogClient internal constructor(public val owner: MVStoreGlobalLog, public val username: String, private val password: String) : GlobalLogClient {
     override val isStarted: Boolean
         get() = started.get() && !closed.get()
     private val closed = AtomicBoolean()
@@ -112,7 +112,7 @@ class MVStoreGlobalLogClient internal constructor(val owner: MVStoreGlobalLog, v
  * The key will however be smallest possible (generally bigger by 1 than the biggest ID in the map, but may be bigger if the function is called by multiple threads at once).
  * @return the key where the value has been stored.
  */
-fun <V: Any> MVMap<Long, V>.append(value: V): Long {
+public fun <V: Any> MVMap<Long, V>.append(value: V): Long {
     var last = lastKey() ?: -1
     while(putIfAbsent(++last, value) != null) {}
     return last
@@ -128,7 +128,7 @@ fun <V: Any> MVMap<Long, V>.append(value: V): Long {
  * * `{username}__log`: contains the global log for given user. Maps the log record ordinal to the serialized log record.
  * * `properties`: various properties of the MVStore: `globalLogStorageUUID` of type [UUID] is the global log storage UUID.
  */
-class MVStoreGlobalLog(val db: MVStore) : Closeable {
+public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     private val startedClients = ConcurrentHashMap<String, BlockingQueue<MVStoreGlobalLogClient>>()
     private val closed = AtomicBoolean(false)
 
@@ -136,7 +136,7 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
      * Creates a new client for given user. Authenticates the user with given [username] and [password] lazily, in the
      * [MVStoreGlobalLogClient.start] function.
      */
-    fun newClient(username: String, password: String) : GlobalLogClient =
+    public fun newClient(username: String, password: String) : GlobalLogClient =
             MVStoreGlobalLogClient(this, username, password)
 
     internal fun startClient(client: MVStoreGlobalLogClient) {
@@ -155,24 +155,24 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
     /**
      * Creates a new user with specified [username] and [password]. If the user exists, the password is updated.
      */
-    fun createOrUpdateUser(username: String, password: String) {
+    public fun createOrUpdateUser(username: String, password: String) {
         db.openMap<String, String>("users")[username] = PasswordHash.createHash(password)
     }
 
-    fun listUsers(): List<String> = db.openMap<String, String>("users").keyList().filterNotNull()
+    public fun listUsers(): List<String> = db.openMap<String, String>("users").keyList().filterNotNull()
 
     /**
      * Deletes the user along with the entire log.
      * @param username the name of the user
      */
-    fun deleteUser(username: String) {
+    public fun deleteUser(username: String) {
         db.openMap<String, String>("users").remove(username)
         db.removeMap(getLogMap(username))
     }
 
-    fun getLogMap(username: String) = db.openMap<Long, SerializedLogRecord>("${username}__log")
+    public fun getLogMap(username: String): MVMap<Long, SerializedLogRecord> = db.openMap("${username}__log")
 
-    fun deleteAllUsers() {
+    public fun deleteAllUsers() {
         listUsers().forEach { deleteUser(it) }
     }
 
@@ -184,7 +184,10 @@ class MVStoreGlobalLog(val db: MVStore) : Closeable {
         }
     }
 
-    fun getLogSizes(): Map<String, Long> = listUsers().associateBy({it}, { getLogMap(it).sizeAsLong() })
+    public fun getLogSizes(): Map<String, Long> = listUsers().associateBy({it}, { getLogMap(it).sizeAsLong() })
 
-    val activeClientCount: Int get() = startedClients.values.sumBy { it.size }
+    /**
+     * Estimates current client count.
+     */
+    public val activeClientCount: Int get() = startedClients.values.sumBy { it.size }
 }

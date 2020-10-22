@@ -19,7 +19,7 @@ import java.util.*
  * @param tokens produces tokens for a document, see [Analyzer.getTokens] for more info. If the closure returns an empty
  * set, that document is then ignored.
  */
-class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<String>) : UMN by delegate {
+public class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<String>) : UMN by delegate {
     private val tokensIndex = delegate.openUtilityMap<String, Int>("FT___tokens")
     private fun tokenToInt(token: String): Int {
         var index = tokensIndex.find(token)
@@ -62,7 +62,7 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
         return false
     }
 
-    fun search(tokens: Set<String>): Sequence<UUID> {
+    public fun search(tokens: Set<String>): Sequence<UUID> {
         val ranges = tokens.map { token -> tokenMap.keyIterator(MyKey.getRange(tokenToInt(token))).map { it.toSubKey() } }
         return ranges.mergeJoin2().map { it.id }
     }
@@ -81,7 +81,7 @@ class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -> Set<S
  * @param tokens produces tokens for a document, see [Analyzer.getTokens] for more info. If the closure returns an empty
  * set, that document is then ignored.
  */
-class FullText2UMN(override val delegate: UMN, private val tokens: (Any) -> Set<String>) : UMN by delegate {
+public class FullText2UMN(override val delegate: UMN, private val tokens: (Any) -> Set<String>) : UMN by delegate {
     private fun getTokenMap(token: String): UtilityMap<MySubKey, Boolean> = delegate.openUtilityMap("_FT2___$token", MySubKey.Type(), BooleanType())
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
@@ -113,7 +113,7 @@ class FullText2UMN(override val delegate: UMN, private val tokens: (Any) -> Set<
         return false
     }
 
-    fun search(tokens: Set<String>): Sequence<UUID> {
+    public fun search(tokens: Set<String>): Sequence<UUID> {
         val ranges = tokens.map { token -> getTokenMap(token) }
         return ranges.join().map { it.id }
     }
@@ -121,7 +121,7 @@ class FullText2UMN(override val delegate: UMN, private val tokens: (Any) -> Set<
     private inline fun key(document: Any, token: String, id: UUID) = MySubKey((document as String).length, id)
 }
 
-data class MySubKey(val importance: Int, val id: UUID) : Comparable<MySubKey> {
+public data class MySubKey(val importance: Int, val id: UUID) : Comparable<MySubKey> {
     override fun compareTo(other: MySubKey): Int {
         var result = importance.compareTo(other.importance)
         if (result == 0) {
@@ -130,7 +130,7 @@ data class MySubKey(val importance: Int, val id: UUID) : Comparable<MySubKey> {
         return result
     }
 
-    class Type : DataType {
+    public class Type : DataType {
         override fun write(buff: WriteBuffer, obj: Any) {
             val key = obj as MySubKey
             buff.putVarInt(key.importance)
@@ -164,7 +164,7 @@ data class MySubKey(val importance: Int, val id: UUID) : Comparable<MySubKey> {
     }
 }
 
-data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable<MyKey> {
+public data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable<MyKey> {
     override fun compareTo(other: MyKey): Int {
         var result = token.compareTo(other.token)
         if (result == 0) {
@@ -176,9 +176,9 @@ data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable
         return result
     }
 
-    fun toSubKey() = MySubKey(importance, id)
+    public fun toSubKey(): MySubKey = MySubKey(importance, id)
 
-    class Type : DataType {
+    public class Type : DataType {
         override fun write(buff: WriteBuffer, obj: Any) {
             val key = obj as MyKey
             buff.putVarInt(key.token)
@@ -213,10 +213,10 @@ data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable
         }
     }
 
-    companion object {
+    public companion object {
         private val minUUID = UUID(Long.MIN_VALUE, Long.MIN_VALUE)
         private val maxUUID = UUID(Long.MAX_VALUE, Long.MAX_VALUE)
-        fun getRange(token:Int): ClosedRange<MyKey> {
+        public fun getRange(token:Int): ClosedRange<MyKey> {
             val min = MyKey(token, Int.MIN_VALUE, minUUID)
             val max = MyKey(token, Int.MAX_VALUE, maxUUID)
             return min..max
@@ -224,7 +224,7 @@ data class MyKey(val token: Int, val importance: Int, val id: UUID) : Comparable
     }
 }
 
-class BooleanType : DataType {
+public class BooleanType : DataType {
     override fun write(buff: WriteBuffer, obj: Any) {
         val o = obj as Boolean
         buff.put(if (o) 1.toByte() else 0)

@@ -14,11 +14,11 @@ import kotlin.reflect.KClass
  * Thread-safe.
  * @property listener notified of mutate operations.
  */
-class AnnouncingUMN(override val delegate: UMN, val listener: Listener) : UMN {
+public class AnnouncingUMN(override val delegate: UMN, public val listener: Listener) : UMN {
     /**
      * Listens on log events (on all mutation operations). May be called from multiple threads at once.
      */
-    interface Listener {
+    public interface Listener {
         /**
          * Invoked for all mutation operations performed on the UMN. The UMN operation blocks until the listener is done;
          * it's therefore important that the listener runs quickly.
@@ -28,10 +28,10 @@ class AnnouncingUMN(override val delegate: UMN, val listener: Listener) : UMN {
          * @param logRecord the record containing all info about the mutation. Only the following record types are reported:
          * [LogRecord.DocumentCreated], [LogRecord.DocumentUpdated], [LogRecord.DocumentDeleted].
          */
-        fun onRecord(logRecord: LogRecord)
+        public fun onRecord(logRecord: LogRecord)
     }
 
-    override fun create(document: Any, id: UUID) = delegate.create(document, id)
+    override fun create(document: Any, id: UUID): Boolean = delegate.create(document, id)
 
     override fun create(document: Any): UUID {
         val id = delegate.create(document)
@@ -72,22 +72,22 @@ class AnnouncingUMN(override val delegate: UMN, val listener: Listener) : UMN {
  * Instead, use [LogRecord.toByteArray] and [LogRecord.fromByteArray].
  * @property id the ID of the document being created, updated or deleted.
  */
-sealed class LogRecord(open val id: UUID) {
-    abstract fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer)
+public sealed class LogRecord(public open val id: UUID) {
+    public abstract fun writeTo(dout: DataOutputStream, serializer: DocumentSerializer)
     /**
      * Serializes this log record into a byte array.
      */
-    fun toByteArray(serializer: DocumentSerializer): ByteArray = serializeData { writeTo(this, serializer) }
+    public fun toByteArray(serializer: DocumentSerializer): ByteArray = serializeData { writeTo(this, serializer) }
     /**
      * Applies this record to the [umn]: it either creates a ducment with given ID, updates it or deletes it, based on the
      * type of this record.
      */
-    abstract fun applyTo(umn: UMN)
+    public abstract fun applyTo(umn: UMN)
 
     /**
      * A [document] with given [type] has been created.
      */
-    data class DocumentCreated(val document: Any, val type: DocType, override val id: UUID) : LogRecord(id) {
+    public data class DocumentCreated(val document: Any, val type: DocType, override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             umn.create(document, id)
         }
@@ -102,7 +102,7 @@ sealed class LogRecord(open val id: UUID) {
             serializer.serialize(document, dout)
         }
 
-        companion object {
+        public companion object {
             /**
              * @param din must be buffered or backed by a [java.io.ByteArrayInputStream]!
              */
@@ -119,7 +119,7 @@ sealed class LogRecord(open val id: UUID) {
      * Optimizes initial log population of the SyncingUMN.
      * @property serializedDocumentWithType serialized document
      */
-    class DocumentCreated2(val serializedDocumentWithType: SerializedDocument, override val id: UUID) : LogRecord(id) {
+    public class DocumentCreated2(public val serializedDocumentWithType: SerializedDocument, override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             throw IllegalStateException("Should not be called")
         }
@@ -137,7 +137,7 @@ sealed class LogRecord(open val id: UUID) {
     /**
      * A document with given [id] has been deleted.
      */
-    data class DocumentDeleted(override val id: UUID) : LogRecord(id) {
+    public data class DocumentDeleted(override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             umn.delete(id)
         }
@@ -148,7 +148,7 @@ sealed class LogRecord(open val id: UUID) {
             dout.writeLong(id.mostSignificantBits)
         }
 
-        companion object {
+        public companion object {
             internal fun readFrom(id: UUID) = DocumentDeleted(id)
         }
     }
@@ -156,7 +156,7 @@ sealed class LogRecord(open val id: UUID) {
     /**
      * A document with [id] and given [type] has been updated to [document].
      */
-    data class DocumentUpdated(val document: Any, val type: DocType, override val id: UUID) : LogRecord(id) {
+    public data class DocumentUpdated(val document: Any, val type: DocType, override val id: UUID) : LogRecord(id) {
         override fun applyTo(umn: UMN) {
             if (umn.exists(id)) {
                 umn.update(id, document)
@@ -171,7 +171,7 @@ sealed class LogRecord(open val id: UUID) {
             serializer.serialize(document, dout)
         }
 
-        companion object {
+        public companion object {
             /**
              * @param din must be buffered or backed by a [java.io.ByteArrayInputStream]!
              */
@@ -184,7 +184,7 @@ sealed class LogRecord(open val id: UUID) {
         }
     }
 
-    companion object {
+    public companion object {
         private val TYPE_DOCUMENT_CREATED = 0
         private val TYPE_DOCUMENT_DELETED = 1
         private val TYPE_DOCUMENT_UPDATED = 2
@@ -206,7 +206,7 @@ sealed class LogRecord(open val id: UUID) {
             }
         }
 
-        fun fromByteArray(bytes: SerializedLogRecord?, serializer: DocumentSerializer,
+        public fun fromByteArray(bytes: SerializedLogRecord?, serializer: DocumentSerializer,
                           typeToClassResolver: TypeToClassResolver): LogRecord? =
                 if (bytes == null) null else readFrom(DataInputStream(bytes.inputStream()), serializer, typeToClassResolver)
     }

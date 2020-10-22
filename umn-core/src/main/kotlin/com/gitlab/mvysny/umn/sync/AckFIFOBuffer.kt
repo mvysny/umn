@@ -9,7 +9,7 @@ import kotlin.concurrent.withLock
  *
  * Thread-safe, but multiple buffers can not operate over one map at the same time.
  */
-class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
+public class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
     private var idToAddTo: Long = -1
     private var idOfItemToPoll: Long = -1
     private var idOfItemToAck: Long = -1
@@ -22,7 +22,7 @@ class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
     /**
      * Inserts the specified element at the end of this queue.
      */
-    fun append(item: T) {
+    public fun append(item: T) {
         lock.withLock {
             log.put(idToAddTo++, item)
         }
@@ -31,7 +31,7 @@ class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
     /**
      * Removes the smallest item from the [log]. If the log is empty, does nothing.
      */
-    fun ackLowest() {
+    public fun ackLowest() {
         lock.withLock {
             if (idOfItemToAck < idToAddTo) {
                 log.put(idOfItemToAck++, null)
@@ -45,7 +45,7 @@ class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
      *
      * However, the item does not really disappear from the [log] unless it is acked by [ackLowest].
      */
-    fun poll(): T? {
+    public fun poll(): T? {
         lock.withLock {
             if (idOfItemToPoll < idToAddTo) {
                 return log.find(idOfItemToPoll++)!!
@@ -55,7 +55,7 @@ class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
         }
     }
 
-    fun clear() {
+    public fun clear() {
         lock.withLock {
             log.clear()
             resetStatus()

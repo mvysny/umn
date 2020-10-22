@@ -9,7 +9,7 @@ import kotlin.reflect.KClass
 /**
  * A [LogRecord], serialized using [LogRecord.toByteArray]. Deserialize using [LogRecord.fromByteArray].
  */
-typealias SerializedLogRecord = ByteArray
+public typealias SerializedLogRecord = ByteArray
 
 private object FailingSerializer : DocumentSerializer {
     override fun serialize(document: Any, dout: DataOutputStream) = throw RuntimeException("not expected to be called")
@@ -30,8 +30,13 @@ private object FailingSerializer : DocumentSerializer {
  * @param forceRepopulate if true, the [fifolog] will be destroyed and repopulated from the database. Use this when moving
  * sync to another sync server.
  */
-class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSerializer, val forceRepopulate: Boolean) : AnnouncingUMN.Listener {
-    val fifolog: AckFIFOBuffer<SerializedLogRecord>
+public class MutationLog(
+        public val umn: UMN,
+        bufferName: String,
+        public val serializer: DocumentSerializer,
+        public val forceRepopulate: Boolean
+) : AnnouncingUMN.Listener {
+    public val fifolog: AckFIFOBuffer<SerializedLogRecord>
 
     init {
         // buffer which stores the UMN mutation log.
@@ -64,12 +69,12 @@ class MutationLog(val umn: UMN, bufferName: String, val serializer: DocumentSeri
      * Empties this log. Warning! This operation is NOT atomic - if multiple threads call this, items are randomly drained to both
      * threads.
      */
-    fun drain(): List<LogRecord> =
+    public fun drain(): List<LogRecord> =
         generateSequence { val item = fifolog.poll(); fifolog.ackLowest(); item }
             .map { LogRecord.fromByteArray(it, serializer, umn.typeToClassResolver)!! }
             .toList()
 
-    companion object {
+    public companion object {
         @JvmStatic
         private val log = LoggerFactory.getLogger(MutationLog::class.java)
     }
