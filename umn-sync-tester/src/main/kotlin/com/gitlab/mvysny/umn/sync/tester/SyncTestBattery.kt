@@ -117,7 +117,7 @@ fun DynaNodeGroup.syncTestBattery(umnType: String, nodeCount: Int, umnStoragePro
             nodes.forEach { node ->
                 (0 until Random().nextInt(50)).forEach {
                     val doc = "foo $it"
-                    uuids.put(node.create(doc), doc)
+                    uuids[node.create(doc)] = doc
                 }
             }
             withSync(awaitSync) {
