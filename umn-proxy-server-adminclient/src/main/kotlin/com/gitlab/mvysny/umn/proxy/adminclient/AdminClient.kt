@@ -11,7 +11,7 @@ class AdminClient(val client: OkHttpClient, val baseUrl: String) {
     }
 
     fun getUsers(): List<String> {
-        val request = Request.Builder().get().url("$baseUrl/users").build()
+        val request: Request = Request.Builder().get().url("$baseUrl/users").build()
         return client.exec(request) { responseBody -> responseBody.jsonArray(String::class.java) }
     }
 
@@ -37,7 +37,7 @@ class AdminClient(val client: OkHttpClient, val baseUrl: String) {
     }
 
     fun getLogSizes(): Map<String, Long> {
-        val request = Request.Builder().get().url("$baseUrl/stats/logsizes").build()
+        val request: Request = Request.Builder().get().url("$baseUrl/stats/logsizes").build()
         return client.exec(request) { it.jsonMap(java.lang.Long::class.java) as Map<String, Long> }
     }
 }

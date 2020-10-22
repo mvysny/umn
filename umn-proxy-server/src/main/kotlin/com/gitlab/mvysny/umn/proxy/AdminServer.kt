@@ -3,34 +3,31 @@ package com.gitlab.mvysny.umn.proxy
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import io.javalin.InternalServerErrorResponse
 import io.javalin.Javalin
-import io.javalin.core.util.HttpResponseExceptionMapper
-import io.javalin.json.FromJsonMapper
-import io.javalin.json.JavalinJson
-import io.javalin.json.ToJsonMapper
-import org.eclipse.jetty.server.Server
+import io.javalin.http.HttpResponseExceptionMapper
+import io.javalin.http.InternalServerErrorResponse
+import io.javalin.plugin.json.FromJsonMapper
+import io.javalin.plugin.json.JavalinJson
+import io.javalin.plugin.json.ToJsonMapper
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.InetSocketAddress
 
 class AdminServer(adr: InetSocketAddress) : Closeable {
-    private val service: Javalin
+    private val javalin: Javalin
 
     init {
         useGsonWithJavalin()
-        service = Javalin.create()
-                .disableStartupBanner()
-                .server { Server(adr) }
+        javalin = Javalin.create { it.showJavalinBanner = false }
                 .apply { restAPI() }
-                .start(adr.port)
+                .start(adr.hostName, adr.port)
     }
 
     private fun Javalin.restAPI() {
         get("/admin/users") { ctx -> ctx.json(mvstoreGlobalLog.listUsers()) }
         put("/admin/users") { ctx ->
-            val username = ctx.validatedQueryParam("username").getOrThrow()
-            val password = ctx.validatedQueryParam("password").getOrThrow()
+            val username: String = ctx.queryParam<String>("username").get()
+            val password: String = ctx.queryParam<String>("password").get()
             mvstoreGlobalLog.createOrUpdateUser(username, password)
             ctx.status(204)
         }
@@ -48,7 +45,7 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
     }
 
     override fun close() {
-        service.stop()
+        javalin.stop()
     }
 
     companion object {
@@ -60,11 +57,15 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
 }
 
 fun useGsonWithJavalin() {
-    GsonBuilder().create().applyToJavalin()
+    GsonBuilder().create().configureToJavalin()
 }
-private fun Gson.applyToJavalin() {
+/**
+ * Configures Gson to Javalin. You need to call this if you wish to produce JSON
+ * via Javalin's [Context.json], or parse incoming JSON via [Context.bodyAsClass].
+ */
+private fun Gson.configureToJavalin() {
     JavalinJson.fromJsonMapper = object : FromJsonMapper {
-        override fun <T> map(json: String, targetClass: Class<T>): T = fromJson<T>(json, targetClass)
+        override fun <T> map(json: String, targetClass: Class<T>): T = fromJson(json, targetClass)
     }
     JavalinJson.toJsonMapper = object : ToJsonMapper {
         override fun map(obj: Any): String = toJson(obj)

@@ -34,7 +34,7 @@ fun Response.checkOk(): Response {
     return this
 }
 
-private val gson = GsonBuilder()
+private val gson: Gson = GsonBuilder()
         .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
         .create()
 

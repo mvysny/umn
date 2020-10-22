@@ -9,9 +9,9 @@ import com.gitlab.mvysny.umn.proxy.MVStoreGlobalLogProvider
 import com.gitlab.mvysny.umn.proxy.UMNProxyServer
 import com.gitlab.mvysny.umn.proxy.server
 import com.google.gson.JsonParseException
-import io.javalin.InternalServerErrorResponse
 import io.javalin.Javalin
-import io.javalin.core.util.HttpResponseExceptionMapper
+import io.javalin.http.HttpResponseExceptionMapper
+import io.javalin.http.InternalServerErrorResponse
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.net.ConnectException
@@ -33,8 +33,7 @@ class AdminClientTest : DynaTest({
     group("with invalid server") {
         lateinit var javalin: Javalin
         beforeEach {
-            javalin = Javalin.create()
-                    .disableStartupBanner()
+            javalin = Javalin.create { it.showJavalinBanner = false }
                     .get("admin/users") { ctx -> ctx.result("foo") }
                     .get("admin/stats/logsizes") { ctx -> throw RuntimeException("dummy fail") }
                     .exception(Exception::class.java) { e, ctx -> HttpResponseExceptionMapper.handle(InternalServerErrorResponse(e.message!!), ctx) }
