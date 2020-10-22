@@ -5,7 +5,7 @@ import com.gitlab.mvysny.umn.core.LogRecord
 import org.apache.kafka.common.TopicPartition
 import java.util.*
 
-fun main(args: Array<String>) {
+fun main() {
     // first run Kafka:
     // docker run --rm -d -p 2181:2181 -p 9092:9092 --env ADVERTISED_HOST="127.0.0.1" spotify/kafka
 

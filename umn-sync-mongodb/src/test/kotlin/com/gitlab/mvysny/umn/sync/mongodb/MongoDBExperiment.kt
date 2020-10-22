@@ -10,7 +10,7 @@ import java.io.Closeable
 import kotlin.concurrent.thread
 
 
-fun main(args: Array<String>) {
+fun main() {
     // run MongoDB in Docker first:
     //  docker run --rm -ti -p 27017:27017 mongo:4.0
     val url = ConnectionString("mongodb://localhost:27017/mydb")

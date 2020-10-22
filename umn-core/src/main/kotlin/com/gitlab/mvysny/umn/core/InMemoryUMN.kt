@@ -91,9 +91,9 @@ class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
         map.putOrRemove(key, value)
     }
 
-    override fun getSmallestKey(): K? = map.keys.min()
+    override fun getSmallestKey(): K? = map.keys.minOrNull()
 
-    override fun getLargestKey(): K? = map.keys.max()
+    override fun getLargestKey(): K? = map.keys.maxOrNull()
 
     override fun values(): Iterator<V> = map.entries.sortedBy { it.key } .map { it.value } .iterator()
 

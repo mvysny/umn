@@ -79,7 +79,7 @@ class SyncMongoDBClient(
         this.client = client
         started.set(true)
 
-        watcher = ActivePollingMongoCollectionWatcher({ current, log ->
+        watcher = ActivePollingMongoCollectionWatcher({ _, log ->
             // even if itemAdded() is invoked in parallel, the queue should help keeping
             // the total order
             itemAddedQueue.add(log)

@@ -1,6 +1,6 @@
 dependencies {
-    compile(project(":umn-core"))
-    compile("com.github.mvysny.dynatest:dynatest-engine:${properties["dynatest_version"]}")
-    compile("ch.qos.logback:logback-classic:1.2.3")
-    compile("org.zeroturnaround:zt-exec:1.10")
+    api(project(":umn-core"))
+    api("com.github.mvysny.dynatest:dynatest-engine:${properties["dynatest_version"]}")
+    implementation("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
+    implementation("org.zeroturnaround:zt-exec:1.11")
 }

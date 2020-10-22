@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.sync.tester
 
 import org.zeroturnaround.exec.ProcessExecutor
 import org.zeroturnaround.exec.ProcessInitException
+import org.zeroturnaround.exec.ProcessResult
 import java.io.Closeable
 import java.math.BigInteger
 
@@ -31,8 +32,8 @@ object Docker {
  * @return stdout
  */
 fun exec(command: String): String {
-    val commands = command.split(' ')
-    val result = ProcessExecutor().command(commands).readOutput(true).execute()
+    val commands: List<String> = command.split(' ')
+    val result: ProcessResult = ProcessExecutor().command(commands).readOutput(true).execute()
     check(result.exitValue == 0) { "${result.outputUTF8()}\nProcess failed with ${result.exitValue}" }
     return result.outputUTF8()
 }

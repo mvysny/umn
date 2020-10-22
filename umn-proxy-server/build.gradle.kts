@@ -1,7 +1,7 @@
 dependencies {
     compile(project(":umn-proxy-client"))
     compile("org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830")
-    compile("ch.qos.logback:logback-classic:1.2.3")
+    compile("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
 
     // REST Admin API
     compile("io.javalin:javalin:${properties["javalin_version"]}")
