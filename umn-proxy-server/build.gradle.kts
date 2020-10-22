@@ -1,5 +1,5 @@
 dependencies {
-    implementation(project(":umn-proxy-client"))
+    api(project(":umn-proxy-client"))
     implementation("org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830")
     implementation("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
 
