@@ -4,7 +4,7 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
 
     // REST Admin API
-    implementation("io.javalin:javalin:${properties["javalin_version"]}")
+    api("io.javalin:javalin:${properties["javalin_version"]}")
     implementation(kotlin("stdlib-jdk8"))
     implementation("com.google.code.gson:gson:${properties["gson_version"]}")
 
