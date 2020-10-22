@@ -1,8 +1,8 @@
 dependencies {
     compile(kotlin("stdlib"))  // don't use -jdk8 to stay compatible with Android
-    compile("org.slf4j:slf4j-api:1.7.25")
+    compile("org.slf4j:slf4j-api:1.7.30")
     compile("com.h2database:h2-mvstore:${properties["mvstore_version"]}")
-    compile("com.github.mvysny.vokdataloader:vok-dataloader:0.5")
+    compile("com.github.mvysny.vokdataloader:vok-dataloader:0.8")
     testCompile("com.github.mvysny.dynatest:dynatest-engine:${properties["dynatest_version"]}")
     testCompile("ch.qos.logback:logback-classic:1.2.3")
 }

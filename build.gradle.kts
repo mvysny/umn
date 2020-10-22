@@ -4,9 +4,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.*
 
 plugins {
-    kotlin("jvm") version "1.3.30"
+    kotlin("jvm") version "1.4.10"
     id("com.jfrog.bintray") version "1.8.3"
     `maven-publish`
+    id("org.jetbrains.dokka") version "1.4.0"
 }
 
 defaultTasks("clean", "build")
@@ -16,7 +17,7 @@ allprojects {
     version = "0.16-SNAPSHOT"
     repositories {
         jcenter()
-        maven { setUrl("https://dl.bintray.com/mvysny/github") }
+        maven(url = "https://dl.bintray.com/mvysny/github")
     }
 }
 
@@ -26,6 +27,7 @@ subprojects {
         plugin("maven-publish")
         plugin("kotlin")
         plugin("com.jfrog.bintray")
+        plugin("org.jetbrains.dokka")
     }
 
     tasks.withType<KotlinCompile> {
@@ -38,7 +40,7 @@ subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
         testLogging {
-            // to see the exceptions of failed tests in Travis-CI console.
+            // to see the exceptions of failed tests in CI console.
             exceptionFormat = TestExceptionFormat.FULL
         }
     }
@@ -52,12 +54,15 @@ subprojects {
             localProperties.inputStream().use { local.load(it) }
         }
 
-        val java: JavaPluginConvention = convention.getPluginByName("java")
-
         val sourceJar = task("sourceJar", Jar::class) {
-            dependsOn(tasks.findByName("classes"))
-            classifier = "sources"
-            from(java.sourceSets["main"].allSource)
+            dependsOn(tasks["classes"])
+            archiveClassifier.set("sources")
+            from(sourceSets.main.get().allSource)
+        }
+
+        val javadocJar = task("javadocJar", Jar::class) {
+            from(tasks["dokkaJavadoc"])
+            archiveClassifier.set("javadoc")
         }
 
         publishing {
