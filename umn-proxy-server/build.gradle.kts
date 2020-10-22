@@ -1,17 +1,17 @@
 dependencies {
-    compile(project(":umn-proxy-client"))
-    compile("org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830")
-    compile("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
+    implementation(project(":umn-proxy-client"))
+    implementation("org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830")
+    implementation("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
 
     // REST Admin API
-    compile("io.javalin:javalin:${properties["javalin_version"]}")
-    compile(kotlin("stdlib-jdk8"))
-    compile("com.google.code.gson:gson:${properties["gson_version"]}")
+    implementation("io.javalin:javalin:${properties["javalin_version"]}")
+    implementation(kotlin("stdlib-jdk8"))
+    implementation("com.google.code.gson:gson:${properties["gson_version"]}")
 
     // config file parsing
-    compile("org.yaml:snakeyaml:1.23")
+    implementation("org.yaml:snakeyaml:1.23")
 
-    testCompile(project(":umn-sync-tester"))
+    testImplementation(project(":umn-sync-tester"))
 }
 
 val zip by tasks.creating(Zip::class) {

@@ -1,7 +1,7 @@
 dependencies {
-    compile(project(":umn-core"))
-    compile("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
-    testCompile(project(":umn-sync-tester"))
+    api(project(":umn-core"))
+    api("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
+    testImplementation(project(":umn-sync-tester"))
 }
 
 val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit
