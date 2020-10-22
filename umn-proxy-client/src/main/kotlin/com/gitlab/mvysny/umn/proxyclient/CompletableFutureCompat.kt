@@ -5,7 +5,7 @@ import java.util.concurrent.*
 /**
  * A backport of Java `CompletableFuture` which works with old Androids.
  */
-class CompletableFutureCompat<V> : Future<V> {
+public class CompletableFutureCompat<V> : Future<V> {
     private sealed class Result<out V> {
         abstract val value: V
         class Ok<V>(override val value: V) : Result<V>()
@@ -37,7 +37,7 @@ class CompletableFutureCompat<V> : Future<V> {
      * @return `true` if this invocation caused this CompletableFuture
      * to transition to a completed state, else `false`
      */
-    fun completeExceptionally(ex: Throwable): Boolean {
+    public fun completeExceptionally(ex: Throwable): Boolean {
         val offered = completion.offer(Result.Error(ex))
         if (offered) {
             result.run()
@@ -70,7 +70,7 @@ class CompletableFutureCompat<V> : Future<V> {
      * @return `true` if this invocation caused this CompletableFuture
      * to transition to a completed state, else `false`
      */
-    fun complete(value: V): Boolean {
+    public fun complete(value: V): Boolean {
         val offered = completion.offer(Result.Ok(value))
         if (offered) {
             result.run()

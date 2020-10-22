@@ -28,13 +28,13 @@ import java.io.DataOutputStream
  * At any time the connection may be closed by the server in case of an error. In such case the client must not repeat, but instead must fail
  * with a non-recoverable exception.
  */
-sealed class AbstractMessage {
+public sealed class AbstractMessage {
 
-    abstract fun writeTo(dout: DataOutputStream)
+    public abstract fun writeTo(dout: DataOutputStream)
 
     final override fun toString(): String = javaClass.simpleName
 
-    fun asByteArray(): ByteArray = ByteArrayOutputStream().apply {
+    public fun asByteArray(): ByteArray = ByteArrayOutputStream().apply {
         this@AbstractMessage.writeTo(DataOutputStream(this))
     }.toByteArray()
 
@@ -42,7 +42,7 @@ sealed class AbstractMessage {
      * Sent by the server upon connection open, to notify the client that the username/password is OK and
      * the server is ready to listen for requests.
      */
-    object Started : AbstractMessage() {
+    public object Started : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_STARTED)
         }
@@ -52,14 +52,14 @@ sealed class AbstractMessage {
      * Sent by the client to notify the Global Log of a new log record. The server will reply with [OnAdded] when the record
      * is stored safely on the server.
      */
-    class AddAsync(val record: SerializedLogRecord) : AbstractMessage() {
+    public class AddAsync(public val record: SerializedLogRecord) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ADD_ASYNC)
             dout.writeInt(record.size)
             dout.write(record)
         }
-        companion object {
-            fun read(din: DataInputStream): AddAsync {
+        public companion object {
+            public fun read(din: DataInputStream): AddAsync {
                 val bytes = ByteArray(din.readInt())
                 din.readFully(bytes)
                 return AddAsync(bytes)
@@ -70,7 +70,7 @@ sealed class AbstractMessage {
     /**
      * Sent by the server as an ACK that [AddAsync] has been received.
      */
-    object OnAdded : AbstractMessage() {
+    public object OnAdded : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ON_ADDED)
         }
@@ -81,7 +81,7 @@ sealed class AbstractMessage {
      * @property record the added record, may be null in case a hole has been punched into the log. See [com.gitlab.mvysny.umn.sync.GlobalLogClient]
      * for details.
      */
-    class OnLogRecord(val record: SerializedLogRecord?) : AbstractMessage() {
+    public class OnLogRecord(public val record: SerializedLogRecord?) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ON_LOG_RECORD)
             if (record == null) {
@@ -91,8 +91,8 @@ sealed class AbstractMessage {
                 dout.write(record)
             }
         }
-        companion object {
-            fun read(din: DataInputStream): OnLogRecord {
+        public companion object {
+            public fun read(din: DataInputStream): OnLogRecord {
                 val size = din.readInt()
                 val bytes: ByteArray? = if (size == 0) null else ByteArray(size).apply { din.readFully(this) }
                 return OnLogRecord(bytes)
@@ -100,9 +100,9 @@ sealed class AbstractMessage {
         }
     }
 
-    companion object {
-        val WS_INVALID_USERNAME_PASSWORD = 4000
-        val WS_SERVER_ERROR = 4001
+    public companion object {
+        public val WS_INVALID_USERNAME_PASSWORD: Int = 4000
+        public val WS_SERVER_ERROR: Int = 4001
 
         /**
          * [Started]
@@ -124,7 +124,7 @@ sealed class AbstractMessage {
         /**
          * Reconstructs the message from given [bytes].
          */
-        fun fromByteArray(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): AbstractMessage {
+        public fun fromByteArray(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): AbstractMessage {
             require(bytes.isNotEmpty() && offset < length) { "Empty array: ${bytes.size}, offset=$offset length=$length" }
             val din = DataInputStream(bytes.inputStream(offset, length))
             val type = din.readByte().toInt()

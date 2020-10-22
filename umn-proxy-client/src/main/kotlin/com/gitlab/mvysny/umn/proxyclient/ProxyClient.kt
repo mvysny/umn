@@ -7,7 +7,6 @@ import okhttp3.*
 import okio.ByteString
 import org.slf4j.LoggerFactory
 import java.lang.RuntimeException
-import java.util.*
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -24,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * ping every 1 minute.
  * @param requestBuilder the request builder with [Request.Builder.url] set.
  */
-class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder, val username: String, private val password: String) : GlobalLogClient {
+public class ProxyClient(public val client: OkHttpClient, public val requestBuilder: Request.Builder, public val username: String, private val password: String) : GlobalLogClient {
     private val listener = Listener()
 
     init {
@@ -33,7 +32,7 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
                 .header("rewind", "0")
     }
 
-    inner class Listener : WebSocketListener() {
+    public inner class Listener : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             // do nothing. We either await for socket close (on username/password mismatch or for some other reason), or
             // we expect a surge of messages to arrive
@@ -142,15 +141,15 @@ class ProxyClient(val client: OkHttpClient, val requestBuilder: Request.Builder,
             ws = null
         }
     }
-    
-    companion object {
+
+    public companion object {
         @JvmStatic
         private val log = LoggerFactory.getLogger(ProxyClient::class.java)
     }
 }
 
-fun WebSocket.send(msg: AbstractMessage) {
-    val bytes = msg.asByteArray()
+public fun WebSocket.send(msg: AbstractMessage) {
+    val bytes: ByteArray = msg.asByteArray()
     send(ByteString.of(bytes, 0, bytes.size))
 }
 
@@ -158,7 +157,7 @@ fun WebSocket.send(msg: AbstractMessage) {
  * Destroys the [OkHttpClient] including the dispatcher, connection pool, everything. WARNING: THIS MAY AFFECT
  * OTHER http clients if they share e.g. dispatcher executor service.
  */
-fun OkHttpClient.destroy() {
+public fun OkHttpClient.destroy() {
     dispatcher().executorService().shutdown()
     connectionPool().evictAll()
     cache()?.close()
