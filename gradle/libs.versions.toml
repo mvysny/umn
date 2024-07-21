@@ -1,0 +1,11 @@
+[versions]
+# https://repo1.maven.org/maven2/org/slf4j/slf4j-api/
+slf4j = "2.0.13"
+testcontainers = "1.19.8" # https://testcontainers.com/guides/getting-started-with-testcontainers-for-java
+
+[libraries]
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+testcontainers-mongodb = { module = "org.testcontainers:mongodb", version.ref = "testcontainers" }
+mongodb-driver = "org.mongodb:mongodb-driver-sync:3.8.0"
+dynatest = "com.github.mvysny.dynatest:dynatest:0.25"
