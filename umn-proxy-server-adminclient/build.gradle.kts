@@ -1,6 +1,6 @@
 dependencies {
     implementation(kotlin("stdlib"))  // don't use -jdk8 to stay compatible with Android
-    implementation("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
+    implementation(libs.okhttp)
     implementation(libs.gson)
     testImplementation(project(":umn-proxy-server"))
     testImplementation(libs.dynatest)

@@ -13,3 +13,11 @@ dynatest = "com.github.mvysny.dynatest:dynatest:0.25"
 kafka-client = "org.apache.kafka:kafka-clients:1.1.0"
 hazelcast = "com.hazelcast:hazelcast-client:3.10.2"
 gson = "com.google.code.gson:gson:2.11.0"
+
+# Keep okhttp at 3.12.x to stay compatible with older Androids: https://medium.com/square-corner-blog/okhttp-3-13-requires-android-5-818bb78d07ce
+# okhttp 3.12.x supports Android API 9+: https://github.com/square/okhttp
+# okhttp 3.13.x supports only Android API 21+
+okhttp = "com.squareup.okhttp3:okhttp:3.12.2"
+snakeyaml = "org.yaml:snakeyaml:1.23"
+javalin = "io.javalin:javalin:3.11.0"
+jetty = "org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830"

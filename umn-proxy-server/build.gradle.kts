@@ -4,16 +4,16 @@ plugins {
 
 dependencies {
     api(project(":umn-proxy-client"))
-    implementation("org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830")
-    implementation("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
+    implementation(libs.jetty)
+    implementation(libs.slf4j.simple)
 
     // REST Admin API
-    api("io.javalin:javalin:${properties["javalin_version"]}")
+    api(libs.javalin)
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.google.code.gson:gson:${properties["gson_version"]}")
+    implementation(libs.gson)
 
     // config file parsing
-    implementation("org.yaml:snakeyaml:1.23")
+    implementation(libs.snakeyaml)
 
     testImplementation(project(":umn-sync-tester"))
 }
