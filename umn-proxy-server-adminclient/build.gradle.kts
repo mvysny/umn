@@ -3,7 +3,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
     implementation("com.google.code.gson:gson:${properties["gson_version"]}")
     testImplementation(project(":umn-proxy-server"))
-    testImplementation("com.github.mvysny.dynatest:dynatest-engine:${properties["dynatest_version"]}")
+    testImplementation("com.github.mvysny.dynatest:dynatest:${properties["dynatest_version"]}")
 }
 
 val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit

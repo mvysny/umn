@@ -3,7 +3,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:${properties["slf4j_version"]}")
     api("com.h2database:h2-mvstore:${properties["mvstore_version"]}")
     api("com.github.mvysny.vokdataloader:vok-dataloader:0.8")
-    testImplementation("com.github.mvysny.dynatest:dynatest-engine:${properties["dynatest_version"]}")
+    testImplementation("com.github.mvysny.dynatest:dynatest:${properties["dynatest_version"]}")
     testImplementation("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
 }
 
