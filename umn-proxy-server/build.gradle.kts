@@ -1,3 +1,7 @@
+plugins {
+    application
+}
+
 dependencies {
     api(project(":umn-proxy-client"))
     implementation("org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830")
@@ -14,14 +18,7 @@ dependencies {
     testImplementation(project(":umn-sync-tester"))
 }
 
-val zip by tasks.creating(Zip::class) {
-    from("src/main/scripts")
-    into("lib") {
-        from(configurations.runtime.allArtifacts.files)
-        from(configurations.runtime)
-    }
+application {
+    mainClass = "com.gitlab.mvysny.umn.proxy.Main"
 }
 
-artifacts {
-    add("archives", zip)
-}
