@@ -7,5 +7,9 @@ testcontainers = "1.19.8" # https://testcontainers.com/guides/getting-started-wi
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 testcontainers-mongodb = { module = "org.testcontainers:mongodb", version.ref = "testcontainers" }
+testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
 mongodb-driver = "org.mongodb:mongodb-driver-sync:3.8.0"
 dynatest = "com.github.mvysny.dynatest:dynatest:0.25"
+kafka-client = "org.apache.kafka:kafka-clients:1.1.0"
+hazelcast = "com.hazelcast:hazelcast-client:3.10.2"
+gson = "com.google.code.gson:gson:2.11.0"

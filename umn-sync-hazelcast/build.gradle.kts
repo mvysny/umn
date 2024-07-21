@@ -1,6 +1,6 @@
 dependencies {
     api(project(":umn-core"))
-    implementation("com.hazelcast:hazelcast-client:3.10.2")
+    implementation(libs.hazelcast)
     testImplementation(project(":umn-sync-tester"))
 }
 
