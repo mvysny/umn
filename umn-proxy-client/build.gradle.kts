@@ -1,7 +1,7 @@
 dependencies {
     api(project(":umn-core"))
-    implementation("org.slf4j:slf4j-api:${properties["slf4j_version"]}")
-    api("com.squareup.okhttp3:okhttp:${properties["okhttp_version"]}")
+    implementation(libs.slf4j.api)
+    api(libs.okhttp)
     testImplementation(project(":umn-sync-tester"))
 }
 

@@ -21,3 +21,8 @@ okhttp = "com.squareup.okhttp3:okhttp:3.12.2"
 snakeyaml = "org.yaml:snakeyaml:1.23"
 javalin = "io.javalin:javalin:3.11.0"
 jetty = "org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830"
+lucene = "org.apache.lucene:lucene-core:3.6.2"
+
+# 1.4.198+ requires Android 19 or higher: https://gitlab.com/mvysny/umn/issues/6
+h2-mvstore = "com.h2database:h2-mvstore:1.4.198"
+vok-dataloader = "com.github.mvysny.vokdataloader:vok-dataloader:0.8"
