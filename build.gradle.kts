@@ -1,7 +1,6 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.util.*
 
 plugins {
     kotlin("jvm") version "2.0.0"
@@ -46,7 +45,7 @@ tasks.withType<Test> {
     }
 
     // creates a reusable function which configures proper deployment to Bintray
-    ext["configureBintray"] = { artifactId: String, description: String ->
+    ext["publish"] = { artifactId: String, description: String ->
         java {
             withJavadocJar()
             withSourcesJar()

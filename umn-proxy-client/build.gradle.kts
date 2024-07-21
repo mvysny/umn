@@ -5,8 +5,8 @@ dependencies {
     testImplementation(project(":umn-sync-tester"))
 }
 
-val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit
-configureBintray("umn-proxy-client", "UMN: Proxy Client")
+val publish = ext["publish"] as (artifactId: String, description: String) -> Unit
+publish("umn-proxy-client", "UMN: Proxy Client")
 
 kotlin {
     explicitApi()

@@ -6,5 +6,5 @@ dependencies {
     testImplementation("org.testcontainers:mongodb:${properties["testcontainers_version"]}")
 }
 
-val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit
-configureBintray("umn-sync-mongodb", "UMN: Sync with MongoDB")
+val publish = ext["publish"] as (artifactId: String, description: String) -> Unit
+publish("umn-sync-mongodb", "UMN: Sync with MongoDB")

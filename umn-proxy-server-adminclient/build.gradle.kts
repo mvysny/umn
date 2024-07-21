@@ -6,5 +6,5 @@ dependencies {
     testImplementation("com.github.mvysny.dynatest:dynatest:${properties["dynatest_version"]}")
 }
 
-val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit
-configureBintray("umn-proxy-server-adminclient", "UMN: Proxy Server: the Admin interface client")
+val publish = ext["publish"] as (artifactId: String, description: String) -> Unit
+publish("umn-proxy-server-adminclient", "UMN: Proxy Server: the Admin interface client")

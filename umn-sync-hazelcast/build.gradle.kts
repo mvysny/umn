@@ -4,5 +4,5 @@ dependencies {
     testImplementation(project(":umn-sync-tester"))
 }
 
-val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit
-configureBintray("umn-sync-hazelcast", "UMN: Sync with Hazelcast")
+val publish = ext["publish"] as (artifactId: String, description: String) -> Unit
+publish("umn-sync-hazelcast", "UMN: Sync with Hazelcast")

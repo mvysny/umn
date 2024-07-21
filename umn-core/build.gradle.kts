@@ -7,8 +7,8 @@ dependencies {
     testImplementation("org.slf4j:slf4j-simple:${properties["slf4j_version"]}")
 }
 
-val configureBintray = ext["configureBintray"] as (artifactId: String, description: String) -> Unit
-configureBintray("umn-core", "UMN: Core")
+val publish = ext["publish"] as (artifactId: String, description: String) -> Unit
+publish("umn-core", "UMN: Core")
 
 kotlin {
     explicitApi()
