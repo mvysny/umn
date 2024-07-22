@@ -15,7 +15,6 @@ allprojects {
     version = "0.16-SNAPSHOT"
     repositories {
         mavenCentral()
-        //maven(url = "https://dl.bintray.com/mvysny/github")
     }
 }
 
