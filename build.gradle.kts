@@ -10,6 +10,12 @@ plugins {
 
 defaultTasks("clean", "build")
 
+val verifyDesignTripwires by tasks.registering(Exec::class) {
+    description = "Checks the doc layer: AGENTS.md and design/"
+    commandLine("design/verify_design_tripwires.sh")
+}
+tasks.check { dependsOn(verifyDesignTripwires) }
+
 allprojects {
     group = "com.gitlab.mvysny.umn"
     version = "0.16-SNAPSHOT"

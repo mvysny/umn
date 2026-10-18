@@ -11,6 +11,12 @@ cache:
     - .gradle/wrapper/
     - .gradle/caches/
     - .gradle/build-cache/
+design-tripwires:
+  image: buildpack-deps:scm
+  before_script: []
+  cache: []
+  script:
+    - design/verify_design_tripwires.sh
 build:
   script:
     - ./gradlew build -x test
