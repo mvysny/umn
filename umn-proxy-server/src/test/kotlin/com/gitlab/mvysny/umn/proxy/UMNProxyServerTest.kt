@@ -1,6 +1,5 @@
 package com.gitlab.mvysny.umn.proxy
 
-import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.AutoTypeResolver
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
@@ -9,42 +8,53 @@ import com.gitlab.mvysny.umn.proxyclient.destroy
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.tester.addAsync
 import com.gitlab.mvysny.umn.sync.tester.expectAsync
-import com.gitlab.mvysny.umn.sync.tester.globalLogClientTestBattery
+import com.gitlab.mvysny.umn.sync.tester.GlobalLogClientTestBattery
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.test.expect
 import java.nio.file.Files
 
-class UMNProxyServerTest : DynaTest({
-    lateinit var httpClient: OkHttpClient
-    beforeGroup {
-        httpClient = OkHttpClient.Builder().pingInterval(1, TimeUnit.MINUTES).build()
+class UMNProxyServerTest {
+    companion object {
+        private lateinit var httpClient: OkHttpClient
+        @BeforeAll @JvmStatic fun createHttpClient() {
+            httpClient = OkHttpClient.Builder().pingInterval(1, TimeUnit.MINUTES).build()
+        }
+        @AfterAll @JvmStatic fun destroyHttpClient() { httpClient.destroy() }
     }
-    beforeEach {
+
+    @BeforeEach fun startServer() {
         val dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
         lp.mvstorelog.createOrUpdateUser("user", "example")
         server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), null, lp)
         server.start()
     }
-    afterEach { server.close() }
-    afterGroup { httpClient.destroy() }
+    @AfterEach fun stopServer() { server.close() }
 
-    globalLogClientTestBattery { createSyncClient(httpClient) }
+    @Nested inner class GlobalLogClientTests : GlobalLogClientTestBattery() {
+        override fun newClient(): GlobalLogClient = createSyncClient(httpClient)
+    }
 
-    test("when no clients are connected the active client count is zero") {
+    @Test fun `when no clients are connected the active client count is zero`() {
         expect(0) { server.globalLogClientProvider.activeClientCount }
     }
 
-    group("sync writes logs into the database") {
-        lateinit var client: GlobalLogClient
-        beforeEach { client = createSyncClient(httpClient) }
-        afterEach { client.close() }
+    @Nested inner class SyncWritesLogsIntoTheDatabase {
+        private lateinit var client: GlobalLogClient
+        @BeforeEach fun createClient() { client = createSyncClient(httpClient) }
+        @AfterEach fun closeClient() { client.close() }
 
-        test("closing websocket client also closes mvstorelog's client") {
+        @Test fun `closing websocket client also closes mvstorelog's client`() {
             client.start()
             Thread.sleep(200)
             expect(1) { server.globalLogClientProvider.activeClientCount }
@@ -53,7 +63,7 @@ class UMNProxyServerTest : DynaTest({
             expect(0) { server.globalLogClientProvider.activeClientCount }
         }
 
-        test("publishing item writes it into the mvstorelog") {
+        @Test fun `publishing item writes it into the mvstorelog`() {
             val item = LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID())
             var addCallbackCalled = false
             client.setAddCallback { addCallbackCalled = true }
@@ -69,7 +79,7 @@ class UMNProxyServerTest : DynaTest({
             expect(mapOf("user" to 1L)) { AdminServer.mvstoreGlobalLog.getLogSizes() }
         }
     }
-})
+}
 
 fun createSyncClient(httpClient: OkHttpClient): ProxyClient {
     val request = Request.Builder().url("ws://localhost:51343")

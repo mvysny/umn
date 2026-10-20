@@ -45,7 +45,7 @@ Not yet covered:
 - A wrapper new since 0.15 (e.g. `FullTextUMN`) misses whatever 0.15 writes in between: the
   `D_three_op_log` "no reindex" cost, now reachable by a downgrade/upgrade round-trip.
 
-## The `umn-compat-0.15` test module — after `drop-dynatest-for-junit6.md`
+## The `umn-compat-0.15` test module
 
 Turn the scratchpad harness into an unpublished module whose plain JUnit 6 tests run the old
 jars for real on every `./gradlew build`, with no Docker.

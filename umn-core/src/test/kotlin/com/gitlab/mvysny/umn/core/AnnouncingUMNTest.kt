@@ -1,9 +1,11 @@
 package com.gitlab.mvysny.umn.core
 
-import com.github.mvysny.dynatest.DynaNodeGroup
-import com.github.mvysny.dynatest.DynaTest
-import com.github.mvysny.dynatest.expectList
 import com.gitlab.mvysny.umn.sync.MutationLog
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+import kotlin.test.expect
 
 /**
  * Wraps this UMN in a capturing UMN which sends all mutation events to a log. Returns both the new capturing UMN and the log
@@ -18,62 +20,66 @@ internal fun UMN.mutationLog(serializer: DocumentSerializer, forceRepopulate: Bo
 }
 
 /**
- * A test battery which tests the [AnnouncingUMN], [MutationLog] and the serialization of [LogRecord]s.
+ * A test battery which tests the [AnnouncingUMN], [MutationLog] and the serialization of [LogRecord]s;
+ * run it like [GenericUmnTestBattery].
  */
-internal fun DynaNodeGroup.announcingTestBattery(storageProducer: ()->UMN) {
-    group("log producer tests") {
-        lateinit var umn: AnnouncingUMN
-        lateinit var log: MutationLog
-        beforeEach { storageProducer().mutationLog(JavaDocumentSerializer).apply { umn = first; log = second } }
-        afterEach { umn.close() }
+abstract class AnnouncingTestBattery {
+    /**
+     * Returns a new empty storage.
+     */
+    abstract fun newStorage(): UMN
 
-        test("initially the log is empty") {
-            expectList() { log.drain() }
-        }
-        test("creating document produces one log entry") {
-            val id = umn.create("kvak")
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id)) { log.drain() }
-        }
-        test("creating+updating document produces two log entries") {
-            val id = umn.create("kvak")
-            umn.update(id, "foo")
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id),
-                LogRecord.DocumentUpdated("foo", AutoTypeResolver.toType(String::class), id)) { log.drain() }
-        }
-        test("creating+deleting document produces two log entries") {
-            val id = umn.create("kvak")
-            umn.delete(id)
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id)) { log.drain() }
-        }
-        test("draining two times in a row won't return the same items") {
-            val id = umn.create("kvak")
-            umn.delete(id)
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id)) { log.drain() }
-            expectList() { log.drain() }
-        }
+    private lateinit var umn: AnnouncingUMN
+    private lateinit var log: MutationLog
+    @BeforeEach fun createUmn() { newStorage().mutationLog(JavaDocumentSerializer).apply { umn = first; log = second } }
+    @AfterEach fun closeUmn() { umn.close() }
+
+    @Test fun `initially the log is empty`() {
+        expect(listOf()) { log.drain() }
+    }
+    @Test fun `creating document produces one log entry`() {
+        val id = umn.create("kvak")
+        expect(listOf(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id))) { log.drain() }
+    }
+    @Test fun `creating+updating document produces two log entries`() {
+        val id = umn.create("kvak")
+        umn.update(id, "foo")
+        expect(listOf(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id),
+            LogRecord.DocumentUpdated("foo", AutoTypeResolver.toType(String::class), id))) { log.drain() }
+    }
+    @Test fun `creating+deleting document produces two log entries`() {
+        val id = umn.create("kvak")
+        umn.delete(id)
+        expect(listOf(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id))) { log.drain() }
+    }
+    @Test fun `draining two times in a row won't return the same items`() {
+        val id = umn.create("kvak")
+        umn.delete(id)
+        expect(listOf(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id), LogRecord.DocumentDeleted(id))) { log.drain() }
+        expect(listOf()) { log.drain() }
     }
 }
 
 /**
  * Tests the [AnnouncingUMN] class. Also tests the serialization of [LogRecord]s.
  */
-class AnnouncingUMNTest : DynaTest({
+class AnnouncingUMNTest {
     // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
-    group("basic tests") {
-        group("in-memory") {
-            genericUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).mutationLog(JavaDocumentSerializer).first }
+    @Nested inner class BasicTests {
+        @Nested inner class InMemory : GenericUmnTestBattery() {
+            override fun newUmn(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).mutationLog(JavaDocumentSerializer).first
         }
-        group("on mvstore") {
-            genericUmnTestBattery { createMvstoreUMN().mutationLog(JavaDocumentSerializer).first }
+        @Nested inner class OnMvstore : GenericUmnTestBattery() {
+            override fun newUmn(): UMN = createMvstoreUMN().mutationLog(JavaDocumentSerializer).first
         }
     }
 
-    group("replay log specific tests") {
-        group("in-memory") {
-            announcingTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }
+    @Nested inner class ReplayLogSpecificTests {
+        @Nested inner class InMemory : AnnouncingTestBattery() {
+            override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
         }
-        group("on mvstore") {
-            announcingTestBattery { createMvstoreUMN() }
+        @Nested inner class OnMvstore : AnnouncingTestBattery() {
+            override fun newStorage(): UMN = createMvstoreUMN()
         }
     }
-})
+}

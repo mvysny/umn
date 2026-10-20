@@ -1,85 +1,106 @@
 package com.gitlab.mvysny.umn.sync.tester
 
-import com.github.mvysny.dynatest.DynaNodeGroup
-import com.github.mvysny.dynatest.expectThrows
 import com.gitlab.mvysny.umn.core.AutoTypeResolver
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.assertContains
+import kotlin.test.assertFailsWith
 import kotlin.test.expect
 
 /**
- * Tests a [GlobalLogClient].
- * @param clientProducer expected to return clients connected to the same global log; the global log
- * must be cleared between individual tests.
+ * Tests a [GlobalLogClient]; run it as a nested class of the client's own test:
+ *
+ * ```
+ * @Nested inner class Battery : GlobalLogClientTestBattery() {
+ *     override fun newClient(): GlobalLogClient = log.newClient()
+ * }
+ * ```
+ *
+ * ## Implementation notes
+ * Only the battery's nested groups call [newClient], from their `@BeforeEach`, which runs after
+ * every enclosing class's `@BeforeEach`: create the global log there.
  */
-fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClient) {
-    // tests whether the client correctly responds with IllegalStateExceptions
-    group("contract tests") {
-        lateinit var client: GlobalLogClient
-        beforeEach { client = clientProducer() }
-        afterEach { client.close() }
+abstract class GlobalLogClientTestBattery {
+    /**
+     * Expected to return clients connected to the same global log; the global log
+     * must be cleared between individual tests.
+     */
+    abstract fun newClient(): GlobalLogClient
 
-        test("client can be closed immediately even if not started") {
+    // tests whether the client correctly responds with IllegalStateExceptions
+    @Nested
+    inner class ContractTests {
+        private lateinit var client: GlobalLogClient
+        @BeforeEach fun createClient() { client = newClient() }
+        @AfterEach fun closeClient() { client.close() }
+
+        @Test fun `client can be closed immediately even if not started`() {
             client.close()
         }
-        test("client can be closed multiple times") {
+        @Test fun `client can be closed multiple times`() {
             client.close()
             client.close()
         }
-        test("calling addAsync() on unstarted client fails") {
-            expectThrows(IllegalStateException::class) {
+        @Test fun `calling addAsync() on unstarted client fails`() {
+            assertFailsWith<IllegalStateException> {
                 client.addLogCreated("foo")
             }
         }
-        test("calling addAsync() on closed client fails") {
+        @Test fun `calling addAsync() on closed client fails`() {
             client.close()
-            expectThrows(IllegalStateException::class) {
+            assertFailsWith<IllegalStateException> {
                 client.addLogCreated("foo")
             }
         }
-        test("calling addAsync() on started+closed client fails") {
+        @Test fun `calling addAsync() on started+closed client fails`() {
             client.start()
             client.close()
-            expectThrows(IllegalStateException::class) {
+            assertFailsWith<IllegalStateException> {
                 client.addLogCreated("foo")
             }
         }
-        test("calling start() multiple times fails") {
+        @Test fun `calling start() multiple times fails`() {
             client.start()
-            expectThrows(IllegalStateException::class) {
+            assertFailsWith<IllegalStateException> {
                 client.start()
             }
         }
-        test("calling setReceiverCallback() with negative rewind fails") {
-            expectThrows(IllegalArgumentException::class, "rewind") {
+        @Test fun `calling setReceiverCallback() with negative rewind fails`() {
+            val ex = assertFailsWith<IllegalArgumentException> {
                 client.setReceiverCallback(-25L) {}
             }
+            assertContains(ex.message!!, "rewind")
         }
-        test("calling setReceiverCallback() on started client fails") {
+        @Test fun `calling setReceiverCallback() on started client fails`() {
             client.start()
-            expectThrows(IllegalStateException::class) {
+            assertFailsWith<IllegalStateException> {
                 client.setReceiverCallback(0L) {}
             }
         }
-        test("calling setAddCallback() on started client fails") {
+        @Test fun `calling setAddCallback() on started client fails`() {
             client.start()
-            expectThrows(IllegalStateException::class) {
+            assertFailsWith<IllegalStateException> {
                 client.setAddCallback {}
             }
         }
     }
 
-    group("simple listener tests") {
-        lateinit var client: GlobalLogClient
-        beforeEach { client = clientProducer() }
-        afterEach { client.close() }
+    @Nested
+    inner class SimpleListenerTests {
+        private lateinit var client: GlobalLogClient
+        @BeforeEach fun createClient() { client = newClient() }
+        @AfterEach fun closeClient() { client.close() }
 
-        test("publishing item calls both listeners") {
+        @Test fun `publishing item calls both listeners`() {
             val item = LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID())
             var addCallbackCalled = false
             client.setAddCallback { addCallbackCalled = true }
@@ -95,24 +116,25 @@ fun DynaNodeGroup.globalLogClientTestBattery(clientProducer: ()-> GlobalLogClien
         }
     }
 
-    multipleClientTestBattery(2, clientProducer)
+    @Nested
+    inner class TwoClientTest : MultipleClientTests(2)
 
-    multipleClientTestBattery(10, clientProducer)
-}
+    @Nested
+    inner class TenClientTest : MultipleClientTests(10)
 
-/**
- * Runs tests on multitude of clients.
- * @param clientCount must be 2 or higher
- */
-private fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProducer: ()-> GlobalLogClient) {
-    require(clientCount >= 2) { "$clientCount must be 2 or higher" }
+    /**
+     * Runs tests on multitude of clients.
+     * @param clientCount must be 2 or higher
+     */
+    abstract inner class MultipleClientTests(private val clientCount: Int) {
+        init {
+            require(clientCount >= 2) { "$clientCount must be 2 or higher" }
+        }
+        private lateinit var clients: List<GlobalLogClient>
+        @BeforeEach fun createClients() { clients = List(clientCount) { newClient() } }
+        @AfterEach fun closeClients() { clients.forEach { it.closeQuietly() } }
 
-    group("$clientCount client test") {
-        lateinit var clients: List<GlobalLogClient>
-        beforeEach { clients = List(clientCount) { clientProducer() } }
-        afterEach { clients.forEach { it.closeQuietly() } }
-
-        test("addAsync() broadcasts one message to all other clients") {
+        @Test fun `addAsync() broadcasts one message to all other clients`() {
             val item = LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID())
             val cts = clients.map { ClientTester(0L, it) }
             clients[0].addAsync(item)
@@ -125,7 +147,7 @@ private fun DynaNodeGroup.multipleClientTestBattery(clientCount: Int, clientProd
             expect(1) { cts[0].addCallbackCalledCount.get() }
         }
 
-        test("addAsync() preserves message order") {
+        @Test fun `addAsync() preserves message order`() {
             val items = (0..100).map {
                 LogRecord.DocumentUpdated("foo$it", AutoTypeResolver.toType(String::class), UUID.randomUUID())
             }

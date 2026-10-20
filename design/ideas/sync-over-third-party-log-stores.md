@@ -26,8 +26,8 @@ one only when someone needs it. Production syncs Aedict-Online and every Android
   `Config.Proxy` (which today throws for anything else), plus a `GlobalLogClientProvider`.
   User management then belongs to the store, and `AdminServer` (MVStore-only today) needs a
   story.
-- Test with the `umn-sync-tester` batteries: `globalLogClientTestBattery`, `syncTestBattery`,
-  `writerReaderTestBattery`.
+- Test with the `umn-sync-tester` batteries: `GlobalLogClientTestBattery`, `SyncTestBattery`,
+  `WriterReaderTestBattery`.
 
 ## Traps the old code fell into
 

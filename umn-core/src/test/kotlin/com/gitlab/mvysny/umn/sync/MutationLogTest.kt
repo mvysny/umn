@@ -1,55 +1,65 @@
 package com.gitlab.mvysny.umn.sync
 
-import com.github.mvysny.dynatest.DynaNodeGroup
-import com.github.mvysny.dynatest.DynaTest
-import com.github.mvysny.dynatest.expectList
 import com.gitlab.mvysny.umn.core.*
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+import kotlin.test.expect
 
-class MutationLogTest : DynaTest({
-    group("in-memory UMN") {
-        mutationLogTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }
+class MutationLogTest {
+    @Nested inner class InMemory : MutationLogTestBattery() {
+        override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
     }
-    group("MVStore UMN") {
-        mutationLogTestBattery { createMvstoreUMN() }
+    @Nested inner class OnMvstore : MutationLogTestBattery() {
+        override fun newStorage(): UMN = createMvstoreUMN()
     }
-})
+}
 
-fun DynaNodeGroup.mutationLogTestBattery(storageProducer: ()->UMN) {
-    lateinit var storage: UMN
-    beforeEach { storage = storageProducer() }
-    afterEach { storage.close() }
-    group("initial population") {
-        test("initial population ignores deleted documents") {
+/**
+ * Tests the initial population of a [MutationLog]; run it like [GenericUmnTestBattery].
+ */
+abstract class MutationLogTestBattery {
+    /**
+     * Returns a new empty storage.
+     */
+    abstract fun newStorage(): UMN
+
+    private lateinit var storage: UMN
+    @BeforeEach fun createStorage() { storage = newStorage() }
+    @AfterEach fun closeStorage() { storage.close() }
+    @Nested inner class InitialPopulation {
+        @Test fun `initial population ignores deleted documents`() {
             storage.delete(storage.create("kvak"))
             val log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList() { log.drain() }
+            expect(listOf()) { log.drain() }
         }
-        test("drain cleans the log") {
+        @Test fun `drain cleans the log`() {
             val id = storage.create("kvak")
             storage.update(id, "foo")
             val log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), id)) { log.drain() }
-            expectList() { log.drain() }
+            expect(listOf(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), id))) { log.drain() }
+            expect(listOf()) { log.drain() }
         }
-        test("initial population does not pick document updates") {
+        @Test fun `initial population does not pick document updates`() {
             val id = storage.create("kvak")
             storage.update(id, "foo")
             val log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), id)) { log.drain() }
+            expect(listOf(LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), id))) { log.drain() }
         }
-        test("initial population runs only once") {
+        @Test fun `initial population runs only once`() {
             val id = storage.create("kvak")
             var log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id)) { log.drain() }
+            expect(listOf(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id))) { log.drain() }
             log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList() { log.drain() }
+            expect(listOf()) { log.drain() }
         }
-        test("repopulation causes log to be populated two times") {
+        @Test fun `repopulation causes log to be populated two times`() {
             val id = storage.create("kvak")
             var log = storage.mutationLog(JavaDocumentSerializer).second
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id)) { log.drain() }
+            expect(listOf(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id))) { log.drain() }
             log = storage.mutationLog(JavaDocumentSerializer, true).second
-            expectList(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id)) { log.drain() }
+            expect(listOf(LogRecord.DocumentCreated("kvak", AutoTypeResolver.toType(String::class), id))) { log.drain() }
         }
     }
 }

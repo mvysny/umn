@@ -1,10 +1,10 @@
 package com.gitlab.mvysny.umn.proxyclient
 
-import com.github.mvysny.dynatest.DynaTest
+import org.junit.jupiter.api.Test
 import kotlin.test.expect
 
-class AbstractMessageTest : DynaTest({
-    test("toString") {
+class AbstractMessageTest {
+    @Test fun `toString`() {
         expect("Started") { AbstractMessage.Started.toString() }
     }
-})
+}

@@ -1,50 +1,53 @@
 package com.gitlab.mvysny.umn.sync
 
-import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.*
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import kotlin.concurrent.thread
 import kotlin.test.expect
 import java.io.File
 
-class SyncingUMNTest : DynaTest({
-    lateinit var log: InMemoryGlobalLog
-    beforeEach { log = InMemoryGlobalLog() }
+class SyncingUMNTest {
+    private lateinit var log: InMemoryGlobalLog
+    @BeforeEach fun createLog() { log = InMemoryGlobalLog() }
 
-    group("basic test battery on an SyncingUMN backed by in-memory global log client") {
-        genericUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ log.newClient() }, JavaDocumentSerializer, true) }
+    @Nested inner class GenericOverInMemoryGlobalLog : GenericUmnTestBattery() {
+        override fun newUmn(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ log.newClient() }, JavaDocumentSerializer, true)
     }
 
-    group("tests with sync sending delayed acks") {
-        lateinit var umn: SyncingUMN
-        beforeEach {
+    @Nested inner class TestsWithSyncSendingDelayedAcks {
+        private lateinit var umn: SyncingUMN
+        @BeforeEach fun createUmn() {
             umn = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing(
                 { log.newClient().withDelayedAck() },
                 JavaDocumentSerializer,
                 true
             )
         }
-        afterEach { umn.close() }
+        @AfterEach fun closeUmn() { umn.close() }
 
-        test("syncer spammed messages until ACK was received") {
+        @Test fun `syncer spammed messages until ACK was received`() {
             umn.create("foo")
             Thread.sleep(200)
             expect(1) { log.log.size }
         }
     }
 
-    group("forceRestartSync-related tests") {
-        val tempFile = File.createTempFile("tmp", null).absolutePath
-        lateinit var umn: SyncingUMN
-        fun createUMN(forceRestartSync: Boolean): SyncingUMN = createMvstoreUMN(tempFile).syncing(
+    @Nested inner class ForceRestartSyncRelatedTests {
+        private val tempFile = File.createTempFile("tmp", null).absolutePath
+        private lateinit var umn: SyncingUMN
+        private fun createUMN(forceRestartSync: Boolean): SyncingUMN = createMvstoreUMN(tempFile).syncing(
             { log.newClient() },
             JavaDocumentSerializer,
             true,
             forceRestartSync
         )
-        beforeEach { umn = createUMN(false) }
-        afterEach { umn.close() }
+        @BeforeEach fun createUmn() { umn = createUMN(false) }
+        @AfterEach fun closeUmn() { umn.close() }
 
-        test("forceRestartSync will push everything to the server again") {
+        @Test fun `forceRestartSync will push everything to the server again`() {
             umn.create("foo")
             Thread.sleep(200)
             expect(1) { log.log.size }
@@ -55,7 +58,7 @@ class SyncingUMNTest : DynaTest({
             expect(2) { log.log.size }
         }
     }
-})
+}
 
 fun GlobalLogClient.withDelayedAck(): GlobalLogClient = ClientWithDelayedAck(this)
 class ClientWithDelayedAck(val delegate: GlobalLogClient) : GlobalLogClient by delegate {

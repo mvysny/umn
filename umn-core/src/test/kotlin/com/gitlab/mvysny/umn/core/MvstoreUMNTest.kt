@@ -1,39 +1,42 @@
 package com.gitlab.mvysny.umn.core
 
-import com.github.mvysny.dynatest.DynaTest
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import java.io.DataInputStream
 import java.util.*
 import kotlin.test.expect
 import java.io.File
 
-class MvstoreUMNTest : DynaTest({
-    group("in-memory tests") {
-        genericUmnTestBattery { MvstoreUMN(MVStore.open(null), JavaDocumentSerializer, AutoTypeResolver) }
+class MvstoreUMNTest {
+    @Nested inner class InMemoryTests : GenericUmnTestBattery() {
+        override fun newUmn(): UMN = MvstoreUMN(MVStore.open(null), JavaDocumentSerializer, AutoTypeResolver)
     }
 
-    group("file-based tests") {
-        genericUmnTestBattery { createMvstoreUMN() }
+    @Nested inner class FileBasedTests : GenericUmnTestBattery() {
+        override fun newUmn(): UMN = createMvstoreUMN()
     }
 
-    group("migration v1->v2 tests") {
-        lateinit var store: MVStore
-        lateinit var root: MVMap<UUID, ByteArray>
-        lateinit var umn: MvstoreUMN
-        beforeEach {
+    @Nested inner class MigrationV1V2Tests {
+        private lateinit var store: MVStore
+        private lateinit var root: MVMap<UUID, ByteArray>
+        private lateinit var umn: MvstoreUMN
+        @BeforeEach fun createUmn() {
             store = MVStore.open(File.createTempFile("tmp", null).absolutePath)
             root = store.openMap<UUID, ByteArray>("ROOT")
             umn = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver)
         }
-        afterEach { umn.close() }
+        @AfterEach fun closeUmn() { umn.close() }
 
-        test("migration runs on empty db") {
+        @Test fun `migration runs on empty db`() {
             umn.migrateV1V2 { org.junit.jupiter.api.fail { "should not be called since there are no records" } }
             umn.migrateV1V2 { org.junit.jupiter.api.fail { "should not be called since there are no records" } }
         }
 
-        test("migration runs on simple db") {
+        @Test fun `migration runs on simple db`() {
             val id = UUID.randomUUID()
             root[id] = JavaDocumentSerializer.serialize("foo")
             umn.migrateV1V2 { uuid ->
@@ -45,7 +48,7 @@ class MvstoreUMNTest : DynaTest({
             expect(AutoTypeResolver.toType(String::class)) { umn.findSerialized(id)!!.type }
         }
 
-        test("migration runs only once") {
+        @Test fun `migration runs only once`() {
             val id = UUID.randomUUID()
             root[id] = JavaDocumentSerializer.serialize("foo")
             umn.migrateV1V2 { _ -> AutoTypeResolver.toType(String::class) }
@@ -55,7 +58,7 @@ class MvstoreUMNTest : DynaTest({
             expect("bar") { umn.get(id, String::class) }
         }
     }
-})
+}
 
 private val SerializedDocument.type: Short
     get() = DataInputStream(inputStream()).readShort()

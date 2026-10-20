@@ -31,7 +31,6 @@ acting on this; the table goes stale.
 | javalin | 3.11.0 | 7.2.3 | four majors; brings Jetty 12; admin REST API rewrite |
 | jetty websocket-server | 9.4.12 | `jetty-websocket-jetty-server` 12.1.14 | renamed artifact, new packages, new API |
 | lucene-core | 3.6.2 | 10.5.2 | only in `umn-performance-experiments`; maybe just delete the module (`Q_perf_module`) |
-| dynatest | 0.25 | — | replaced by JUnit; see `drop-dynatest-for-junit6.md` |
 
 Suggested order: the drop-ins first, then one
 major-upgrade module at a time. Each step should leave `./gradlew build` green.

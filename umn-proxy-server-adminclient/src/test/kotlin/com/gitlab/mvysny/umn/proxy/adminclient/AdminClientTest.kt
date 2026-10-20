@@ -1,8 +1,5 @@
 package com.gitlab.mvysny.umn.proxy.adminclient
 
-import com.github.mvysny.dynatest.DynaTest
-import com.github.mvysny.dynatest.expectList
-import com.github.mvysny.dynatest.expectThrows
 import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.proxy.AdminServer
 import com.gitlab.mvysny.umn.proxy.MVStoreGlobalLogProvider
@@ -12,103 +9,111 @@ import com.google.gson.JsonParseException
 import io.javalin.Javalin
 import io.javalin.http.HttpResponseExceptionMapper
 import io.javalin.http.InternalServerErrorResponse
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.net.ConnectException
 import java.net.InetSocketAddress
+import kotlin.test.assertContains
+import kotlin.test.assertFailsWith
 import kotlin.test.expect
 import java.nio.file.Files
 
-class AdminClientTest : DynaTest({
-    lateinit var client: AdminClient
-    beforeEach { client = createAdminClient("http://localhost:10145/admin/") }
+class AdminClientTest {
+    private lateinit var client: AdminClient
+    @BeforeEach fun createClient() { client = createAdminClient("http://localhost:10145/admin/") }
 
-    group("without running server") {
-        test("user retrieval fails") {
-            expectThrows(ConnectException::class) {
+    @Nested inner class WithoutRunningServer {
+        @Test fun `user retrieval fails`() {
+            assertFailsWith<ConnectException> {
                 client.getUsers()
             }
         }
     }
 
-    group("with invalid server") {
-        lateinit var javalin: Javalin
-        beforeEach {
+    @Nested inner class WithInvalidServer {
+        private lateinit var javalin: Javalin
+        @BeforeEach fun startJavalin() {
             javalin = Javalin.create { it.showJavalinBanner = false }
                     .get("admin/users") { ctx -> ctx.result("foo") }
                     .get("admin/stats/logsizes") { _ -> throw RuntimeException("dummy fail") }
                     .exception(Exception::class.java) { e, ctx -> HttpResponseExceptionMapper.handle(InternalServerErrorResponse(e.message!!), ctx) }
                     .start(10145)
         }
-        afterEach { javalin.stop() }
+        @AfterEach fun stopJavalin() { javalin.stop() }
 
-        test("json parsing fails with proper exception") {
-            expectThrows(JsonParseException::class) {
+        @Test fun `json parsing fails with proper exception`() {
+            assertFailsWith<JsonParseException> {
                 client.getUsers()
             }
         }
-        test("internal server error fails with proper exception") {
-            expectThrows(IOException::class, "500: dummy fail") {
+        @Test fun `internal server error fails with proper exception`() {
+            val ex = assertFailsWith<IOException> {
                 client.getLogSizes()
             }
+            assertContains(ex.message!!, "500: dummy fail")
         }
     }
 
-    group("with running server") {
-        lateinit var adminServer: AdminServer
-        beforeEach {
+    @Nested inner class WithRunningServer {
+        private lateinit var adminServer: AdminServer
+        @BeforeEach fun startServers() {
             val dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
             val lp = MVStoreGlobalLogProvider(dbDir)
             server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 10144), null, lp)
             server.start()
             adminServer = AdminServer(InetSocketAddress.createUnresolved("127.0.0.1", 10145))
         }
-        afterEach {
+        @AfterEach fun stopServers() {
             adminServer.closeQuietly()
             server.close()
         }
 
-        test("404 not found") {
+        @Test fun `404 not found`() {
             client = createAdminClient("http://localhost:10145/admin2/")
-            expectThrows(FileNotFoundException::class) {
+            assertFailsWith<FileNotFoundException> {
                 client.getUsers()
             }
         }
-        group("simple user retrieval") {
-            test("by default there are no users") {
+        @Nested inner class SimpleUserRetrieval {
+            @Test fun `by default there are no users`() {
                 // by default there are no users
-                expectList() { client.getUsers() }
+                expect(listOf()) { client.getUsers() }
             }
-            test("sample users") {
+            @Test fun `sample users`() {
                 AdminServer.mvstoreGlobalLog.createOrUpdateUser("duke leto atreides", "foo")
                 AdminServer.mvstoreGlobalLog.createOrUpdateUser("baron vladimir harkonnen", "ihateatreides")
                 expect(setOf("duke leto atreides", "baron vladimir harkonnen")) { client.getUsers().toSet() }
             }
         }
-        group("adding users") {
-            test("adding user") {
+        @Nested inner class AddingUsers {
+            @Test fun `adding user`() {
                 client.createOrUpdateUser("adam", "example")
-                expectList("adam") { client.getUsers() }
+                expect(listOf("adam")) { client.getUsers() }
             }
-            test("adding user with no password fails") {
-                expectThrows(IOException::class, "400: Query parameter 'password' with value '' cannot be null or empty") {
+            @Test fun `adding user with no password fails`() {
+                val ex = assertFailsWith<IOException> {
                     client.createOrUpdateUser("adam", "")
                 }
+                assertContains(ex.message!!, "400: Query parameter 'password' with value '' cannot be null or empty")
             }
         }
-        group("deleting users") {
-            test("deleting user") {
+        @Nested inner class DeletingUsers {
+            @Test fun `deleting user`() {
                 client.createOrUpdateUser("adam", "example")
-                expectList("adam") { client.getUsers() }
+                expect(listOf("adam")) { client.getUsers() }
                 client.deleteUser("adam")
-                expectList() { client.getUsers() }
+                expect(listOf()) { client.getUsers() }
             }
         }
 
-        test("log sizes") {
+        @Test fun `log sizes`() {
             client.createOrUpdateUser("adam", "example")
             AdminServer.mvstoreGlobalLog.getLogMap("adam").put(0, "foo".toByteArray())
             expect(mapOf("adam" to 1L)) { client.getLogSizes() }
         }
     }
-})
+}

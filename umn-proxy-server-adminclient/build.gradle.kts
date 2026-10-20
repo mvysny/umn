@@ -3,7 +3,6 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.gson)
     testImplementation(project(":umn-proxy-server"))
-    testImplementation(libs.dynatest)
 }
 
 val publish = ext["publish"] as (artifactId: String, description: String) -> Unit

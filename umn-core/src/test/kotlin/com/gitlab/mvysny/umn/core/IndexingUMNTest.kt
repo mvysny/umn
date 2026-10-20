@@ -1,49 +1,49 @@
 package com.gitlab.mvysny.umn.core
 
-import com.github.mvysny.dynatest.DynaNodeGroup
-import com.github.mvysny.dynatest.DynaTest
-import com.github.mvysny.dynatest.expectList
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import java.io.Serializable
 import java.util.*
 import kotlin.test.expect
 
 /**
- * A testing battery which tests [IndexingUMN] backed by [storageProvider].
+ * A testing battery which tests [IndexingUMN] backed by [newStorage]; run it like [GenericUmnTestBattery].
  */
-fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
-    lateinit var storage: UMN
-    beforeEach { storage = storageProvider() }
-    afterEach { storage.close() }
+abstract class IndexingUmnTestBattery {
+    /**
+     * Returns a new empty storage; every test wraps its own in an [IndexingUMN].
+     */
+    abstract fun newStorage(): UMN
 
-    val idxIdentity = IndexingUMN.IndexDef.simple<String, String>("identity", { doc -> setOf(doc) }, String::class)
-    val idxLength = IndexingUMN.IndexDef.simple<Int, String>("length", { doc -> setOf(doc.length) }, String::class)
-    val idxToLong = IndexingUMN.IndexDef.simple<Long, String>("toLong", { doc -> setOf(doc.toLong()) }, String::class)
-    val indices: Set<IndexingUMN.IndexDef<*, *, *>> = setOf(idxIdentity, idxLength)
+    private val idxIdentity = IndexingUMN.IndexDef.simple<String, String>("identity", { doc -> setOf(doc) }, String::class)
+    private val idxLength = IndexingUMN.IndexDef.simple<Int, String>("length", { doc -> setOf(doc.length) }, String::class)
+    private val idxToLong = IndexingUMN.IndexDef.simple<Long, String>("toLong", { doc -> setOf(doc.toLong()) }, String::class)
+    private val indices: Set<IndexingUMN.IndexDef<*, *, *>> = setOf(idxIdentity, idxLength)
 
-    group("findFirstDoc()") {
-        group("For.Key") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+    @Nested inner class FindFirstDoc {
+        @Nested inner class ForKey {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("")) }
                 expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("foo")) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
             }
 
-            test("correctly updates the indices on update()") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly updates the indices on update()`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("foo")) }
                 expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
             }
 
-            test("correctly updates the length-indices on update()") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly updates the length-indices on update()`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxLength).findFirstDoc(For.Key(3)) }
@@ -56,14 +56,14 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             }
         }
 
-        group("For.KeySet()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+        @Nested inner class ForKeySet {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("", "foo", "bar", "baz")) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 val id2 = umn.create("zzz")
                 expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.KeySet("", "foo", "kvak")) }
@@ -71,28 +71,28 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             }
         }
 
-        group("For.all()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+        @Nested inner class ForAll {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.all()) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 val id2 = umn.create("zzz")
                 expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.all()) }
             }
         }
 
-        group("For.KeyRange()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+        @Nested inner class ForKeyRange {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.KeyRange("a".."z")) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 val id2 = umn.create("zzz")
                 expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.KeyRange("a".."zzzzz")) }
@@ -100,92 +100,92 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("keySequence()") {
-        group("For.Key") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
-                expectList() { umn.getIndex(idxIdentity).keySequence(For.Key("")).toList() }
-                expectList() { umn.getIndex(idxIdentity).keySequence(For.Key("foo")).toList() }
+    @Nested inner class KeySequence {
+        @Nested inner class ForKey {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
+                expect(listOf()) { umn.getIndex(idxIdentity).keySequence(For.Key("")).toList() }
+                expect(listOf()) { umn.getIndex(idxIdentity).keySequence(For.Key("foo")).toList() }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 umn.create("kvak")
-                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.Key("kvak")).toList() }
-                expectList() { umn.getIndex(idxIdentity).keySequence(For.Key("kvak2")).toList() }
+                expect(listOf("kvak")) { umn.getIndex(idxIdentity).keySequence(For.Key("kvak")).toList() }
+                expect(listOf()) { umn.getIndex(idxIdentity).keySequence(For.Key("kvak2")).toList() }
             }
         }
 
-        group("For.KeySet()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
-                expectList() { umn.getIndex(idxIdentity).keySequence(For.KeySet("", "foo", "bar", "baz")).toList() }
+        @Nested inner class ForKeySet {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
+                expect(listOf()) { umn.getIndex(idxIdentity).keySequence(For.KeySet("", "foo", "bar", "baz")).toList() }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 umn.create("kvak")
                 umn.create("zzz")
-                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeySet("", "foo", "kvak")).toList() }
-                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeySet("kvak", "foo", "")).toList() }
+                expect(listOf("kvak")) { umn.getIndex(idxIdentity).keySequence(For.KeySet("", "foo", "kvak")).toList() }
+                expect(listOf("kvak")) { umn.getIndex(idxIdentity).keySequence(For.KeySet("kvak", "foo", "")).toList() }
             }
         }
 
-        group("For.all()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
-                expectList() { umn.getIndex(idxIdentity).keySequence(For.all()).toList() }
+        @Nested inner class ForAll {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
+                expect(listOf()) { umn.getIndex(idxIdentity).keySequence(For.all()).toList() }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 val id2 = umn.create("zzz")
-                expectList("kvak", "zzz") { umn.getIndex(idxIdentity).keySequence(For.all()).toList() }
+                expect(listOf("kvak", "zzz")) { umn.getIndex(idxIdentity).keySequence(For.all()).toList() }
             }
         }
 
-        group("For.KeyRange()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
-                expectList() { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."z")).toList() }
+        @Nested inner class ForKeyRange {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
+                expect(listOf()) { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."z")).toList() }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 umn.create("kvak")
                 umn.create("zzz")
-                expectList("kvak", "zzz") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."zzzzz")).toList() }
-                expectList("kvak") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."z")).toList() }
-                expectList("zzz") { umn.getIndex(idxIdentity).keySequence(For.KeyRange("z".."zzzzzz")).toList() }
+                expect(listOf("kvak", "zzz")) { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."zzzzz")).toList() }
+                expect(listOf("kvak")) { umn.getIndex(idxIdentity).keySequence(For.KeyRange("a".."z")).toList() }
+                expect(listOf("zzz")) { umn.getIndex(idxIdentity).keySequence(For.KeyRange("z".."zzzzzz")).toList() }
             }
         }
     }
 
-    group("findLastDoc()") {
-        group("For.Key") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+    @Nested inner class FindLastDoc {
+        @Nested inner class ForKey {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.Key("")) }
                 expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.Key("foo")) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 expect(id to "kvak") { umn.getIndex(idxIdentity).findLastDoc(For.Key("kvak")) }
             }
 
-            test("correctly updates the indices on update()") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly updates the indices on update()`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxIdentity).findLastDoc(For.Key("foo")) }
                 expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.Key("kvak")) }
             }
 
-            test("correctly updates the length-indices on update()") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly updates the length-indices on update()`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 umn.update(id, "foo")
                 expect(id to "foo") { umn.getIndex(idxLength).findLastDoc(For.Key(3)) }
@@ -198,14 +198,14 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             }
         }
 
-        group("For.KeySet()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+        @Nested inner class ForKeySet {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("", "foo", "bar", "baz")) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 expect(id to "kvak") { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("", "foo", "kvak")) }
                 expect(id to "kvak") { umn.getIndex(idxIdentity).findLastDoc(For.KeySet("kvak", "foo", "")) }
@@ -215,28 +215,28 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             }
         }
 
-        group("For.all()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+        @Nested inner class ForAll {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.all()) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 val id2 = umn.create("zzz")
                 expect(id2 to "zzz") { umn.getIndex(idxIdentity).findLastDoc(For.all()) }
             }
         }
 
-        group("For.KeyRange()") {
-            test("returns null on empty map") {
-                val umn = IndexingUMN(storageProvider(), indices)
+        @Nested inner class ForKeyRange {
+            @Test fun `returns null on empty map`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.KeyRange("a".."z")) }
             }
 
-            test("correctly finds the document") {
-                val umn = IndexingUMN(storageProvider(), indices)
+            @Test fun `correctly finds the document`() {
+                val umn = IndexingUMN(newStorage(), indices)
                 val id = umn.create("kvak")
                 val id2 = umn.create("zzz")
                 expect(id2 to "zzz") { umn.getIndex(idxIdentity).findLastDoc(For.KeyRange("a".."zzzzz")) }
@@ -244,21 +244,21 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("findAllByKey()") {
-        test("returns empty list on empty map") {
-            val umn = IndexingUMN(storageProvider(), indices)
+    @Nested inner class FindAllByKey {
+        @Test fun `returns empty list on empty map`() {
+            val umn = IndexingUMN(newStorage(), indices)
             expect(mapOf()) { umn.getIndex(idxIdentity).findAllDocs(For.Key("")) }
             expect(mapOf()) { umn.getIndex(idxIdentity).findAllDocs(For.Key("foo")) }
         }
 
-        test("correctly finds the document") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `correctly finds the document`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val id = umn.create("kvak")
             expect(mapOf(id to "kvak")) { umn.getIndex(idxIdentity).findAllDocs(For.Key("kvak")) }
         }
 
-        test("correctly updates the indices on update()") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `correctly updates the indices on update()`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val id = umn.create("kvak")
             umn.update(id, "foo")
             expect(mapOf(id to "foo")) { umn.getIndex(idxIdentity).findAllDocs(For.Key("foo")) }
@@ -266,40 +266,40 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("getSize()") {
-        test("empty UMN has 0 size") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+    @Nested inner class GetSize {
+        @Test fun `empty UMN has 0 size`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             expect(0) { umn.getIndex(idxToLong).getSize() }
         }
 
-        test("simple test") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+        @Test fun `simple test`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
             expect(1001) { umn.getIndex(idxToLong).getSize() }
         }
 
-        test("multiple documents with the same key") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxLength))
+        @Test fun `multiple documents with the same key`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxLength))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
             expect(1001) { umn.getIndex(idxLength).getSize() }
         }
     }
 
-    group("getCountByKeyRange()") {
-        test("empty UMN has 0 size") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+    @Nested inner class GetCountByKeyRange {
+        @Test fun `empty UMN has 0 size`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             expect(0) { umn.getIndex(idxToLong).getCount(For.KeyRange(0L..1000L)) }
         }
 
-        test("simple test") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+        @Test fun `simple test`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
             expect(6) { umn.getIndex(idxToLong).getCount(For.KeyRange(50L..55L)) }
             expect(100) { umn.getIndex(idxToLong).getCount(For.KeyRange(0L..99L)) }
         }
 
-        test("multiple documents with the same key") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxLength))
+        @Test fun `multiple documents with the same key`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxLength))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
             expect(0) { umn.getIndex(idxLength).getCount(For.KeyRange(0..0)) }
             expect(10) { umn.getIndex(idxLength).getCount(For.KeyRange(1..1)) }
@@ -311,166 +311,166 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("findAllDocsPaged()") {
-        test("check that the result documents are returned in a correct order") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+    @Nested inner class FindAllDocsPaged {
+        @Test fun `check that the result documents are returned in a correct order`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expectList("50", "51", "52", "53", "54", "55") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L)).values.toList() }
-            expectList("1000") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L)).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1001L..2000L)).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(-1000L..-10L)).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeySet()).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L), 5..4).values.toList() }
+            expect(listOf("50", "51", "52", "53", "54", "55")) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L)).values.toList() }
+            expect(listOf("1000")) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L)).values.toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1001L..2000L)).values.toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(-1000L..-10L)).values.toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeySet()).values.toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L), 5..4).values.toList() }
         }
 
-        test("check offset") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+        @Test fun `check offset`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             (0..1000).shuffled().forEach { umn.create(it.toString()) }
-            expectList("52", "53") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 2..3).values.toList() }
-            expectList("50", "51") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 0..1).values.toList() }
+            expect(listOf("52", "53")) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 2..3).values.toList() }
+            expect(listOf("50", "51")) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 0..1).values.toList() }
         }
 
-        test("multiple values mapping to a Long key") {
-            val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef.simple("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
+        @Test fun `multiple values mapping to a Long key`() {
+            val umn = IndexingUMN(newStorage(), setOf(IndexingUMN.IndexDef.simple("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
             (0..1000).forEach { umn.create(it.toString()) }
-            expectList("48", "49", "50", "51", "52", "53", "54", "55", "56") { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(16L..18L)).values.sorted() }
-            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L)).values.toList() }
-            expectList() { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(-1000L..-10L)).values.toList() }
+            expect(listOf("48", "49", "50", "51", "52", "53", "54", "55", "56")) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(16L..18L)).values.sorted() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(1000L..2000L)).values.toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(-1000L..-10L)).values.toList() }
         }
 
-        test("using CKey") {
+        @Test fun `using CKey`() {
             val idx = IndexingUMN.IndexDef.simple("index", { doc -> setOf(doc) }, CKey::class)
-            val umn = IndexingUMN(storageProvider(), setOf(idx))
+            val umn = IndexingUMN(newStorage(), setOf(idx))
 
             (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
-            expectList() { umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("kvak", 0f)..CKey("kvak", 10f))).values.sorted() }
-            expectList() { umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("bar", 2000f)..CKey("bar", 3000f))).values.sorted() }
+            expect(listOf()) { umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("kvak", 0f)..CKey("kvak", 10f))).values.sorted() }
+            expect(listOf()) { umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("bar", 2000f)..CKey("bar", 3000f))).values.sorted() }
             expect((0..10).map { it.toFloat() }) {
                 umn.getIndex(idx).findAllDocsPaged(For.KeyRange(CKey("foo", 0f)..CKey("foo", 10f))).values.map { it.ordering }
             }
         }
     }
 
-    group("findAllIDsPaged()") {
-        test("check that the result documents are returned in a correct order") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+    @Nested inner class FindAllIDsPaged {
+        @Test fun `check that the result documents are returned in a correct order`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
             expect(ids.subList(50, 56)) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L)).toList() }
-            expectList(ids.last()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L)).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1001L..2000L)).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(-1000L..-10L)).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeySet()).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L), 5..4).toList() }
+            expect(listOf(ids.last())) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L)).toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1001L..2000L)).toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(-1000L..-10L)).toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeySet()).toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L), 5..4).toList() }
         }
 
-        test("check offset") {
-            val umn = IndexingUMN(storageProvider(), setOf(idxToLong))
+        @Test fun `check offset`() {
+            val umn = IndexingUMN(newStorage(), setOf(idxToLong))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
             expect(ids.subList(52, 54)) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L), 2..3).toList() }
             expect(ids.subList(50, 52)) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L), 0..1).toList() }
         }
 
-        test("multiple values mapping to a Long key") {
-            val umn = IndexingUMN(storageProvider(), setOf(IndexingUMN.IndexDef.simple("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
+        @Test fun `multiple values mapping to a Long key`() {
+            val umn = IndexingUMN(newStorage(), setOf(IndexingUMN.IndexDef.simple("toLong", { doc -> setOf(doc.toLong() / 3) }, String::class)))
             val ids: List<UUID> = (0..1000).map { umn.create(it.toString()) }
             expect(ids.subList(48, 57).toSet()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(16L..18L)).toSet() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L)).toList() }
-            expectList() { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(-1000L..-10L)).toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(1000L..2000L)).toList() }
+            expect(listOf()) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(-1000L..-10L)).toList() }
         }
 
-        test("using CKey") {
+        @Test fun `using CKey`() {
             val idx = IndexingUMN.IndexDef.simple("index", { doc -> setOf(doc) }, CKey::class)
-            val umn = IndexingUMN(storageProvider(), setOf(idx))
+            val umn = IndexingUMN(newStorage(), setOf(idx))
 
             (0..1000).forEach { umn.create(CKey("foo", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("bar", it.toFloat())) }
             (0..1000).forEach { umn.create(CKey("baz", it.toFloat())) }
-            expectList() { umn.getIndex(idx).findAllIDsPaged(For.KeyRange(CKey("kvak", 0f)..CKey("kvak", 10f))).toList() }
-            expectList() { umn.getIndex(idx).findAllIDsPaged(For.KeyRange(CKey("bar", 2000f)..CKey("bar", 3000f))).toList() }
+            expect(listOf()) { umn.getIndex(idx).findAllIDsPaged(For.KeyRange(CKey("kvak", 0f)..CKey("kvak", 10f))).toList() }
+            expect(listOf()) { umn.getIndex(idx).findAllIDsPaged(For.KeyRange(CKey("bar", 2000f)..CKey("bar", 3000f))).toList() }
         }
     }
 
-    group("allDocumentIdSequence()") {
-        test("initially the iterator is empty") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toList() }
-            expectList() { umn.getIndex(idxLength).getSequenceOfIDs(For.all()).toList() }
+    @Nested inner class AllDocumentIdSequence {
+        @Test fun `initially the iterator is empty`() {
+            val umn = IndexingUMN(newStorage(), indices)
+            expect(listOf()) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toList() }
+            expect(listOf()) { umn.getIndex(idxLength).getSequenceOfIDs(For.all()).toList() }
         }
-        test("iterator lists all documents") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `iterator lists all documents`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids: Set<UUID> = (0..100).map { umn.create("$it") } .toSet()
             expect(ids) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toSet() }
             expect(ids) { umn.getIndex(idxLength).getSequenceOfIDs(For.all()).toSet() }
         }
-        test("iterator doesn't list removed documents") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `iterator doesn't list removed documents`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
             ids.forEach { umn.delete(it) }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
-            expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toList() }
+            expect(listOf()) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toList() }
             expect(null) { umn.getIndex(idxLength).findFirstID(For.Key(1)) }
-            expectList() { umn.getIndex(idxLength).getSequenceOfIDs(For.all()).toList() }
+            expect(listOf()) { umn.getIndex(idxLength).getSequenceOfIDs(For.all()).toList() }
         }
-        test("iterating IDs doesn't fail even when the documents are being deleted") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `iterating IDs doesn't fail even when the documents are being deleted`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids = (0..9).map { umn.create("$it") } .toSet()
             val collected = umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).onEach {
                 ids.forEach { id -> umn.delete(id) }
             } .toList()
             expect(ids.toList()) { collected }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
-            expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toList() }
+            expect(listOf()) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).toList() }
             expect(null) { umn.getIndex(idxLength).findFirstID(For.Key(1)) }
-            expectList() { umn.getIndex(idxLength).getSequenceOfIDs(For.all()).toList() }
+            expect(listOf()) { umn.getIndex(idxLength).getSequenceOfIDs(For.all()).toList() }
         }
     }
 
-    group("documentIdSequenceByKeyRange()") {
-        test("initially the iterator is empty") {
-            val umn = IndexingUMN(storageProvider(), indices)
-            expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("0".."20")).toList() }
-            expectList() { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..3)).toList() }
+    @Nested inner class DocumentIdSequenceByKeyRange {
+        @Test fun `initially the iterator is empty`() {
+            val umn = IndexingUMN(newStorage(), indices)
+            expect(listOf()) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("0".."20")).toList() }
+            expect(listOf()) { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..3)).toList() }
         }
-        test("iterator lists all documents") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `iterator lists all documents`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids: Set<UUID> = (0..11).map { umn.create("$it") } .toSet()
             expect(ids) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("".."9999")).toSet() }
             expect(ids) { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..10)).toSet() }
         }
-        test("iterator lists only matching documents") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `iterator lists only matching documents`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
             expect(ids.toList().subList(0, 10)) { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..1)).toList() }
             expect(ids.toList().subList(10, 11)) { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(2..2)).toList() }
         }
-        test("iterator doesn't list removed documents") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `iterator doesn't list removed documents`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
             ids.forEach { umn.delete(it) }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
-            expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("0".."1000")).toList() }
+            expect(listOf()) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("0".."1000")).toList() }
             expect(null) { umn.getIndex(idxLength).findFirstID(For.Key(1)) }
-            expectList() { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..10)).toList() }
+            expect(listOf()) { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..10)).toList() }
         }
-        test("iterating IDs doesn't fail even when the documents are being deleted") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `iterating IDs doesn't fail even when the documents are being deleted`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids = (0..9).map { umn.create("$it") } .toSet()
             val collected = umn.getIndex(idxIdentity).getSequenceOfIDs(For.all()).onEach {
                 ids.forEach { id -> umn.delete(id) }
             } .toList()
             expect(ids.toList()) { collected }
             expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("0")) }
-            expectList() { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("0".."1000")).toList() }
+            expect(listOf()) { umn.getIndex(idxIdentity).getSequenceOfIDs(For.KeyRange("0".."1000")).toList() }
             expect(null) { umn.getIndex(idxLength).findFirstID(For.Key(1)) }
-            expectList() { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..10)).toList() }
+            expect(listOf()) { umn.getIndex(idxLength).getSequenceOfIDs(For.KeyRange(0..10)).toList() }
         }
     }
 
-    test("Indices should ignore incompatible documents") {
+    @Test fun `Indices should ignore incompatible documents`() {
         // all indices expect Strings. Let's feed them Long, they should ignore it.
-        val umn = IndexingUMN(storageProvider(), indices)
+        val umn = IndexingUMN(newStorage(), indices)
         val id = umn.create(25L)
         umn.update(id, 45L as java.lang.Long)
         expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
@@ -478,20 +478,20 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         expect(null) { umn.find(id, java.lang.Long::class) }
     }
 
-    group("isEmpty()") {
-        test("initially the index is empty") {
-            val umn = IndexingUMN(storageProvider(), indices)
+    @Nested inner class IsEmpty {
+        @Test fun `initially the index is empty`() {
+            val umn = IndexingUMN(newStorage(), indices)
             expect(true) { umn.getIndex(idxIdentity).isEmpty() }
             expect(true) { umn.getIndex(idxLength).isEmpty() }
         }
-        test("not empty when there are indexed documents") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `not empty when there are indexed documents`() {
+            val umn = IndexingUMN(newStorage(), indices)
             (0..100).forEach { umn.create("$it") }
             expect(false) { umn.getIndex(idxIdentity).isEmpty() }
             expect(false) { umn.getIndex(idxLength).isEmpty() }
         }
-        test("empty when all documents has been deleted") {
-            val umn = IndexingUMN(storageProvider(), indices)
+        @Test fun `empty when all documents has been deleted`() {
+            val umn = IndexingUMN(newStorage(), indices)
             val ids: Set<UUID> = (0..10).map { umn.create("$it") } .toSet()
             ids.forEach { umn.delete(it) }
             expect(true) { umn.getIndex(idxIdentity).isEmpty() }
@@ -499,8 +499,8 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
         }
     }
 
-    group("complex index") {
-        test("fast parent retrieval") {
+    @Nested inner class ComplexIndex {
+        @Test fun `fast parent retrieval`() {
             // in this example we're going to store the parent IDs instead of IDs of the children, to allow fast parent retrieval.
             // Key will be the name of the child.
             data class Parent(val name: String) : Serializable
@@ -508,7 +508,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
 
             val idxParent = IndexingUMN.IndexDef<String, Child, Parent>("quick_parent_lookup",
                 { doc -> setOf(doc.name) }, Child::class, Parent::class, { _, doc -> doc.parentId })
-            val umn = IndexingUMN(storageProvider(), setOf(idxParent))
+            val umn = IndexingUMN(newStorage(), setOf(idxParent))
             val parentIDs = listOf("a", "b", "c").map { umn.create(Parent(it)) }
             val childrenOfA = listOf("a1", "a2", "a3").map { umn.create(Child(it, parentIDs[0])) }
             listOf("b1").forEach { umn.create(Child(it, parentIDs[1])) }
@@ -538,7 +538,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
             expect(null) { idx.findFirstDoc(For.Key("a2")) }
         }
 
-        test("Indices should ignore incompatible documents") {
+        @Test fun `Indices should ignore incompatible documents`() {
             // in this example we're going to store the parent IDs instead of IDs of the children, to allow fast parent retrieval.
             // Key will be the name of the child.
             data class Parent(val name: String) : Serializable
@@ -548,7 +548,7 @@ fun DynaNodeGroup.indexingUmnTestBattery(storageProvider: ()->UMN) {
                 { doc -> setOf(doc.name) }, Child::class, Parent::class, { _, doc -> doc.parentId })
 
             // all indices expect Child. Let's feed them Long, they should ignore it.
-            val umn = IndexingUMN(storageProvider(), indices)
+            val umn = IndexingUMN(newStorage(), indices)
             val id = umn.create(25L)
             umn.update(id, 45L as java.lang.Long)
             expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
@@ -568,31 +568,31 @@ data class CKey(val category: String, val ordering: Float) : Serializable, Compa
 /**
  * Tests the [IndexingUMN] class.
  */
-class IndexingUMNTest : DynaTest({
+class IndexingUMNTest {
     // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
-    group("basic tests") {
-        group("in-memory") {
-            genericUmnTestBattery {
+    @Nested inner class BasicTests {
+        @Nested inner class InMemory : GenericUmnTestBattery() {
+            override fun newUmn(): UMN {
                 val indices = setOf(IndexingUMN.IndexDef.simple("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }, Any::class))
-                IndexingUMN(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), indices)
+                return IndexingUMN(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), indices)
             }
         }
-        group("on mvstore") {
-            genericUmnTestBattery {
+        @Nested inner class OnMvstore : GenericUmnTestBattery() {
+            override fun newUmn(): UMN {
                 val indices = setOf(IndexingUMN.IndexDef.simple("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }, Any::class))
                 val mvstore = createMvstoreUMN()
-                IndexingUMN(mvstore, indices)
+                return IndexingUMN(mvstore, indices)
             }
         }
     }
 
     // tests the indexing capabilities of the IndexingUMN
-    group("index tests") {
-        group("in-memory") {
-            indexingUmnTestBattery { InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer) }
+    @Nested inner class IndexTests {
+        @Nested inner class InMemory : IndexingUmnTestBattery() {
+            override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
         }
-        group("on mvstore") {
-            indexingUmnTestBattery { createMvstoreUMN() }
+        @Nested inner class OnMvstore : IndexingUmnTestBattery() {
+            override fun newStorage(): UMN = createMvstoreUMN()
         }
     }
-})
+}

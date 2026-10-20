@@ -42,7 +42,10 @@ subprojects {
     }
 
     dependencies {
-        // Gradle 9 no longer provides the launcher; the version comes from the junit-bom DynaTest pulls in
+        "testImplementation"(platform(rootProject.libs.junit.bom))
+        "testImplementation"(rootProject.libs.junit.jupiter)
+        "testImplementation"(kotlin("test"))
+        // Gradle 9 no longer provides the launcher; the version comes from junit-bom
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
     }
 

@@ -48,7 +48,7 @@ moved to the files above first.
 
 - **Kotlin targeting Java 17, Gradle 9 Kotlin DSL.** `kotlin("stdlib")`, never `-jdk8`, in anything Android loads.
 - **Library modules use `explicitApi()`**; every public declaration states its visibility.
-- **Tests: DynaTest on the JUnit platform**; every `GlobalLogClient` via the `umn-sync-tester` batteries.
+- **Tests: JUnit 6 Jupiter with `kotlin.test` assertions**; a reusable battery is an abstract class, run as a `@Nested inner class` subclass; every `GlobalLogClient` via the `umn-sync-tester` batteries.
 - **Logging through slf4j-api**; `slf4j-simple` only in the proxy server and tests.
 - **Dependencies live in `gradle/libs.versions.toml`**; an Android-forced pin carries its reason as a comment there.
 - **Release: Maven Central** through the root build's `publish(artifactId, description)`; a module without the call stays unpublished.

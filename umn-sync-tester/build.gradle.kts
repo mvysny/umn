@@ -1,7 +1,8 @@
 dependencies {
     api(project(":umn-core"))
-    api(libs.dynatest)
+    api(platform(libs.junit.bom))
+    api(libs.junit.jupiter.api)
+    api(kotlin("test-junit5"))
     implementation(libs.slf4j.simple)
-    runtimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

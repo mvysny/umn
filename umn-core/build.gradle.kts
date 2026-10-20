@@ -3,7 +3,6 @@ dependencies {
     implementation(libs.slf4j.api)
     api(libs.h2.mvstore)
     api(libs.vok.dataloader)
-    testImplementation(libs.dynatest)
     testImplementation(libs.slf4j.simple)
 }
 
