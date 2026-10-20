@@ -61,7 +61,8 @@ moved to the files above first.
 - `./gradlew build` — compile and test everything.
 - `./gradlew umn-core:test` — one module's tests.
 - `./gradlew koverHtmlReport` — line coverage of the shipped modules, merged, in `build/reports/kover/html/`.
-- `./gradlew build -x verifyDesignTripwires` and `./gradlew clean umn-proxy-client:build -x test` — what GitLab CI runs on push (`.gitlab-ci.yml`).
+- `./gradlew build -x verifyDesignTripwires` and `./gradlew clean umn-proxy-client:build -x test` — what GitLab CI runs on push (`.gitlab-ci.yml`). CI has no Docker, so the Testcontainers tests (`OnProdServerTest`, `ServerUpgradeTest`) skip there; only a local build runs them.
+- CI status, with `glab`: `glab api "projects/mvysny%2Fumn/pipelines?sha=$(git rev-parse HEAD)"` finds the pipeline, `glab api projects/mvysny%2Fumn/pipelines/<id>/jobs` its jobs, `glab ci trace <job id>` a job's log.
 - `./gradlew check` also runs `design/verify_design_tripwires.sh`; CI runs it as a job of its own.
 - `./gradlew umn-proxy-server:build -x test` — the proxy server zip, in `umn-proxy-server/build/distributions/`.
 
