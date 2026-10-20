@@ -19,5 +19,6 @@ design-tripwires:
     - design/verify_design_tripwires.sh
 build:
   script:
-    - ./gradlew build -x test
+    # the eclipse-temurin image has no git, which the tripwire needs; the design-tripwires job runs it
+    - ./gradlew build -x test -x verifyDesignTripwires
     - ./gradlew clean umn-proxy-client:build -x test
