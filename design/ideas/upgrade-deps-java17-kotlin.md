@@ -26,7 +26,7 @@ acting on this; the table goes stale.
 | gson | 2.11.0 | 2.14.0 | drop-in |
 | vok-dataloader | 0.8 | 0.9.1 | an `api` dependency; its types are in UMN's API |
 | h2-mvstore | 1.4.198 | 2.5.252 | stays on 1.4.x (`D_frozen_0_15_formats`); a 1.4.x bump must keep format 1 and the `ObjectDataType` tags |
-| okhttp | 3.12.2 | 5.5.0 | pinned for Android API < 21, see `Q_android_floor` |
+| okhttp | 3.12.2 | 5.5.0 | the Android pin is gone (minSdk 22; 3.13+ needs API 21); `umn-compat-0.15` reuses this version as 0.15's classpath, so give it its own 3.12.2 entry first |
 | snakeyaml | 1.23 | 2.7 | 1.x has known CVEs; 2.x changed the `Yaml` constructor and safe-loading defaults |
 | javalin | 3.11.0 | 7.2.3 | four majors; brings Jetty 12; admin REST API rewrite |
 | jetty websocket-server | 9.4.12 | `jetty-websocket-jetty-server` 12.1.14 | renamed artifact, new packages, new API |
@@ -37,9 +37,6 @@ major-upgrade module at a time. Each step should leave `./gradlew build` green.
 
 ## Open questions
 
-- `Q_android_floor`: the promise now says Java 17 bytecode, desugared by AGP 8+. Still open:
-  does it also need a minSdk? Once that is settled, the okhttp 3.12 pin (chosen for old
-  Android) can go too. Aedict's own minSdk decides this.
 - `Q_proxy_server_stack`: Javalin 7 + Jetty 12 is close to a rewrite of `UMNProxyServer`
   and `AdminServer`. Upgrade, or replace the stack with something smaller (plain Jetty 12
   for both the websocket and the admin endpoints)? Either way the websocket bytes, headers

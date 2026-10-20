@@ -111,7 +111,8 @@ public class JavaSimpleAnalyzer : Analyzer {
  * @since   1.7
  */
 public fun Int.isAlphabetic(): Boolean {
-    // do not use Character.isAlphabetic(c) - only present since Android API 19
+    // do not use Character.isAlphabetic(c): it also counts Other_Alphabetic, which would change
+    // the tokens of existing full-text indices
     val type = Character.getType(this)
     // triedy su zobrate z javadocu k Character.isAlphabetic
     return type == Character.UPPERCASE_LETTER.toInt() ||

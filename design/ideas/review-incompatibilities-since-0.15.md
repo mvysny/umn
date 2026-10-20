@@ -161,8 +161,8 @@ client and the server, both unchanged; hole punching, which the 0.12 server neve
 - okhttp 3.13.1 → 3.12.2. This is a downgrade for Android API < 21 and it's intended,
   but check nothing in `ProxyClient` used a 3.13-only API. Moot for Aedict, which already
   ran 0.15 on its own pinned 3.12.2.
-- MVStore 1.4.198 needs Android SDK 19+. The README says so; it should also go in the
-  release notes.
+- UMN now needs Android minSdk 22 (MVStore 1.4.198 alone needs 19+). The README says so; it
+  should also go in the release notes.
 - Javalin 2.6 → 3.11 in `umn-proxy-server` (`AdminServer.kt` +35/−): are the admin REST
   paths, status codes and JSON bodies unchanged? `umn-proxy-server-adminclient` depends on
   them, and Aedict-Online runs the 0.15 admin client against the 0.13-SNAPSHOT server.

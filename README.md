@@ -38,8 +38,8 @@ The syncing part is beta-quality and battle-tested in the Aedict Japanese Dictio
 
 ### Android Compatibility
 
-UMN is compiled to Java 17 bytecode, which Android Gradle Plugin 8 or newer desugars for older Android APIs. However, most recent [H2's MVStore](https://www.h2database.com/html/mvstore.html)
-only runs on SDK 19 or higher. If you need compatibility with older Androids, downgrade MVStore version to 1.4.196.
+UMN runs on Android 5.1 (API 22) or higher: set `minSdk = 22` or higher in your app.
+UMN is compiled to Java 17 bytecode, which Android Gradle Plugin 8 or newer desugars for older Android APIs.
 
 ## Adding it to your project
 
