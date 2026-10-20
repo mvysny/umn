@@ -22,7 +22,7 @@ Repro: Aedict with sync on, network off, launch → `websocket failed: UnknownHo
 network on → nothing for minutes. Only Aedict's own `Synchronizer` (stops/starts the `Syncer`
 on activity pause/resume, so `clientProvider` makes a fresh client) recovers it.
 
-## Bug 2 — records in flight at a client switch are skipped, then acked away (read, not reproduced)
+## Bug 2 — records in flight at a client switch are skipped, then acked away (reproduced)
 
 `Syncer.stop()`/`start()` replace the client and the `GlobalLogPusher` but keep the
 `MutationLog` and its `AckFIFOBuffer`. The buffer rewinds its poll pointer to the oldest
@@ -35,33 +35,58 @@ connection closed by `stop()` before `OnAdded` arrived) is skipped by the next c
 start — a harmless duplicate, records are idempotent). The skipped record never reaches the
 global log: **silent loss of a user's change.**
 
-`Q_loss_confirm`: confirm with a test before fixing — an in-process proxy server, a client that
-dies after `poll()` but before `OnAdded`, `stop()`/`start()`, then check the global log has
-every record.
+`Q_loss_confirm`: confirmed by a `umn-core` unit test instead — `InMemoryGlobalLog`, a client
+wrapper that drops every `addAsync`, `stop()`/`start()`, then check the global log has every
+record.
 
-## Fix directions
+### Two late callbacks make it worse (read, not reproduced)
 
-- **Rewind on (re)connect:** when a pusher starts on a fresh client, rewind the buffer's poll
-  pointer to the oldest unacked item (an `AckFIFOBuffer.rewindPoll()`), so delivery is
-  at-least-once; duplicates are fine.
-- **A dead client must look dead:** `ProxyClient` sets `closed` (or clears `started`) on
-  `onFailure` and on any close it didn't ask for, so `isStarted` turns false.
-- `Q_reconnect_owner`: who reconnects?
-  - inside `ProxyClient`, as the KDoc promises — but its `rewind` header is fixed at
-    `setReceiverCallback`, and a reconnect needs the puller's *current* position;
-  - or in `Syncer`/`GlobalLogPusher`: replace a dead client with `clientProvider()` and a fresh
-    `GlobalLogPuller` (which computes the rewind itself), with a back-off. Then the KDoc's
-    promise moves from the client to the syncer, and the KDoc changes.
-- `retryIO` should treat a failed `start()` (whatever exception wraps the IO failure, except
-  `InvalidUsernamePasswordException`) as retryable, with a back-off growing to ~1 min — a
-  phone offline for hours shouldn't spin every second.
+- **A late ack from a closed client.** okhttp's `ws.close()` only starts the close handshake;
+  an `OnAdded` already in flight still reaches the old pusher's callback after `Syncer.stop()`
+  and `ackLowest()`s a record the new client hasn't delivered. A rewind alone doesn't fix
+  Bug 2: a closed pusher must ignore acks (check `closed` under the lock `close()` takes),
+  which covers every `GlobalLogClient`, not just `ProxyClient`.
+- **A late record into a closed puller.** The old `GlobalLogPuller`'s callback writes its own
+  `++currentPtr` into `CURRENT_LOG_PTR` while the new puller counts from the same start, so a
+  record is skipped or applied twice. Already in 0.15; the same "closed → ignore" guard fixes it.
+
+## Fix order (decided)
+
+1. A failing `umn-core` test for Bug 2.
+2. Fix Bug 2: `AckFIFOBuffer.rewindPoll()` when a pusher starts (at-least-once delivery,
+   duplicates are fine), plus both late-callback guards. Must land before step 4: working
+   reconnects make client switches frequent, and each would be a chance to lose a record.
+3. **A dead client must look dead:** `ProxyClient` sets `closed` on `onFailure` and on any close
+   it didn't ask for, so `isStarted` turns false; `start()` unwraps the `ExecutionException`
+   and rethrows an IO cause as `IOException`, as the `GlobalLogClient` KDoc already asks.
+4. **The `Syncer` reconnects** (`Q_reconnect_owner` answered): not the client, because "a new
+   backend is a thin `GlobalLogClient`" (AGENTS.md promise), and the client's `rewind` is fixed
+   at `setReceiverCallback` anyway. On a dead client the syncer closes client, pusher and
+   puller, then takes a fresh `clientProvider()` client, `GlobalLogPuller` (computes its
+   rewind) and `GlobalLogPusher` (rewinds the buffer). Back-off 1 s doubling to 60 s; every
+   failure except `InvalidUsernamePasswordException` is retryable. The back-off is
+   configurable for tests only (internal), so the batteries don't wait seconds.
+   The `GlobalLogClient` KDoc changes from "must reconnect automatically" to "one client is
+   one connection; once it fails, `isStarted` turns false and the syncer replaces it" — a
+   failed client is never restarted. Wire and file formats unchanged.
+5. CHANGELOG lines, then Aedict's `umn-sync-test`.
+
+Reporting a fatal failure to the app is a separate idea: `syncer-failure-listener.md`.
 
 ## Tests
 
-- A `umn-sync-tester` battery: kill the transport mid-session (stop the in-process proxy server,
-  restart it on the same port), keep writing, then assert both nodes converge and the global
-  log holds every record exactly once or more.
-- The same with the server down at `start()`.
+- `umn-core` units: the Bug 2 repro; `rewindPoll()`; a closed pusher ignores acks; a closed
+  puller ignores records.
+- `GlobalLogClientTestBattery`: `isStarted` turns false once the transport dies; `start()`
+  against a server that is down throws `IOException`. Needs new battery hooks (drop all
+  connections / restart the server): the proxy server's is `server.close()` plus a new
+  `UMNProxyServer` on the same port and `lp`; `InMemoryGlobalLog` needs a small test-only
+  "kill all clients".
+- `SyncTestBattery`: kill the transport mid-session, keep writing, then assert all nodes
+  converge and the global log holds every record at least once. The same with the server down
+  at `start()`.
+- `umn-compat-0.15` stays as is: the wire format doesn't change, and restarting the container
+  on the same port is fiddly.
 - Re-run Aedict's `umn-sync-test` phase 2 (network off → install → network on, *without*
   backgrounding the app; sync must resume by itself) and then phases 3–6.
 

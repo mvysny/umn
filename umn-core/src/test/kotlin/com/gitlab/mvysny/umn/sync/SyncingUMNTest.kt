@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import kotlin.concurrent.thread
 import kotlin.test.expect
 import java.io.File
+import java.util.UUID
 
 class SyncingUMNTest {
     private lateinit var log: InMemoryGlobalLog
@@ -35,6 +36,34 @@ class SyncingUMNTest {
         }
     }
 
+    @Nested inner class ClientSwitch {
+        private var clientProvider: () -> GlobalLogClient = { log.newClient() }
+        private lateinit var umn: SyncingUMN
+        @BeforeEach fun createUmn() {
+            umn = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ clientProvider() }, JavaDocumentSerializer, true)
+        }
+        @AfterEach fun closeUmn() { umn.close() }
+
+        private fun idsInGlobalLog(): Set<UUID> =
+            log.log.map { LogRecord.fromByteArray(it, JavaDocumentSerializer, AutoTypeResolver)!!.id }.toSet()
+
+        @Test fun `a record lost in transit is re-sent by the next client`() {
+            umn.syncer.stop()
+            clientProvider = { log.newClient().droppingAdds() }
+            umn.syncer.start()
+            val lost = umn.create("lost")
+            Thread.sleep(200)
+            expect(setOf()) { idsInGlobalLog() }
+
+            umn.syncer.stop()
+            clientProvider = { log.newClient() }
+            umn.syncer.start()
+            val delivered = umn.create("delivered")
+            Thread.sleep(200)
+            expect(setOf(lost, delivered)) { idsInGlobalLog() }
+        }
+    }
+
     @Nested inner class ForceRestartSyncRelatedTests {
         private val tempFile = File.createTempFile("tmp", null).absolutePath
         private lateinit var umn: SyncingUMN
@@ -58,6 +87,14 @@ class SyncingUMNTest {
             expect(2) { log.log.size }
         }
     }
+}
+
+/**
+ * Every [GlobalLogClient.addAsync] vanishes in transit: never stored, never ACKed.
+ */
+fun GlobalLogClient.droppingAdds(): GlobalLogClient = ClientDroppingAdds(this)
+class ClientDroppingAdds(val delegate: GlobalLogClient) : GlobalLogClient by delegate {
+    override fun addAsync(record: SerializedLogRecord) {}
 }
 
 fun GlobalLogClient.withDelayedAck(): GlobalLogClient = ClientWithDelayedAck(this)
