@@ -31,8 +31,10 @@ Not yet covered:
 - `DocumentCreated2`: the initial population of a node that had documents before it synced.
   Its bytes are unchanged, but the harness syncs from the start.
 - The proxy over a real websocket. 0.15 `ProxyClient` → HEAD server can be run (the 0.15
-  client jar is in Aedict's `.m2`). HEAD client → 0.15 server can't be run here (no 0.15
-  server build), so it rests on the static review.
+  client jar is in Aedict's `.m2`). HEAD client → *deployed* server can be run after all:
+  production runs a 0.13-SNAPSHOT server, shipped as Docker Hub image
+  `mvysny/umn-proxy-server:0.12` (see `drop-unused-sync-backends.md`). Pull it, point
+  `ProxyClient` and `AdminClient` at it.
 - Keep the harness as a regression test before every release? Today it lives in a scratchpad.
 - A wrapper new since 0.15 (e.g. `FullTextUMN`) misses whatever 0.15 writes in between: the
   `D_three_op_log` "no reindex" cost, now reachable by a downgrade/upgrade round-trip.
@@ -66,7 +68,7 @@ Not yet covered:
   release notes.
 - Javalin 2.6 → 3.11 in `umn-proxy-server` (`AdminServer.kt` +35/−): are the admin REST
   paths, status codes and JSON bodies unchanged? `umn-proxy-server-adminclient` depends on
-  them.
+  them, and Aedict-Online runs the 0.15 admin client against the 0.13-SNAPSHOT server.
 
 ## 5. Distribution
 

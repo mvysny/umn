@@ -28,13 +28,13 @@ no query planner, and an index definition change does not reindex existing docum
 
 ## D_frozen_0_15_formats — Why freeze the 0.15 disk and wire formats rather than migrate them?
 
-Aedict-Online runs 0.15 and is not upgraded in step with the app, and Aedict-Reader must open
-what 0.15 wrote, so a phone on 0.16 talks to a 0.15 server and may hand its file back to 0.15
-code. A format migration therefore never helps: the other side can't run it. Frozen are the
-MVStore file format (stay on h2-mvstore 1.4.x: format 1, the same `ObjectDataType` tags; 2.x
-can't), the map names and the key/value encodings in them (`ROOT2`, `__OUTGOING_BUFFER`,
-`__CURRENT_LOG_PTR`, `__INDEX2_*`, `users`, `{user}__log`), the {LogRecord} bytes and the proxy
-{AbstractMessage} bytes, headers and close codes. A new capability may add a node-local map,
-which 0.15 ignores, but never a record or message type: 0.15 throws on an unknown type byte,
-and its sync stops for good. The API may change freely: adapting the app is easy, while a sync
+Aedict-Online (a 0.15 node and admin client) and its sync server (a 2018 0.13-SNAPSHOT build)
+are not upgraded in step with the app, and Aedict-Reader must open what 0.15 wrote, so a phone
+on 0.16 talks to that server and may hand its file back to 0.15 code. A migration never helps:
+the other side can't run it. Frozen are the MVStore file format (stay on h2-mvstore 1.4.x:
+format 1, the same `ObjectDataType` tags; 2.x can't), the map names and key/value encodings
+(`ROOT2`, `__OUTGOING_BUFFER`, `__CURRENT_LOG_PTR`, `__INDEX2_*`, `users`, `{user}__log`), the
+{LogRecord} bytes, the proxy {AbstractMessage} bytes, headers and close codes, and the admin
+REST paths and JSON. A new capability may add a node-local map, which 0.15 ignores, but never a
+record or message type: 0.15 throws on an unknown type byte, and its sync stops for good. The API may change freely: adapting the app is easy, while a sync
 or storage mismatch shows up as silently diverging data.
