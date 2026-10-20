@@ -4,6 +4,19 @@ Found by Aedict's end-to-end sync test (its `umn-sync-test` skill, phase 2) on 2
 fix before releasing 0.16, then re-run that test. Not a 0.16 regression: the 0.15 → HEAD
 diff of `ProxyClient` and `SyncingUMN.kt` changes only visibility modifiers.
 
+**Status: done, ready to graduate.** On 2026-10-20 Aedict's `umn-sync-test` re-ran phases 2–6
+on HEAD (`cdddc54`) against the production proxy server, on Android 16 and 7 (API 36, 24),
+and passed:
+- After the network came back, the `Syncer` reconnected by itself with the app untouched,
+  within 15–34 s (back-off).
+- An upgraded 0.15 node file kept its position: `rewind` equal to the server's record count,
+  nothing re-sent or re-pulled.
+- Changes made offline went up exactly once after the automatic reconnect.
+- No `VerifyError`s on API 24.
+
+The one failure found (a duplicate "default" notepad category after a nuke) is Aedict's,
+tracked in Aedict's `design/ideas/duplicate-default-category.md`.
+
 ## Bug 1 — a failed ProxyClient stays "started" (reproduced)
 
 `GlobalLogClient`'s KDoc promises "The client must reconnect automatically on non-fatal IO
