@@ -23,7 +23,9 @@ interface ProxyServer {
 
 /**
  * The proxy server Aedict-Online runs: the `mvysny/umn-proxy-server:0.12` image (UMN 0.13-SNAPSHOT on its own
- * Java 8).
+ * Java 8). The nodes connect over plain `ws://` as Aedict-Online does; Android's TLS ends in the image's Jetty.
+ *
+ * Docker Hub could lose the image as JCenter lost the 0.15 jars: keep a `docker save` of it outside the repo.
  */
 object ProdServer : ProxyServer {
     // the 0.12 tag's digest, so a re-pushed tag can't change what the tests run against

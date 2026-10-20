@@ -79,7 +79,7 @@ public sealed class AbstractMessage {
     /**
      * Sent by the server to all clients, notifying them that a record has been added to the global log (via the [AddAsync] message).
      * @property record the added record, may be null in case a hole has been punched into the log. See [com.gitlab.mvysny.umn.sync.GlobalLogClient]
-     * for details.
+     * for details. A client older than UMN 0.15 can't read a null record, so the proxy server never punches holes.
      */
     public class OnLogRecord(public val record: SerializedLogRecord?) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {

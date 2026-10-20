@@ -1,5 +1,5 @@
 // Runs UMN 0.15 nodes against HEAD, through the production proxy server image and HEAD's; unpublished.
-// The scenarios are in design/ideas/review-incompatibilities-since-0.15.md.
+// The scenarios are the *TestBattery classes, one letter each, and GoldenBytesTest.
 
 repositories {
     // UMN 0.15 died with JCenter; its jars and poms are committed here, copied from Aedict's .m2

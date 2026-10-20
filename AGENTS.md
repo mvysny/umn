@@ -20,6 +20,7 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 |---|---|---|
 | `README.md`, module `README.md`s | the pitch, usage, the user-facing sync and proxy-server docs | — |
 | `CONTRIBUTING.md` | running the tests by hand, and the release flow | — |
+| `CHANGELOG.md` | what each release changes for a user; a `Breaking:` line and its migration | — |
 | `AGENTS.md` (this) | promises, invariants, the module map, conventions, commands | every turn |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |
 | KDoc | what one symbol does and why it is shaped so | at the symbol |
@@ -53,6 +54,7 @@ moved to the files above first.
 - **Tests: JUnit 6 Jupiter with `kotlin.test` assertions**; a reusable battery is an abstract class, run as a `@Nested inner class` subclass; every `GlobalLogClient` via the `umn-sync-tester` batteries.
 - **Logging through slf4j-api**; `slf4j-simple` only in the proxy server and tests.
 - **Dependencies live in `gradle/libs.versions.toml`**; an Android-forced pin carries its reason as a comment there.
+- **A user-visible change adds a `CHANGELOG.md` line in the same commit.** An API break stays, as a `Breaking:` line with its migration step.
 - **Release: Maven Central** through the root build's `publish(artifactId, description)`; a module without the call stays unpublished. The steps are in `CONTRIBUTING.md`.
 
 ## Commands
