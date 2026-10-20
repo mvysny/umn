@@ -44,7 +44,6 @@ moved to the files above first.
 - `umn-proxy-client` — websocket `GlobalLogClient` for Android, okhttp only.
 - `umn-proxy-server` — standalone websocket proxy server with an MVStore global log and REST admin; Docker image.
 - `umn-proxy-server-adminclient` — Kotlin client for the proxy server's REST admin API.
-- `umn-performance-experiments` — ad-hoc benchmarks, e.g. full-text against Lucene; unpublished.
 - `umn-compat-0.15` — guards `D_frozen_0_15_formats`: forked UMN 0.15 nodes and HEAD sync through the production proxy-server image (Testcontainers, skipped without Docker) and through HEAD's, in-process; unpublished.
 
 ## Conventions

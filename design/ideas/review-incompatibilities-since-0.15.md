@@ -34,9 +34,3 @@ lands in `CHANGELOG.md`, a break as a `Breaking:` line with its migration.
 - vok-dataloader 0.4 → 0.9.1 is an `api` dependency of `umn-core`, and its types are in the
   UMN API (`keyLoader()` returns a `DataLoader`). Any break in vok-dataloader is a break in
   UMN.
-
-## 5. Distribution
-
-- `FullTextUMN` is new (`cabbe6f`..`dc05b77`). `7ad6b25` says "FullTextUMN probably a
-  failure", so is it released as public API, marked experimental, or removed first?
-  Shipping it public makes it a compatibility surface from 0.16 on.

@@ -20,7 +20,6 @@ javalin = "io.javalin:javalin:7.2.3"
 # lift javalin's jetty to the newest 12.1.x patch
 jetty-bom = "org.eclipse.jetty:jetty-bom:12.1.14"
 jetty-ee10-bom = "org.eclipse.jetty.ee10:jetty-ee10-bom:12.1.14"
-lucene = "org.apache.lucene:lucene-core:3.6.2"
 
 # 1.4.198+ requires Android 19 or higher, under minSdk 22: https://gitlab.com/mvysny/umn/issues/6
 # Never 2.x, and a 1.4.x bump keeps file format 1 and the ObjectDataType tags: D_frozen_0_15_formats
