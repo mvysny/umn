@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.gitlab.mvysny.umn</groupId>
+  <artifactId>umn-proxy-client</artifactId>
+  <version>0.15</version>
+  <dependencies>
+    <dependency>
+      <groupId>com.gitlab.mvysny.umn</groupId>
+      <artifactId>umn-core</artifactId>
+      <version>0.15</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>3.13.1</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+  <description>UMN: Proxy Client</description>
+  <name>umn-proxy-client</name>
+  <url>https://gitlab.com/mvysny/umn</url>
+</project>

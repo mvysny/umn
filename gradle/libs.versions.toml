@@ -22,3 +22,13 @@ lucene = "org.apache.lucene:lucene-core:3.6.2"
 # 1.4.198+ requires Android 19 or higher: https://gitlab.com/mvysny/umn/issues/6
 h2-mvstore = "com.h2database:h2-mvstore:1.4.198"
 vok-dataloader = "com.github.mvysny.vokdataloader:vok-dataloader:0.8"
+
+testcontainers = "org.testcontainers:testcontainers:2.0.5"
+testcontainers-junit-jupiter = "org.testcontainers:testcontainers-junit-jupiter:2.0.5"
+
+# umn-compat-0.15: UMN 0.15 on the classpath Aedict-Online runs it on (aedict-common 3.50.19),
+# which pins these over 0.15's pom; okhttp is the `okhttp` above
+umn015-proxy-client = "com.gitlab.mvysny.umn:umn-proxy-client:0.15"
+umn015-kotlin-stdlib = "org.jetbrains.kotlin:kotlin-stdlib:1.4.0"
+umn015-vok-dataloader = "com.github.mvysny.vokdataloader:vok-dataloader:0.5"
+umn015-slf4j-simple = "org.slf4j:slf4j-simple:1.7.25"

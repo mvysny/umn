@@ -27,14 +27,11 @@ the index finds them, HEAD pushes 0.15's queue → 0.15 opens HEAD's file and co
 again; fresh nodes of either version pull the mixed log, and each version decodes every
 record. All passed, nothing pushed twice. The harness needs no Gradle, so 0.15 never has to be built.
 
-Not yet covered (the next section plans the first two):
-- `DocumentCreated2`: the initial population of a node that had documents before it synced.
-  Its bytes are unchanged, but the harness syncs from the start.
-- The proxy over a real websocket, against the deployed server: Docker Hub image
-  `mvysny/umn-proxy-server:0.12`, whose jars are `0.13-SNAPSHOT` (a build between `f90b105`
-  2018-09-27 and `f4ca711` 2018-10-02).
-- A wrapper new since 0.15 (e.g. `FullTextUMN`) misses whatever 0.15 writes in between: the
-  `D_three_op_log` "no reindex" cost, now reachable by a downgrade/upgrade round-trip.
+`umn-compat-0.15` (next section) has since covered `DocumentCreated2` and the proxy over a real
+websocket against the deployed server: Docker Hub image `mvysny/umn-proxy-server:0.12`, whose
+jars are `0.13-SNAPSHOT` (a build between `f90b105` 2018-09-27 and `f4ca711` 2018-10-02).
+Not yet covered: a wrapper new since 0.15 (e.g. `FullTextUMN`) misses whatever 0.15 writes in
+between, the `D_three_op_log` "no reindex" cost, now reachable by a downgrade/upgrade round-trip.
 
 The deployed server vs 0.15 and HEAD, statically: `umn_proxy_log` storage is identical across
 `f90b105..0.15` (same `users` / `{username}__log` maps, `PasswordHash`, MVStore 1.4.197), so an
@@ -46,9 +43,10 @@ the `username`/`password`/`rewind` headers, four message types and two close cod
 
 ## The `umn-compat-0.15` test module
 
-It guards the deployment as it will be: Aedict on Android upgrades to UMN 0.16, while
-Aedict-Online stays as it is, both its server and its own 0.15 nodes. An unpublished module
-whose JUnit 6 tests run 0.15 nodes for real and the server as the production Docker image.
+Implemented: A1–A3, B1–B4, C1–C5 and D pass. It guards the deployment as it will be: Aedict on
+Android upgrades to UMN 0.16, while Aedict-Online stays as it is, both its server and its own
+0.15 nodes. An unpublished module whose JUnit 6 tests run 0.15 nodes for real and the server as
+the production Docker image.
 
 ### The deployment, from Aedict's sources
 
@@ -135,8 +133,7 @@ client and the server, both unchanged; hole punching, which the 0.12 server neve
   outside the repo.
 - **No fixed sleeps.** A sync step polls until the outgoing buffer drains and the server's log
   size is reached, with a timeout; the harness's `Thread.sleep(1000)` would flake in a build.
-- When it lands, `AGENTS.md` names the module as the guard of `D_frozen_0_15_formats`, and
-  "Not yet covered" above shrinks to whatever it can't reach.
+- **Checked to fail.** Changing `DocumentUpdated`'s type byte in HEAD fails 10 of the 16 tests.
 
 ## 3. Kotlin API and binary compatibility for library consumers
 

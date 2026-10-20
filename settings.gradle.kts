@@ -4,5 +4,6 @@ include("umn-core",
         "umn-proxy-server",
         "umn-proxy-client",
         "umn-proxy-server-adminclient",
-        "umn-performance-experiments"
+        "umn-performance-experiments",
+        "umn-compat-0.15"
 )

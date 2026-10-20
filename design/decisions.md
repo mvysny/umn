@@ -37,4 +37,4 @@ format 1, the same `ObjectDataType` tags; 2.x can't), the map names and key/valu
 {LogRecord} bytes, the proxy {AbstractMessage} bytes, headers and close codes, and the admin
 REST paths and JSON. A new capability may add a node-local map, which 0.15 ignores, but never a
 record or message type: 0.15 throws on an unknown type byte, and its sync stops for good. The API may change freely: adapting the app is easy, while a sync
-or storage mismatch shows up as silently diverging data.
+or storage mismatch shows up as silently diverging data. `umn-compat-0.15`'s tests hold HEAD to it.
