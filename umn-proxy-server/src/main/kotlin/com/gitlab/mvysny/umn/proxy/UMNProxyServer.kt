@@ -4,41 +4,41 @@ import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.proxyclient.AbstractMessage
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.websocket.api.RemoteEndpoint
+import io.javalin.Javalin
+import io.javalin.websocket.WsConfig
+import io.javalin.websocket.WsContext
+import org.eclipse.jetty.websocket.api.Callback
 import org.eclipse.jetty.websocket.api.Session
-import org.eclipse.jetty.websocket.api.WebSocketListener
-import org.eclipse.jetty.websocket.server.WebSocketHandler
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
+import java.time.Duration
 
 /**
- * The web socket listener.
+ * One client's web socket connection.
  */
-class UMNProxyWebsocketListener : WebSocketListener {
-    private lateinit var session: Session
+class UMNProxyWebsocketListener(private val session: Session, private val globalLogClientProvider: GlobalLogClientProvider) {
     private var username: String? = null
     /**
      * Null until the connection's headers have been verified.
      */
     private var logStorage: GlobalLogClient? = null
-    override fun onWebSocketClose(statusCode: Int, reason: String?) {
+    fun onWebSocketClose(statusCode: Int, reason: String?) {
         log.info("$username: Closing web socket: statusCode=$statusCode, reason=$reason")
         logStorage?.close()
     }
 
-    override fun onWebSocketError(t: Throwable) {
+    fun onWebSocketError(t: Throwable) {
         log.error("$username: Web socket failure: $t", t)
         logStorage?.close()
     }
 
-    override fun onWebSocketConnect(session: Session): Unit {
+    fun onWebSocketConnect() {
         try {
             log.info("Got connection; headers=${session.upgradeRequest.headers}")
-            this.session = session
 
+            // Jetty's lookup ignores the header name's case, Javalin's WsContext.header() doesn't
             val username: String? = session.upgradeRequest.getHeader("username")
             val password: String? = session.upgradeRequest.getHeader("password")
             val rewindStr: String? = session.upgradeRequest.getHeader("rewind")
@@ -46,43 +46,44 @@ class UMNProxyWebsocketListener : WebSocketListener {
                 throw InvalidUsernamePasswordException("Missing headers")
             }
             this.username = username
-            val logStorage = server.globalLogClientProvider.createClient(username, password)
+            val logStorage = globalLogClientProvider.createClient(username, password)
             this.logStorage = logStorage
 
             val rewind = rewindStr.toLong()
             logStorage.setAddCallback {
-                session.remote.send(AbstractMessage.OnAdded)
+                session.send(AbstractMessage.OnAdded)
             }
             logStorage.setReceiverCallback(rewind) { record ->
-                session.remote.send(AbstractMessage.OnLogRecord(record))
+                session.send(AbstractMessage.OnLogRecord(record))
             }
             logStorage.start()
-            session.remote.send(AbstractMessage.Started)
+            session.send(AbstractMessage.Started)
             log.info("Connection successful, sent handshake AbstractMessage.Started")
         } catch (e: InvalidUsernamePasswordException) {
             logStorage?.closeQuietly()
             log.warn("Invalid username/password", e)
-            session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, e.message)
+            session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, e.message, Callback.NOOP)
         } catch (e: Throwable) {
             logStorage?.closeQuietly()
             log.warn("General storage error", e)
-            session.close(AbstractMessage.WS_SERVER_ERROR, e.message)
+            session.close(AbstractMessage.WS_SERVER_ERROR, e.message, Callback.NOOP)
         }
     }
 
-    override fun onWebSocketText(message: String) {
+    fun onWebSocketText(message: String) {
         log.error("Unexpected: Received text message $message, MITM?!?")
-        session.close(1003, "UNEXPECTED TEXT MESSAGE")
+        session.close(1003, "UNEXPECTED TEXT MESSAGE", Callback.NOOP)
         logStorage?.close()
     }
 
-    override fun onWebSocketBinary(payload: ByteArray, offset: Int, len: Int) {
-        val msg = AbstractMessage.fromByteArray(payload, offset, len)
+    fun onWebSocketBinary(payload: ByteBuffer) {
+        val bytes = ByteArray(payload.remaining()).also { payload.get(it) }
+        val msg = AbstractMessage.fromByteArray(bytes, 0, bytes.size)
         log.debug("Got message $msg")
         if (msg is AbstractMessage.AddAsync) {
             logStorage!!.addAsync(msg.record)
         } else {
-            session.close(1002, "Unexpected message arrived: $msg")
+            session.close(1002, "Unexpected message arrived: $msg", Callback.NOOP)
             logStorage?.close()
         }
     }
@@ -104,28 +105,51 @@ lateinit var server: UMNProxyServer
  * @param secure optionally also listen on a secure socket address
  * @param globalLogClientProvider [UMNProxyWebsocketListener] uses this guy to delegate the global log calls to.
  */
-class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
-    private val server = Server(adr)
-    init {
-        server.handler = WebSocketHandler.Simple(UMNProxyWebsocketListener::class.java)
-        secure?.registerJettyConnector(server)
+class UMNProxyServer(private val adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
+    private val javalin = Javalin.create { config ->
+        config.startup.showJavalinBanner = false
+        // Jetty 9's default, which ProxyClient's ping interval is set against; Jetty 12's is 30 seconds
+        config.jetty.modifyWebSocketServletFactory { it.idleTimeout = Duration.ofMinutes(5) }
+        if (secure != null) {
+            config.jetty.addConnector { server, _ -> secure.createJettyConnector(server) }
+        }
+        // any path, as 0.15 clients connect to whatever URL they were configured with
+        config.routes.ws("/*") { ws -> ws.relayTo(globalLogClientProvider) }
     }
 
     /**
      * Starts the server asynchronously.
      */
     fun start() {
-        server.start()
+        javalin.start(adr.hostString, adr.port)
     }
 
     override fun close() {
-        server.stop()
+        javalin.stop()
         globalLogClientProvider.close()
     }
 }
 
-fun RemoteEndpoint.send(msg: AbstractMessage) {
+private fun WsConfig.relayTo(globalLogClientProvider: GlobalLogClientProvider) {
+    onConnect { ctx ->
+        ctx.attribute(LISTENER, UMNProxyWebsocketListener(ctx.session, globalLogClientProvider))
+        ctx.listener.onWebSocketConnect()
+    }
+    onBinaryMessage { ctx -> ctx.listener.onWebSocketBinary(ctx.data()) }
+    onMessage { ctx -> ctx.listener.onWebSocketText(ctx.message()) }
+    onClose { ctx -> ctx.listener.onWebSocketClose(ctx.status(), ctx.reason()) }
+    onError { ctx -> ctx.listener.onWebSocketError(ctx.error() ?: IllegalStateException("unknown web socket error")) }
+}
+
+private const val LISTENER = "umn-listener"
+private val WsContext.listener: UMNProxyWebsocketListener get() = attribute(LISTENER)!!
+
+/**
+ * Sends [msg], blocking until it's written: a slow client then holds up the log's callbacks rather than piling the
+ * records up in Jetty's unbounded send queue.
+ */
+fun Session.send(msg: AbstractMessage) {
     val bytes = msg.asByteArray()
     check(bytes.isNotEmpty()) { "sending empty message!" }
-    sendBytes(ByteBuffer.wrap(bytes))
+    Callback.Completable.with { sendBinary(ByteBuffer.wrap(bytes), it) }.get()
 }

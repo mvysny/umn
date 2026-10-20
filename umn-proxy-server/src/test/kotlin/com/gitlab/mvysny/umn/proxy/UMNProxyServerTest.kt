@@ -49,6 +49,12 @@ class UMNProxyServerTest {
         expect(0) { server.globalLogClientProvider.activeClientCount }
     }
 
+    @Test fun `clients connect on any path`() {
+        val client = ProxyClient(httpClient, Request.Builder().url("ws://localhost:51343/some/path"), "user", "example")
+        client.start()
+        client.close()
+    }
+
     @Nested inner class SyncWritesLogsIntoTheDatabase {
         private lateinit var client: GlobalLogClient
         @BeforeEach fun createClient() { client = createSyncClient(httpClient) }

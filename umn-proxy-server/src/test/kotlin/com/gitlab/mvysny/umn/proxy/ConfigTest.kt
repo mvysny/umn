@@ -1,7 +1,6 @@
 package com.gitlab.mvysny.umn.proxy
 
 import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.server.ServerConnector
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
@@ -35,21 +34,19 @@ class ConfigTest {
 
     @Nested inner class SecureConnector {
         @Test fun `missing pkcs12 fails`() {
-            assertFailsWith<IllegalArgumentException> { Secure().registerJettyConnector(Server()) }
+            assertFailsWith<IllegalArgumentException> { Secure().createJettyConnector(Server()) }
         }
         @Test fun `nonexisting pkcs12 file fails`() {
-            assertFailsWith<IllegalArgumentException> { Secure(pkcs12 = "/nonexisting/keystore.p12").registerJettyConnector(Server()) }
+            assertFailsWith<IllegalArgumentException> { Secure(pkcs12 = "/nonexisting/keystore.p12").createJettyConnector(Server()) }
         }
         @Test fun `pkcs12 directory fails`() {
             val dir = Files.createTempDirectory("tmp").toString()
-            assertFailsWith<IllegalArgumentException> { Secure(pkcs12 = dir).registerJettyConnector(Server()) }
+            assertFailsWith<IllegalArgumentException> { Secure(pkcs12 = dir).createJettyConnector(Server()) }
         }
-        @Test fun `registers the https connector`() {
+        @Test fun `creates the https connector`() {
             // the keystore is only read once the server starts
             val p12 = File.createTempFile("keystore", ".p12")
-            val server = Server()
-            Secure(port = 666, host = "127.0.0.1", pkcs12 = p12.absolutePath).registerJettyConnector(server)
-            val connector = server.connectors.single() as ServerConnector
+            val connector = Secure(port = 666, host = "127.0.0.1", pkcs12 = p12.absolutePath).createJettyConnector(Server())
             expect(666) { connector.port }
             expect("127.0.0.1") { connector.host }
         }

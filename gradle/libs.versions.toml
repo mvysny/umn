@@ -14,10 +14,10 @@ gson = "com.google.code.gson:gson:2.14.0"
 # needs API 21: https://medium.com/square-corner-blog/okhttp-3-13-requires-android-5-818bb78d07ce
 okhttp = "com.squareup.okhttp3:okhttp:3.12.2"
 snakeyaml = "org.yaml:snakeyaml:2.7"
-javalin = "io.javalin:javalin:3.13.13"
-# the bom aligns javalin's own jetty modules with ours
-jetty-bom = "org.eclipse.jetty:jetty-bom:9.4.58.v20250814"
-jetty = { module = "org.eclipse.jetty.websocket:websocket-server" }
+javalin = "io.javalin:javalin:7.2.3"
+# lift javalin's jetty to the newest 12.1.x patch
+jetty-bom = "org.eclipse.jetty:jetty-bom:12.1.14"
+jetty-ee10-bom = "org.eclipse.jetty.ee10:jetty-ee10-bom:12.1.14"
 lucene = "org.apache.lucene:lucene-core:3.6.2"
 
 # 1.4.198+ requires Android 19 or higher, under minSdk 22: https://gitlab.com/mvysny/umn/issues/6

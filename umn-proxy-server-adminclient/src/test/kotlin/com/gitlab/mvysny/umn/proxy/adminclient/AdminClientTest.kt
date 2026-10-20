@@ -7,8 +7,6 @@ import com.gitlab.mvysny.umn.proxy.UMNProxyServer
 import com.gitlab.mvysny.umn.proxy.server
 import com.google.gson.JsonParseException
 import io.javalin.Javalin
-import io.javalin.http.HttpResponseExceptionMapper
-import io.javalin.http.InternalServerErrorResponse
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -37,11 +35,12 @@ class AdminClientTest {
     @Nested inner class WithInvalidServer {
         private lateinit var javalin: Javalin
         @BeforeEach fun startJavalin() {
-            javalin = Javalin.create { it.showJavalinBanner = false }
-                    .get("admin/users") { ctx -> ctx.result("foo") }
-                    .get("admin/stats/logsizes") { _ -> throw RuntimeException("dummy fail") }
-                    .exception(Exception::class.java) { e, ctx -> HttpResponseExceptionMapper.handle(InternalServerErrorResponse(e.message!!), ctx) }
-                    .start(10145)
+            javalin = Javalin.create { config ->
+                config.startup.showJavalinBanner = false
+                config.routes.get("admin/users") { ctx -> ctx.result("foo") }
+                config.routes.get("admin/stats/logsizes") { _ -> throw RuntimeException("dummy fail") }
+                config.routes.exception(Exception::class.java) { e, ctx -> ctx.status(500).result(e.message!!) }
+            }.start(10145)
         }
         @AfterEach fun stopJavalin() { javalin.stop() }
 
@@ -98,7 +97,8 @@ class AdminClientTest {
                 val ex = assertFailsWith<IOException> {
                     client.createOrUpdateUser("adam", "")
                 }
-                assertContains(ex.message!!, "400: Query parameter 'password' with value '' cannot be null or empty")
+                assertContains(ex.message!!, "400: ")
+                assertContains(ex.message!!, "password")
             }
         }
         @Nested inner class DeletingUsers {

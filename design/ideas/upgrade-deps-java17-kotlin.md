@@ -3,7 +3,9 @@
 Bring every dependency up to date on top of the Java 17 floor.
 
 Done on 2026-10-20: Gradle 9.8.1, Kotlin 2.4.21, `jvmTarget` / `sourceCompatibility` 17, CI
-image `eclipse-temurin:21-jdk`, proxy-server Docker image `eclipse-temurin:21-jre`.
+image `eclipse-temurin:21-jdk`, proxy-server Docker image `eclipse-temurin:21-jre`; slf4j 2.0.20,
+gson 2.14.0, vok-dataloader 0.9.1, snakeyaml 2.7, and the proxy server on Javalin 7.2.3 with
+Jetty 12.1.14 (websocket on `app.ws`, no direct Jetty dependency left).
 
 Latest versions were looked up on 2026-10-18 via the `maven-versions` script. Re-run it before
 acting on this; the table goes stale.
@@ -22,14 +24,8 @@ acting on this; the table goes stale.
 
 | Library | Now | Latest | Note |
 |---|---|---|---|
-| slf4j-api / slf4j-simple | 2.0.13 | 2.0.20 | drop-in |
-| gson | 2.11.0 | 2.14.0 | drop-in |
-| vok-dataloader | 0.8 | 0.9.1 | an `api` dependency; its types are in UMN's API |
 | h2-mvstore | 1.4.198 | 2.5.252 | stays on 1.4.x (`D_frozen_0_15_formats`); a 1.4.x bump must keep format 1 and the `ObjectDataType` tags |
-| okhttp | 3.12.2 | 5.5.0 | the Android pin is gone (minSdk 22; 3.13+ needs API 21); `umn-compat-0.15` reuses this version as 0.15's classpath, so give it its own 3.12.2 entry first |
-| snakeyaml | 1.23 | 2.7 | 1.x has known CVEs; 2.x changed the `Yaml` constructor and safe-loading defaults |
-| javalin | 3.11.0 | 7.2.3 | four majors; brings Jetty 12; admin REST API rewrite |
-| jetty websocket-server | 9.4.12 | `jetty-websocket-jetty-server` 12.1.14 | renamed artifact, new packages, new API |
+| okhttp | 3.12.2 | 5.5.0 | waits until Aedict is ready for a new major: it's `api` in `umn-proxy-client`. The Android pin is gone (minSdk 22; 3.13+ needs API 21); `umn-compat-0.15` reuses this version as 0.15's classpath, so give it its own 3.12.2 entry first |
 | lucene-core | 3.6.2 | 10.5.2 | only in `umn-performance-experiments`; maybe just delete the module (`Q_perf_module`) |
 
 Suggested order: the drop-ins first, then one
@@ -37,10 +33,6 @@ major-upgrade module at a time. Each step should leave `./gradlew build` green.
 
 ## Open questions
 
-- `Q_proxy_server_stack`: Javalin 7 + Jetty 12 is close to a rewrite of `UMNProxyServer`
-  and `AdminServer`. Upgrade, or replace the stack with something smaller (plain Jetty 12
-  for both the websocket and the admin endpoints)? Either way the websocket bytes, headers
-  and close codes stay as 0.15 has them (`D_frozen_0_15_formats`).
 - `Q_ci_image`: should CI start running the tests (it currently runs `-x test`)? With the
   Kafka and MongoDB modules gone, no test needs Docker any more.
 - `Q_convention_plugins`: move the shared `subprojects {}` config to `buildSrc` convention

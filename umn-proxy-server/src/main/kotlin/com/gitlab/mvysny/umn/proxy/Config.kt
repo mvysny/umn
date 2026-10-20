@@ -50,12 +50,8 @@ data class Secure(var port: Int = 10146,
                   var host: String = "0.0.0.0",
                   var pkcs12: String? = null) {
 
-    fun registerJettyConnector(server: Server) {
-        val p12 = requireNotNull(pkcs12) { "The pkcs12 key is missing!" }
-        server.addConnector(createJettyConnector(File(p12), server))
-    }
-
-    private fun createJettyConnector(pkcs12: File, server: Server): ServerConnector {
+    fun createJettyConnector(server: Server): ServerConnector {
+        val pkcs12 = File(requireNotNull(pkcs12) { "The pkcs12 key is missing!" })
         require(pkcs12.exists()) { "$pkcs12 does not exist" }
         require(pkcs12.isFile) { "$pkcs12 is not a file" }
         require(pkcs12.canRead()) { "$pkcs12 is not readable" }
@@ -66,7 +62,7 @@ data class Secure(var port: Int = 10146,
         config.addCustomizer(ForwardedRequestCustomizer())
 
         // Create the HTTPS end point
-        val sslContextFactory = SslContextFactory()
+        val sslContextFactory = SslContextFactory.Server()
         sslContextFactory.keyStoreType = "PKCS12"
         sslContextFactory.keyStorePath = pkcs12.absolutePath
         sslContextFactory.setKeyStorePassword("")

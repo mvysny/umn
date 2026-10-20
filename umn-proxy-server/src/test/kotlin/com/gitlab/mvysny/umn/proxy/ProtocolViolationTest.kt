@@ -9,9 +9,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.websocket.api.Session
-import org.eclipse.jetty.websocket.server.WebSocketHandler
+import io.javalin.Javalin
+import io.javalin.websocket.WsConnectContext
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
@@ -91,16 +90,17 @@ class ProtocolViolationTest {
     }
 
     @Nested inner class MisbehavingServer {
-        private lateinit var jetty: Server
-        private fun startJetty(onConnect: (Session) -> Unit) {
-            jetty = Server(InetSocketAddress("127.0.0.1", 51343))
-            jetty.handler = WebSocketHandler.Simple(FakeProxyServer::class.java)
-            FakeProxyServer.onConnect = onConnect
-            jetty.start()
+        private var javalin: Javalin? = null
+        private fun startServer(onClose: (Int) -> Unit = {}, onConnect: (WsConnectContext) -> Unit) {
+            javalin = Javalin.create { config ->
+                config.startup.showJavalinBanner = false
+                config.routes.ws("/") { ws ->
+                    ws.onConnect(onConnect)
+                    ws.onClose { ctx -> onClose(ctx.status()) }
+                }
+            }.start("127.0.0.1", 51343)
         }
-        @AfterEach fun stopJetty() {
-            if (::jetty.isInitialized) jetty.stop()
-        }
+        @AfterEach fun stopServer() { javalin?.stop() }
         private fun newClient() = ProxyClient(httpClient, Request.Builder().url("ws://localhost:51343"), "user", "example")
 
         @Test fun `no server fails the client start`() {
@@ -110,14 +110,14 @@ class ProtocolViolationTest {
         }
 
         @Test fun `text message fails the client start`() {
-            startJetty { it.remote.sendString("hello") }
+            startServer { it.send("hello") }
             val client = newClient()
             assertFailsWith<ExecutionException> { client.start() }
             client.close()
         }
 
         @Test fun `server error fails the client start`() {
-            startJetty { it.close(AbstractMessage.WS_SERVER_ERROR, "simulated") }
+            startServer { it.closeSession(AbstractMessage.WS_SERVER_ERROR, "simulated") }
             val client = newClient()
             val ex = assertFailsWith<ExecutionException> { client.start() }
             expect("${AbstractMessage.WS_SERVER_ERROR}: simulated") { ex.cause!!.message }
@@ -126,35 +126,14 @@ class ProtocolViolationTest {
 
         @Test fun `client-to-server message makes the client close the connection`() {
             val closeCode = CompletableFuture<Int>()
-            FakeProxyServer.onClose = { closeCode.complete(it) }
-            startJetty { session ->
-                session.remote.send(AbstractMessage.Started)
-                session.remote.send(AbstractMessage.AddAsync(byteArrayOf(1)))
+            startServer(onClose = { closeCode.complete(it) }) { ctx ->
+                ctx.session.send(AbstractMessage.Started)
+                ctx.session.send(AbstractMessage.AddAsync(byteArrayOf(1)))
             }
             val client = newClient()
             client.start()
             expect(1002) { closeCode.get(5, TimeUnit.SECONDS) }
             client.close()
         }
-    }
-}
-
-/**
- * Jetty instantiates the listener per connection, hence the callbacks live in the companion.
- */
-class FakeProxyServer : org.eclipse.jetty.websocket.api.WebSocketAdapter() {
-    override fun onWebSocketConnect(sess: Session) {
-        super.onWebSocketConnect(sess)
-        onConnect(sess)
-    }
-
-    override fun onWebSocketClose(statusCode: Int, reason: String?) {
-        super.onWebSocketClose(statusCode, reason)
-        onClose(statusCode)
-    }
-
-    companion object {
-        @Volatile var onConnect: (Session) -> Unit = {}
-        @Volatile var onClose: (Int) -> Unit = {}
     }
 }
