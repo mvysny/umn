@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     api(project(":umn-proxy-client"))
+    implementation(platform(libs.jetty.bom))
     implementation(libs.jetty)
     implementation(libs.slf4j.simple)
 
