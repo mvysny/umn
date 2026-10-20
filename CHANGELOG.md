@@ -35,7 +35,7 @@ no entries.
   above fails at runtime. Migration: recompile against 0.16.
 - Dependencies: h2-mvstore 1.4.198 (same file format as 0.15's 1.4.197); okhttp 3.12.2 in
   `umn-proxy-client` (0.15: 3.13.1), the version Aedict already pinned 0.15 to.
-- `umn-proxy-server` needs Java 17; its Docker image runs on Java 21.
+- `umn-proxy-server` needs Java 17; its Docker image runs on Java 25.
 - `ProxyClient` no longer logs the password: 0.15 logged every request header at debug level,
   the `password` header included.
 - A change no longer goes missing when the `Syncer` switches clients (`stop()`/`start()`): 0.15
