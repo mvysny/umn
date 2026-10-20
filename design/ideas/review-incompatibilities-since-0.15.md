@@ -10,10 +10,6 @@ lands in `CHANGELOG.md`, a break as a `Breaking:` line with its migration.
 
 ## Disk and wire: not yet covered by `umn-compat-0.15`
 
-- 0.15 reopening a node file 0.16 wrote. `D_frozen_0_15_formats` promises it, Aedict never needs
-  it (the phone is never downgraded).
-- A wrapper new since 0.15 (e.g. `FullTextUMN`) misses whatever 0.15 writes in between, the
-  `D_three_op_log` "no reindex" cost, reachable by a downgrade/upgrade round-trip.
 - HEAD's proxy server opening the 0.12 server's `umn_proxy_log` file in place: verified only
   statically (same `users` / `{username}__log` maps, `PasswordHash`, MVStore 1.4.x).
 

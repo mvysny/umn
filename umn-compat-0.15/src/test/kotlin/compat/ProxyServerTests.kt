@@ -9,6 +9,7 @@ class OnProdServerTest {
     @Nested inner class PhoneUpgrade : PhoneUpgradeTestBattery(ProdServer)
     @Nested inner class MixedFleet : MixedFleetTestBattery(ProdServer)
     @Nested inner class Admin : AdminTestBattery(ProdServer)
+    @Nested inner class Downgrade : DowngradeTestBattery(ProdServer)
 }
 
 /**
@@ -19,4 +20,5 @@ class OnHeadServerTest {
     @Nested inner class PhoneUpgrade : PhoneUpgradeTestBattery(HeadServer)
     @Nested inner class MixedFleet : MixedFleetTestBattery(HeadServer)
     @Nested inner class Admin : AdminTestBattery(HeadServer)
+    @Nested inner class Downgrade : DowngradeTestBattery(HeadServer)
 }
