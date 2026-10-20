@@ -76,7 +76,7 @@ record.
    failed client is never restarted. Wire and file formats unchanged.
 5. CHANGELOG lines, then Aedict's `umn-sync-test`.
 
-Reporting a fatal failure to the app is a separate idea: `syncer-failure-listener.md`.
+The app hears a fatal failure through `Syncer.setStatusListener`.
 
 ## Tests
 

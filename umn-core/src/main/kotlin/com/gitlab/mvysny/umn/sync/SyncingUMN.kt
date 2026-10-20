@@ -185,6 +185,13 @@ public class SyncingUMN internal constructor(override val delegate: AnnouncingUM
  * While started, the syncer keeps one client connected: when the client's connection fails, the syncer closes it and
  * takes a new one from [clientProvider], after a back-off growing from 1 second to 1 minute. Only an
  * [InvalidUsernamePasswordException] stops it for good; [stop] and [start] it to try again, e.g. with new credentials.
+ * [setStatusListener] tells the app which of these is happening, e.g. to show "offline" or "wrong password":
+ *
+ * ```
+ * syncingUMN.syncer.setStatusListener { status ->
+ *     runOnUiThread { showSyncStatus(status) }  // Android; called on the syncer's own thread
+ * }
+ * ```
  *
  * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
  * and they will send same changes multiple times to other nodes!
@@ -220,6 +227,16 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
     private var forceRestartSyncOnFirstStart = forceRestartSync
 
     /**
+     * What the syncer is doing right now; changes on the syncer's own thread, as [setStatusListener] hears it.
+     */
+    @Volatile
+    public var status: SyncerStatus = SyncerStatus.Stopped
+        private set
+
+    //guarded-by: run in eventLoop
+    private var statusListener: SyncerStatusListener? = null
+
+    /**
      * Starts syncing. Thread-safe. Attempt to start an already started syncer does nothing.
      */
     public fun start(): Unit = event {
@@ -227,6 +244,24 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
             loop = SyncLoop(forceRestartSyncOnFirstStart)
             forceRestartSyncOnFirstStart = false
         }
+    }
+
+    /**
+     * Calls [listener] with the current [status] now, then with every change, in order; null removes the
+     * listener. Thread-safe; a syncer has one listener at most.
+     *
+     * The listener is called on the syncer's own thread, never the UI thread, and a slow one delays [start]
+     * and [stop], so hop to the UI thread rather than work in it. An exception it throws is logged.
+     */
+    public fun setStatusListener(listener: SyncerStatusListener?): Unit = event {
+        statusListener = listener
+        listener?.onStatusChanged(status)
+    }
+
+    //guarded-by: run in eventLoop
+    private fun publish(status: SyncerStatus) {
+        this.status = status
+        statusListener?.onStatusChanged(status)
     }
 
     private fun event(forceRun: Boolean = false, block: ()->Unit) {
@@ -250,6 +285,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
         // zisti ze eventLoop je shutdownuty a nic neurobi.
         loop?.closeQuietly()
         loop = null
+        publish(SyncerStatus.Stopped)
     }
 
     /**
@@ -274,6 +310,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
 
         private fun run() {
             while (!isClosed) {
+                var cause: Throwable? = null
                 try {
                     connectAndPush()
                     if (!isClosed) {
@@ -281,14 +318,34 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                     }
                 } catch (e: InvalidUsernamePasswordException) {
                     log.error("Invalid username or password, syncing stops", e)
+                    post(SyncerStatus.Failed(e))
                     return
                 } catch (t: Throwable) {
+                    cause = t
                     if (!isClosed) {
                         log.warn("Failed to sync with the global log, reconnecting", t)
                     }
                 }
                 failures++
-                closed.await(backoff.delayMillis(failures), TimeUnit.MILLISECONDS)
+                val delayMillis = backoff.delayMillis(failures)
+                post(SyncerStatus.Offline(cause, delayMillis))
+                closed.await(delayMillis, TimeUnit.MILLISECONDS)
+            }
+        }
+
+        /**
+         * Publishes [status] on the event loop, unless this loop is no longer [loop] by then.
+         */
+        private fun post(status: SyncerStatus) {
+            try {
+                event {
+                    // stop() publishes Stopped after closing this loop, ahead of what it posted meanwhile
+                    if (loop === this@SyncLoop) {
+                        publish(status)
+                    }
+                }
+            } catch (e: RejectedExecutionException) {
+                // the syncer is closed
             }
         }
 
@@ -296,6 +353,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
          * Returns once the connection fails or this loop closes.
          */
         private fun connectAndPush() {
+            post(SyncerStatus.Connecting)
             val client = clientProvider()
             val pusher: GlobalLogPusher
             synchronized(this) {
@@ -311,6 +369,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
             try {
                 client.start()
                 failures = 0
+                post(SyncerStatus.Connected)
                 pusher.push()
             } finally {
                 closeConnection()

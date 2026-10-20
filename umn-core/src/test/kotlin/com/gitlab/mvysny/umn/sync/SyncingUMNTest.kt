@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.sync
 
 import com.gitlab.mvysny.umn.core.*
+import com.gitlab.mvysny.umn.sync.SyncerStatus.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -170,6 +171,79 @@ class SyncingUMNTest {
                 umn.syncer.awaitClose()
             }
             assertTrue(millis < 500, "took $millis ms")
+        }
+    }
+
+    @Nested inner class Status {
+        private val clients = CopyOnWriteArrayList<FailingClient>()
+        /**
+         * Every new client's [GlobalLogClient.start] throws this; null connects.
+         */
+        @Volatile private var startFailure: Exception? = null
+        private val statuses = CopyOnWriteArrayList<SyncerStatus>()
+        private lateinit var umn: SyncingUMN
+        @BeforeEach fun createUmn() {
+            umn = Syncer(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), JavaDocumentSerializer,
+                { FailingClient(log.newClient(), startFailure).also { clients.add(it) } }, false, Backoff(10, 50)).syncingUMN
+            umn.syncer.setStatusListener { statuses.add(it) }
+        }
+        @AfterEach fun closeUmn() { umn.close() }
+
+        @Test fun `a lost connection goes offline and reconnects`() {
+            umn.syncer.start()
+            expectAsync(listOf(Stopped, Connecting, Connected)) { statuses.toList() }
+            clients.single().fail()
+            expectAsync(listOf(Stopped, Connecting, Connected, Offline(null, 10), Connecting, Connected)) { statuses.toList() }
+            expect(Connected) { umn.syncer.status }
+        }
+
+        @Test fun `a failed start() goes offline with its cause, the back-off growing`() {
+            val failure = IOException("simulated: server down")
+            startFailure = failure
+            umn.syncer.start()
+            expectAsync(listOf(Stopped, Connecting, Offline(failure, 10), Connecting, Offline(failure, 20))) { statuses.take(5) }
+        }
+
+        @Test fun `invalid credentials fail`() {
+            val failure = InvalidUsernamePasswordException("simulated")
+            startFailure = failure
+            umn.syncer.start()
+            expectAsync(listOf(Stopped, Connecting, Failed(failure))) { statuses.toList() }
+            expect(Failed(failure)) { umn.syncer.status }
+
+            startFailure = null
+            umn.syncer.stop()
+            umn.syncer.start()
+            expectAsync(listOf(Stopped, Connecting, Failed(failure), Stopped, Connecting, Connected)) { statuses.toList() }
+        }
+
+        @Test fun `stop() is the last status, not the closing connection's`() {
+            umn.syncer.start()
+            expectAsync(Connected) { umn.syncer.status }
+            umn.syncer.stop()
+            expectAsync(Stopped) { umn.syncer.status }
+            Thread.sleep(100)
+            expect(listOf(Stopped, Connecting, Connected, Stopped)) { statuses.toList() }
+        }
+
+        @Test fun `a listener set later hears the current status first`() {
+            umn.syncer.start()
+            expectAsync(Connected) { umn.syncer.status }
+            val late = CopyOnWriteArrayList<SyncerStatus>()
+            umn.syncer.setStatusListener { late.add(it) }
+            expectAsync(listOf(Connected)) { late.toList() }
+
+            umn.syncer.setStatusListener(null)
+            umn.syncer.stop()
+            expectAsync(Stopped) { umn.syncer.status }
+            expect(listOf(Connected)) { late.toList() }
+        }
+
+        @Test fun `a throwing listener doesn't stop syncing`() {
+            umn.syncer.setStatusListener { throw RuntimeException("simulated") }
+            umn.syncer.start()
+            val a = umn.create("a")
+            expectAsync(setOf(a)) { idsInGlobalLog() }
         }
     }
 

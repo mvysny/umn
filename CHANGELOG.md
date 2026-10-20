@@ -50,6 +50,9 @@ no entries.
   all, the syncer closes it and takes a new one from `clientProvider`, waiting from 1 second up
   to 1 minute between attempts. 0.15 never recovered until the app stopped and started the
   syncer. Only a wrong username or password stops it.
+- `Syncer.setStatusListener()` and `Syncer.status` tell the app what the syncer is doing:
+  stopped, connecting, connected, offline until the next attempt, or failed on a wrong username
+  or password, which 0.15 only logged.
 - The proxy server no longer loses records when several devices of a user connect for the first
   time at once: H2 MVStore's `openMap()` isn't atomic while the map doesn't exist yet, so each
   device could get a log of its own, and the records written into all but one never reached the

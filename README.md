@@ -339,6 +339,21 @@ client from `createProxyClient()`, waiting from 1 second up to 1 minute between 
 made meanwhile wait in the node's outgoing log. Only a wrong username or password stops the syncer;
 `syncingUMN.syncer.stop()` and `start()` it again once the credentials are fixed.
 
+To show the user what the syncer is doing, say "offline" or "wrong password", set a status listener.
+It hears the current status first, then every change, on the syncer's own thread:
+
+```kotlin
+syncingUMN.syncer.setStatusListener { status ->
+    when (status) {
+        SyncerStatus.Stopped, SyncerStatus.Connecting, SyncerStatus.Connected -> {}
+        is SyncerStatus.Offline -> {}  // reconnects in status.retryInMillis
+        is SyncerStatus.Failed -> {}   // wrong username or password
+    }
+}
+```
+
+`syncingUMN.syncer.status` is the current status, and `setStatusListener(null)` removes the listener.
+
 ### Syncing Limitations
 
 Every node keeps its own outgoing log. This technique keeps all logic client-side which allows for syncing
