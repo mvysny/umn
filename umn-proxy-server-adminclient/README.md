@@ -8,7 +8,7 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("com.gitlab.mvysny.umn:umn-proxy-server-adminclient:0.11")
+    implementation("com.gitlab.mvysny.umn:umn-proxy-server-adminclient:0.16")
 }
 ```
 

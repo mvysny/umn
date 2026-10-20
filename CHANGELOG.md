@@ -4,7 +4,7 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the disk and wire formats never break (`D_frozen_0_15_formats`). Releases before 0.16 have
 no entries.
 
-## 0.16 — unreleased
+## 0.16 — 2026-10-21
 
 - 0.16 opens database files 0.15 wrote, and syncs with 0.15 nodes through the same proxy server,
   in both directions: the disk and wire formats are unchanged.

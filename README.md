@@ -55,7 +55,7 @@ Then you can add the following dependency:
 
 ```
 dependencies {
-    implementation("com.gitlab.mvysny.umn:umn-core:0.8")
+    implementation("com.gitlab.mvysny.umn:umn-core:0.16")
 }
 ```
 
