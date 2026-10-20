@@ -28,10 +28,7 @@ public class InMemoryGlobalLogClient internal constructor(public val owner: InMe
     override fun start() {
         checkNotClosed()
         check(started.compareAndSet(false, true)) { "Already started" }
-        val logItems = owner.startClient(this, currentLogPointer)
-        for (logItem in logItems) {
-            onNewItem(logItem)
-        }
+        owner.startClient(this, currentLogPointer)
     }
 
     override fun setAddCallback(callback: () -> Unit) {
@@ -77,10 +74,15 @@ public class InMemoryGlobalLog() {
 
     public fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)
 
+    /**
+     * Replays the log from [retrieveLogFrom] to the [client], then announces new records to it.
+     * Under the same lock as [add], so another client's record can neither break the replay nor
+     * overtake it.
+     */
     @Synchronized
-    internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long): List<SerializedLogRecord> {
+    internal fun startClient(client: InMemoryGlobalLogClient, retrieveLogFrom: Long) {
+        log.subList(retrieveLogFrom.toInt(), log.size).forEach { client.onNewItem(it) }
         clients.add(client)
-        return log.subList(retrieveLogFrom.toInt(), log.size)
     }
 
     internal fun close(client: InMemoryGlobalLogClient) {

@@ -46,6 +46,12 @@ no entries.
 - `ProxyClient` notices a lost connection: once the connection fails or the server closes it,
   `isStarted` turns false and `addAsync()` throws `IOException`. 0.15 stayed "started" and sent
   every later change into the dead socket. A failed client never reconnects; take a new one.
+- The `Syncer` reconnects by itself: when a client's connection fails, or it can't connect at
+  all, the syncer closes it and takes a new one from `clientProvider`, waiting from 1 second up
+  to 1 minute between attempts. 0.15 never recovered until the app stopped and started the
+  syncer. Only a wrong username or password stops it.
+- `InMemoryGlobalLog` no longer fails a client's `start()` with `ConcurrentModificationException`
+  when another client adds a record meanwhile, nor delivers that record before older ones.
 - **Breaking:** `ProxyClient.start()` throws a connection failure (`ConnectException`,
   `UnknownHostException`, a server's close) as the `IOException` itself, as
   `GlobalLogClient.start()` documents; 0.15 wrapped it in an `ExecutionException`. Migration:

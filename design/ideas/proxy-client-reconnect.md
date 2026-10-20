@@ -60,9 +60,11 @@ record.
    cause as the `IOException` itself. `GlobalLogClient`'s KDoc says a failed client never
    recovers. Tested by `GlobalLogClientTestBattery.ConnectionLossTests` through the
    `serverDown()`/`serverUp()` hooks, which only `UMNProxyServerTest` implements.
-   Until step 4, the `GlobalLogPusher` keeps calling `start()` on the failed client, and every
-   call fails with "Already started".
-4. **The `Syncer` reconnects** (`Q_reconnect_owner` answered): not the client, because "a new
+4. ~~The `Syncer` reconnects~~ Done: `Syncer.SyncLoop`, `Backoff`; tested in
+   `SyncingUMNTest.Reconnect`. `WriterReaderTestBattery` has the end-to-end reconnect tests and
+   `serverDown()`/`serverUp()` hooks, but nothing runs them yet: over the proxy server the
+   battery hits `proxy-server-missed-delivery.md`, which blocks step 5.
+   Design, as decided (`Q_reconnect_owner` answered): not the client, because "a new
    backend is a thin `GlobalLogClient`" (AGENTS.md promise), and the client's `rewind` is fixed
    at `setReceiverCallback` anyway. On a dead client the syncer closes client, pusher and
    puller, then takes a fresh `clientProvider()` client, `GlobalLogPuller` (computes its

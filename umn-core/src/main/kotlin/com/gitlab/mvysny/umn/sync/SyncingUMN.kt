@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.io.IOException
 import java.util.*
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -46,33 +47,18 @@ private class GlobalLogPusher(
         }
     }
 
-    private val pusherThread = thread(isDaemon = true, name = "UMN Remote Log Pusher") {
-
-        fun tryStartClient() {
-            retryIO("connect to the server") { globalLogClient.start() }
-            Thread.sleep(100)
-        }
-
-        try {
-            while (!closed) {
-                try {
-                    if (!globalLogClient.isStarted) {
-                        tryStartClient()
-                    } else {
-                        val item = buffer.poll()
-                        if (item == null) {
-                            Thread.sleep(100)
-                        } else {
-                            globalLogClient.addAsync(item)
-                        }
-                    }
-                } catch (t: Throwable) {
-                    log.error("Pusher Thread failure", t)
-                    Thread.sleep(5000)
-                }
+    /**
+     * Pushes the buffer to the started client; returns once the client is no longer started.
+     * @throws IOException when the connection fails while sending.
+     */
+    fun push() {
+        while (!closed && globalLogClient.isStarted) {
+            val item = buffer.poll()
+            if (item == null) {
+                Thread.sleep(100)
+            } else {
+                globalLogClient.addAsync(item)
             }
-        } catch (t: Throwable) {
-            log.error("Pusher Thread fatal failure", t)
         }
     }
 
@@ -80,27 +66,19 @@ private class GlobalLogPusher(
         synchronized(this) {
             closed = true
         }
-        pusherThread.join()
-    }
-
-    companion object {
-        @JvmStatic
-        internal val log = LoggerFactory.getLogger(GlobalLogPusher::class.java)
     }
 }
 
 /**
- * Retries given [block] indefinitely when it fails with [IOException]. Back-offs for 1s. Rethrows any non-[IOException].
+ * How long the [Syncer] waits before reconnecting: [initialMillis], doubling with every failed
+ * connection in a row, up to [maxMillis].
  */
-private fun <T> retryIO(activityName: String, block: () -> T): T {
-    while (true) {
-        try {
-            return block()
-        } catch (e: IOException) {
-            GlobalLogPusher.log.info("Failed to $activityName", e)
-            Thread.sleep(1000)
-        }
-    }
+internal class Backoff(val initialMillis: Long = 1000L, val maxMillis: Long = 60_000L) {
+    /**
+     * @param failures failed connections in a row, 1 or more.
+     */
+    fun delayMillis(failures: Int): Long =
+        (initialMillis shl (failures - 1).coerceIn(0, 30)).coerceAtMost(maxMillis)
 }
 
 /**
@@ -170,8 +148,9 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
  * and they will send same changes multiple times to other nodes!
  *
- * @param clientProvider creates new clients. The client produced must not be started yet. Closed when the [SyncingUMN] is closed or when
- * the [Syncer] is [Syncer.stop]ped. Both the client provider and client methods are called in a background thread.
+ * @param clientProvider creates new clients. The client produced must not be started yet. Closed when the [SyncingUMN] is closed,
+ * when the [Syncer] is [Syncer.stop]ped, or when its connection fails; the syncer then takes a new one after a back-off.
+ * Both the client provider and client methods are called in a background thread.
  * @param serializer serializes/deserializes documents
  * @receiver wrap this UMN
  * @param autoStart if true the syncer is started automatically. Defaults to false.
@@ -203,20 +182,25 @@ public class SyncingUMN internal constructor(override val delegate: AnnouncingUM
 /**
  * Thread-safe syncer syncing given UMN. Use [UMN.syncing] to obtain instances of this class. Then, call [start] to start syncing.
  *
+ * While started, the syncer keeps one client connected: when the client's connection fails, the syncer closes it and
+ * takes a new one from [clientProvider], after a back-off growing from 1 second to 1 minute. Only an
+ * [InvalidUsernamePasswordException] stops it for good; [stop] and [start] it to try again, e.g. with new credentials.
+ *
  * *Warning*: never use more than one sync on an UMN storage since they will use the same buffer in a thread-unsafe way
  * and they will send same changes multiple times to other nodes!
- * @property clientProvider provides clients. Always called in Syncer internal event loop (which is *not* the UI thread); also
- * methods on [GlobalLogClient] are called on syncer internal event loop. An [GlobalLogClient] instance is acquired when the syncer is
- * started.
+ * @property clientProvider provides clients. Always called on the syncer's own background thread (which is *not* the UI thread),
+ * as are the methods on [GlobalLogClient].
  * @param forceRestartSync DANGEROUS: completely destroys the sync log, rebuilds it with the current DB content and pushes it
  * to the server. Re-pulls all events from the server.
  * May result in duplicated records and data overwrite.
  * Always pass `false` here unless you know what you're doing!
+ * @param backoff shortened by tests only.
  */
 public class Syncer internal constructor(private val underlyingUMN: UMN,
                                   serializer: DocumentSerializer,
                                   private val clientProvider: ()->GlobalLogClient,
-                                  forceRestartSync: Boolean) : Closeable {
+                                  forceRestartSync: Boolean,
+                                  private val backoff: Backoff = Backoff()) : Closeable {
     /**
      * buffer which stores outgoing changes until they are correctly transmitted over [GlobalLogClient] (produced by [clientProvider]).
      */
@@ -224,11 +208,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
 
     private val eventLoop = Executors.newSingleThreadExecutor()
     //guarded-by: run in eventLoop
-    private var client: GlobalLogClient? = null
-    //guarded-by: run in eventLoop
-    private var pusher: GlobalLogPusher? = null
-    //guarded-by: run in eventLoop
-    private var puller: GlobalLogPuller? = null
+    private var loop: SyncLoop? = null
 
     private val announcingUMN = AnnouncingUMN(underlyingUMN, mutationLog)
     /**
@@ -243,12 +223,9 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
      * Starts syncing. Thread-safe. Attempt to start an already started syncer does nothing.
      */
     public fun start(): Unit = event {
-        if (client == null) {
-            client = clientProvider()
-            puller = GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSyncOnFirstStart)
+        if (loop == null) {
+            loop = SyncLoop(forceRestartSyncOnFirstStart)
             forceRestartSyncOnFirstStart = false
-            // also starts the client in the background
-            pusher = GlobalLogPusher(client!!, mutationLog.fifolog)
         }
     }
 
@@ -271,12 +248,90 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
         // tu musim dat forceRun=true, inak close() by nefungoval:
         // lebo close() zavola stop() a hned shutdowne eventLoop, co je race condition, lebo ked je stop kod konecne zavolany,
         // zisti ze eventLoop je shutdownuty a nic neurobi.
-        pusher?.closeQuietly()
-        pusher = null
-        puller?.closeQuietly()
-        puller = null
-        client?.closeQuietly()
-        client = null
+        loop?.closeQuietly()
+        loop = null
+    }
+
+    /**
+     * Keeps one client connected, on a thread of its own: a failed client is closed and replaced
+     * with a new one from [clientProvider] after a [backoff].
+     *
+     * @param forceRestartSync passed to the first [GlobalLogPuller] only.
+     */
+    private inner class SyncLoop(private var forceRestartSync: Boolean) : Closeable {
+        private val closed = CountDownLatch(1)
+        private val isClosed: Boolean get() = closed.count == 0L
+        /**
+         * The current connection's pusher, puller and client, closed in this order: a late
+         * callback from the client then goes nowhere. Guarded by `this`.
+         */
+        private var connection: List<Closeable> = listOf()
+        /**
+         * Failed connections in a row.
+         */
+        private var failures = 0
+        private val thread = thread(isDaemon = true, name = "UMN Sync") { run() }
+
+        private fun run() {
+            while (!isClosed) {
+                try {
+                    connectAndPush()
+                    if (!isClosed) {
+                        log.info("Lost the connection to the global log, reconnecting")
+                    }
+                } catch (e: InvalidUsernamePasswordException) {
+                    log.error("Invalid username or password, syncing stops", e)
+                    return
+                } catch (t: Throwable) {
+                    if (!isClosed) {
+                        log.warn("Failed to sync with the global log, reconnecting", t)
+                    }
+                }
+                failures++
+                closed.await(backoff.delayMillis(failures), TimeUnit.MILLISECONDS)
+            }
+        }
+
+        /**
+         * Returns once the connection fails or this loop closes.
+         */
+        private fun connectAndPush() {
+            val client = clientProvider()
+            val pusher: GlobalLogPusher
+            synchronized(this) {
+                if (isClosed) {
+                    client.closeQuietly()
+                    return
+                }
+                val puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSync)
+                forceRestartSync = false
+                pusher = GlobalLogPusher(client, mutationLog.fifolog)
+                connection = listOf(pusher, puller, client)
+            }
+            try {
+                client.start()
+                failures = 0
+                pusher.push()
+            } finally {
+                closeConnection()
+            }
+        }
+
+        private fun closeConnection() {
+            synchronized(this) {
+                connection.forEach { it.closeQuietly() }
+                connection = listOf()
+            }
+        }
+
+        override fun close() {
+            synchronized(this) {
+                closed.countDown()
+                // closing the client also makes a start() still connecting return
+                closeConnection()
+            }
+            thread.join()
+        }
     }
 
     override fun close() {

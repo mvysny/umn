@@ -334,6 +334,11 @@ Done. Just remember to use `syncingUMN` to update the database from now on. `syn
 database changes and transmit them to the UMN Proxy Server. It will also apply all changes made by other
 nodes.
 
+When the connection drops, say the phone goes offline, the syncer reconnects by itself with a new
+client from `createProxyClient()`, waiting from 1 second up to 1 minute between attempts. Changes
+made meanwhile wait in the node's outgoing log. Only a wrong username or password stops the syncer;
+`syncingUMN.syncer.stop()` and `start()` it again once the credentials are fixed.
+
 ### Syncing Limitations
 
 Every node keeps its own outgoing log. This technique keeps all logic client-side which allows for syncing

@@ -5,6 +5,7 @@ import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.SyncingUMN
 import com.gitlab.mvysny.umn.sync.syncing
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.*
@@ -37,6 +38,28 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
 
     abstract fun newClient(): GlobalLogClient
 
+    /**
+     * Takes the server down: every connection drops, and new clients fail to connect until
+     * [serverUp]. A client with no connection to lose leaves it be, which skips the reconnect
+     * tests.
+     */
+    open fun serverDown(): Unit = Assumptions.abort("${javaClass.simpleName} has no connection to lose")
+
+    /**
+     * Brings the server back after [serverDown], with the same global log.
+     */
+    open fun serverUp() {}
+
+    private var isServerDown = false
+    private fun takeServerDown() {
+        serverDown()
+        isServerDown = true
+    }
+    private fun bringServerUp() {
+        serverUp()
+        isServerDown = false
+    }
+
     private val idx = IndexingUMN.IndexDef.simple("length", { setOf(it.length) }, String::class)
     private fun createUMN(): UMN {
         val storage = newStorage()
@@ -54,6 +77,7 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
     @AfterEach fun closeUMNs() {
         writer.close()
         readers.forEach { it.close() }
+        if (isServerDown) bringServerUp()
     }
     private fun allClients(): List<UMN> = readers + writer
 
@@ -96,6 +120,27 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
             expectAsync(null) { umn.find(id, String::class) }
             expectAsync(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
             expectAsync(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
+        }
+    }
+
+    @Test fun `sync resumes once the server is back`() {
+        val before = writer.create("before")
+        allClients().forEach { umn -> expectAsync(true) { umn.exists(before) } }
+        takeServerDown()
+        val fromWriter = writer.create("from writer")
+        val fromReader = readers[0].create("from reader")
+        bringServerUp()
+        allClients().forEach { umn ->
+            expectAsync(true, 10_000) { umn.exists(fromWriter) && umn.exists(fromReader) }
+        }
+    }
+
+    @Test fun `a node started while the server is down syncs once it is up`() {
+        takeServerDown()
+        createUMN().use { late ->
+            val fromLate = late.create("from late")
+            bringServerUp()
+            allClients().forEach { umn -> expectAsync(true, 10_000) { umn.exists(fromLate) } }
         }
     }
 }

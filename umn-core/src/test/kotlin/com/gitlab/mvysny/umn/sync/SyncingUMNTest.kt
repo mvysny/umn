@@ -6,14 +6,21 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import kotlin.concurrent.thread
+import kotlin.system.measureTimeMillis
+import kotlin.test.assertTrue
 import kotlin.test.expect
 import java.io.File
+import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 class SyncingUMNTest {
     private lateinit var log: InMemoryGlobalLog
     @BeforeEach fun createLog() { log = InMemoryGlobalLog() }
+
+    private fun idsInGlobalLog(): Set<UUID> =
+        log.log.map { LogRecord.fromByteArray(it, JavaDocumentSerializer, AutoTypeResolver)!!.id }.toSet()
 
     @Nested inner class GenericOverInMemoryGlobalLog : GenericUmnTestBattery() {
         override fun newUmn(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ log.newClient() }, JavaDocumentSerializer, true)
@@ -64,9 +71,6 @@ class SyncingUMNTest {
             expectAsync(false) { client.isStarted }
         }
 
-        private fun idsInGlobalLog(): Set<UUID> =
-            log.log.map { LogRecord.fromByteArray(it, JavaDocumentSerializer, AutoTypeResolver)!!.id }.toSet()
-
         @Test fun `a record lost in transit is re-sent by the next client`() {
             start { log.newClient().droppingAdds() }
             val dropping = client as ClientDroppingAdds
@@ -110,6 +114,71 @@ class SyncingUMNTest {
         }
     }
 
+    @Nested inner class Reconnect {
+        private val clients = CopyOnWriteArrayList<FailingClient>()
+        /**
+         * Every new client's [GlobalLogClient.start] throws this; null connects.
+         */
+        @Volatile private var startFailure: Exception? = null
+        private lateinit var umn: SyncingUMN
+        private fun createUmn(backoff: Backoff) {
+            umn = Syncer(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), JavaDocumentSerializer,
+                { FailingClient(log.newClient(), startFailure).also { clients.add(it) } }, false, backoff).syncingUMN
+        }
+        @BeforeEach fun createUmn() { createUmn(Backoff(10, 50)) }
+        @AfterEach fun closeUmn() { umn.close() }
+
+        @Test fun `a failed connection is replaced by a new client`() {
+            umn.syncer.start()
+            val a = umn.create("a")
+            expectAsync(setOf(a)) { idsInGlobalLog() }
+            clients.single().fail()
+
+            val b = umn.create("b")
+            expectAsync(setOf(a, b)) { idsInGlobalLog() }
+            expect(2) { clients.size }
+            expect(false) { clients[0].delegate.isStarted }
+        }
+
+        @Test fun `a failed start() is retried with a new client`() {
+            startFailure = IOException("simulated: server down")
+            umn.syncer.start()
+            val a = umn.create("a")
+            expectAsync(true) { clients.size >= 3 }
+            expect(setOf()) { idsInGlobalLog() }
+
+            startFailure = null
+            expectAsync(setOf(a)) { idsInGlobalLog() }
+        }
+
+        @Test fun `invalid credentials stop the syncer`() {
+            startFailure = InvalidUsernamePasswordException("simulated")
+            umn.syncer.start()
+            expectAsync(1) { clients.size }
+            Thread.sleep(200)
+            expect(1) { clients.size }
+        }
+
+        @Test fun `stop() cuts a back-off short`() {
+            umn.close()
+            createUmn(Backoff(60_000, 60_000))
+            startFailure = IOException("simulated: server down")
+            umn.syncer.start()
+            expectAsync(1) { clients.size }
+            val millis = measureTimeMillis {
+                umn.syncer.close()
+                umn.syncer.awaitClose()
+            }
+            assertTrue(millis < 500, "took $millis ms")
+        }
+    }
+
+    @Test fun `back-off doubles up to the max`() {
+        val backoff = Backoff(1000, 60_000)
+        expect(listOf(1000L, 2000L, 4000L, 8000L, 16000L, 32000L, 60000L, 60000L)) { (1..8).map { backoff.delayMillis(it) } }
+        expect(60000L) { backoff.delayMillis(1000) }
+    }
+
     @Nested inner class ForceRestartSyncRelatedTests {
         private val tempFile = File.createTempFile("tmp", null).absolutePath
         private lateinit var umn: SyncingUMN
@@ -132,6 +201,26 @@ class SyncingUMNTest {
             Thread.sleep(200)
             expect(2) { log.log.size }
         }
+    }
+}
+
+/**
+ * [fail] drops the connection: [isStarted] turns false and [addAsync] throws [IOException].
+ * @param startFailure [start] throws it instead of connecting.
+ */
+class FailingClient(val delegate: GlobalLogClient, private val startFailure: Exception? = null) : GlobalLogClient by delegate {
+    @Volatile private var failed = false
+    fun fail() {
+        failed = true
+    }
+    override val isStarted: Boolean get() = !failed && delegate.isStarted
+    override fun start() {
+        startFailure?.let { throw it }
+        delegate.start()
+    }
+    override fun addAsync(record: SerializedLogRecord) {
+        if (failed) throw IOException("simulated: connection lost")
+        delegate.addAsync(record)
     }
 }
 

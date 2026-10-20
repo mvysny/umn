@@ -47,8 +47,8 @@ import java.util.concurrent.CancellationException
  * * At some point, when [close] is called, the client disconnects and no callbacks are made. This
  *   is the final state - a closed client can not be reused nor started.
  *
- * The client must reconnect automatically on non-fatal IO exceptions such as connection
- * failures.
+ * One client is one connection, and it does not reconnect: once the connection fails,
+ * [isStarted] turns false for good. [Syncer] then closes the client and takes a new one.
  *
  * When the client is closed, it must not fire any callbacks anymore.
  */
@@ -90,9 +90,8 @@ public interface GlobalLogClient : Closeable {
      * The client can be started only once, and from one thread only.
      *
      * The method may block (potentially endlessly) until a successful connection has been made. Alternatively, the method
-     * may throw [java.io.IOException] - in this case start should be re-attempted again after a small back-off period.
-     * Any other type of exception including [RuntimeException], [InvalidUsernamePasswordException] are considered fatal and the re-connection
-     * must not be reattempted.
+     * may throw [java.io.IOException]; [Syncer] then retries with a new client after a back-off, as it does on any other
+     * exception except [InvalidUsernamePasswordException], which stops it.
      *
      * If [close] is called, the client must stop starting/connecting and return from this method (normal return or throw [CancellationException]).
      * @throws IllegalStateException if the client is already started or has been closed.
@@ -100,7 +99,7 @@ public interface GlobalLogClient : Closeable {
      * @throws java.net.ConnectException a special subclass of IOException when we know that the server is down.
      * @throws CancellationException if [close] has been called while we were busy in this method connecting to the server.
      * @throws InvalidUsernamePasswordException if the username/password is invalid.
-     * @throws RuntimeException on other general fatal exception.
+     * @throws RuntimeException on other failures.
      */
     @Throws(IOException::class, InvalidUsernamePasswordException::class, CancellationException::class)
     public fun start()
