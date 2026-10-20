@@ -84,6 +84,12 @@ subprojects {
             withJavadocJar()
             withSourcesJar()
         }
+        // JDK 23+ javadoc bundles web fonts, megabytes per jar; older javadoc rejects the flag
+        if (JavaVersion.current() >= JavaVersion.VERSION_23) {
+            tasks.withType<Javadoc> {
+                (options as StandardJavadocDocletOptions).addBooleanOption("-no-fonts", true)
+            }
+        }
 
         publishing {
             publications {

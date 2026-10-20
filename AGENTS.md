@@ -40,7 +40,7 @@ moved to the files above first.
 ## Module map
 
 - `umn-core` — the `UMN` interface, MVStore and in-memory stores, indexing, full-text, the sync engine.
-- `umn-sync-tester` — shared test batteries every `GlobalLogClient` implementation runs.
+- `umn-sync-tester` — shared test batteries every `GlobalLogClient` implementation runs; unpublished, for backends built in this repo, e.g. a future `umn-proxy-hazelcast`.
 - `umn-proxy-client` — websocket `GlobalLogClient` for Android, okhttp only.
 - `umn-proxy-server` — standalone websocket proxy server with an MVStore global log and REST admin; Docker image.
 - `umn-proxy-server-adminclient` — Kotlin client for the proxy server's REST admin API.
