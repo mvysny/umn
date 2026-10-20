@@ -26,7 +26,8 @@ acting on this; the table goes stale.
 |---|---|---|---|
 | h2-mvstore | 1.4.198 | 2.5.252 | stays on 1.4.x (`D_frozen_0_15_formats`); a 1.4.x bump must keep format 1 and the `ObjectDataType` tags |
 | okhttp | 3.12.2 | 5.5.0 | waits until Aedict is ready for a new major: it's `api` in `umn-proxy-client`. The Android pin is gone (minSdk 22; 3.13+ needs API 21); `umn-compat-0.15` reuses this version as 0.15's classpath, so give it its own 3.12.2 entry first |
-| lucene-core | 3.6.2 | 10.5.2 | only in `umn-performance-experiments`; maybe just delete the module (`Q_perf_module`) |
+| lucene-core | 3.6.2 | 10.5.2 | stays: only in `umn-performance-experiments`, which keeps its Lucene 3.6 comparison |
+| proxy-server Docker base | `eclipse-temurin:21-jre` | 25 | v2 |
 
 Suggested order: the drop-ins first, then one
 major-upgrade module at a time. Each step should leave `./gradlew build` green.
@@ -37,5 +38,3 @@ major-upgrade module at a time. Each step should leave `./gradlew build` green.
   Kafka and MongoDB modules gone, no test needs Docker any more.
 - `Q_convention_plugins`: move the shared `subprojects {}` config to `buildSrc` convention
   plugins while touching it, or keep the change minimal?
-- `Q_perf_module`: keep `umn-performance-experiments` (Lucene 3.6 comparison), or delete
-  it?
