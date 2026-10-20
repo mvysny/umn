@@ -2,7 +2,12 @@ package com.gitlab.mvysny.umn.core.fulltext;
 
 import java.lang.reflect.Field;
 
-public class Constants {
+/**
+ * JVM facts {@link ArrayUtil} sizes arrays by, borrowed from Lucene.
+ */
+final class Constants {
+    private Constants() {}
+
     public static final String OS_ARCH = System.getProperty("os.arch");
     /**
      * True iff running on a 64bit JVM

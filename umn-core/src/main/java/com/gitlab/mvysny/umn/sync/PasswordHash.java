@@ -36,29 +36,41 @@ import java.security.spec.InvalidKeySpecException;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
-/*
- * PBKDF2 salted password hashing.
- * Author: havoc AT defuse.ca
- * www: http://crackstation.net/hashing-security.htm
+/**
+ * PBKDF2 salted password hashing: store the hash, later check a password against it.
+ *
+ * <pre>{@code
+ * String hash = PasswordHash.createHash(password);   // "1000:<salt hex>:<hash hex>"
+ * PasswordHash.validatePassword(password, hash);     // true
+ * }</pre>
+ *
+ * The {@code iterations:salt:hash} string lands on disk, so its format is frozen; see
+ * {@code D_frozen_0_15_formats}.
+ *
+ * <p>By havoc AT defuse.ca, http://crackstation.net/hashing-security.htm
  */
 public class PasswordHash
 {
-	public static final String PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA1";
+	private PasswordHash() {}
+
+	private static final String PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA1";
 
 	// The following constants may be changed without breaking existing hashes.
-	public static final int SALT_BYTE_SIZE = 24;
-	public static final int HASH_BYTE_SIZE = 24;
-	public static final int PBKDF2_ITERATIONS = 1000;
+	private static final int SALT_BYTE_SIZE = 24;
+	private static final int HASH_BYTE_SIZE = 24;
+	private static final int PBKDF2_ITERATIONS = 1000;
 
-	public static final int ITERATION_INDEX = 0;
-	public static final int SALT_INDEX = 1;
-	public static final int PBKDF2_INDEX = 2;
+	private static final int ITERATION_INDEX = 0;
+	private static final int SALT_INDEX = 1;
+	private static final int PBKDF2_INDEX = 2;
 
 	/**
 	 * Returns a salted PBKDF2 hash of the password.
 	 *
 	 * @param   password    the password to hash
 	 * @return              a salted PBKDF2 hash of the password
+	 * @throws NoSuchAlgorithmException if the JVM lacks PBKDF2WithHmacSHA1; every Java 8+ JVM has it
+	 * @throws InvalidKeySpecException never in practice: the key spec is built here
 	 */
 	public static String createHash(String password)
 			throws NoSuchAlgorithmException, InvalidKeySpecException
@@ -71,6 +83,8 @@ public class PasswordHash
 	 *
 	 * @param   password    the password to hash
 	 * @return              a salted PBKDF2 hash of the password
+	 * @throws NoSuchAlgorithmException if the JVM lacks PBKDF2WithHmacSHA1; every Java 8+ JVM has it
+	 * @throws InvalidKeySpecException never in practice: the key spec is built here
 	 */
 	public static String createHash(char[] password)
 			throws NoSuchAlgorithmException, InvalidKeySpecException
@@ -92,6 +106,8 @@ public class PasswordHash
 	 * @param   password        the password to check
 	 * @param   correctHash     the hash of the valid password
 	 * @return                  true if the password is correct, false if not
+	 * @throws NoSuchAlgorithmException if the JVM lacks PBKDF2WithHmacSHA1; every Java 8+ JVM has it
+	 * @throws InvalidKeySpecException never in practice: the key spec is built here
 	 */
 	public static boolean validatePassword(String password, String correctHash)
 			throws NoSuchAlgorithmException, InvalidKeySpecException
@@ -105,6 +121,8 @@ public class PasswordHash
 	 * @param   password        the password to check
 	 * @param   correctHash     the hash of the valid password
 	 * @return                  true if the password is correct, false if not
+	 * @throws NoSuchAlgorithmException if the JVM lacks PBKDF2WithHmacSHA1; every Java 8+ JVM has it
+	 * @throws InvalidKeySpecException never in practice: the key spec is built here
 	 */
 	public static boolean validatePassword(char[] password, String correctHash)
 			throws NoSuchAlgorithmException, InvalidKeySpecException

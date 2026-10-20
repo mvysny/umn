@@ -1,9 +1,15 @@
 package com.gitlab.mvysny.umn.core.fulltext;
 
 /**
- * @author mavi
+ * Array-growing helpers for {@link PorterStemmer}, borrowed from Lucene.
  */
-public class ArrayUtil {
+final class ArrayUtil {
+    private ArrayUtil() {}
+
+    /**
+     * Returns {@code array} itself if it holds at least {@code minSize} chars, otherwise a larger
+     * copy, over-allocated per {@link #oversize}.
+     */
     public static char[] grow(char[] array, int minSize) {
         assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
         if (array.length < minSize) {
@@ -27,11 +33,10 @@ public class ArrayUtil {
      *
      * @param minTargetSize Minimum required value to be returned.
      * @param bytesPerElement Bytes used by each element of
-     * the array.  See constants in {@link RamUsageEstimator}.
-     *
-     * @lucene.internal
+     * the array, e.g. {@link Constants#NUM_BYTES_CHAR}.
+     * @return the new array size, at least {@code minTargetSize}
+     * @throws IllegalArgumentException if {@code minTargetSize} is negative
      */
-
     public static int oversize(int minTargetSize, int bytesPerElement) {
 
         if (minTargetSize < 0) {

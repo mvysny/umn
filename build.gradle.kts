@@ -78,9 +78,6 @@ subprojects {
             withSourcesJar()
         }
 
-        tasks.withType<Javadoc> {
-            isFailOnError = false
-        }
         publishing {
 	    repositories {
 		maven {
