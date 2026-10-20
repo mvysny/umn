@@ -22,6 +22,7 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.test.expect
 import java.nio.file.Files
+import java.io.File
 
 class UMNProxyServerTest {
     companion object {
@@ -32,19 +33,29 @@ class UMNProxyServerTest {
         @AfterAll @JvmStatic fun destroyHttpClient() { httpClient.destroy() }
     }
 
+    private lateinit var dbDir: File
     private lateinit var server: UMNProxyServer
     private lateinit var lp: MVStoreGlobalLogProvider
-    @BeforeEach fun startServer() {
-        val dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
-        lp = MVStoreGlobalLogProvider(dbDir)
+    @BeforeEach fun createServer() {
+        dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
+        startServer()
         lp.mvstorelog.createOrUpdateUser("user", "example")
-        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), null, lp)
-        server.start()
     }
     @AfterEach fun stopServer() { server.close() }
 
+    /**
+     * Starts a server over [dbDir], with whatever global log a previous server left there.
+     */
+    private fun startServer() {
+        lp = MVStoreGlobalLogProvider(dbDir)
+        server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), null, lp)
+        server.start()
+    }
+
     @Nested inner class GlobalLogClientTests : GlobalLogClientTestBattery() {
         override fun newClient(): GlobalLogClient = createSyncClient(httpClient)
+        override fun serverDown() { server.close() }
+        override fun serverUp() { startServer() }
     }
 
     @Test fun `when no clients are connected the active client count is zero`() {

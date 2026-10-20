@@ -5,6 +5,7 @@ import com.gitlab.mvysny.umn.proxyclient.ProxyClient
 import com.gitlab.mvysny.umn.proxyclient.destroy
 import com.gitlab.mvysny.umn.proxyclient.send
 import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
+import com.gitlab.mvysny.umn.sync.tester.expectAsync
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.io.IOException
+import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.concurrent.CompletableFuture
@@ -104,9 +107,9 @@ class ProtocolViolationTest {
         @AfterEach fun stopServer() { javalin?.stop() }
         private fun newClient() = ProxyClient(httpClient, Request.Builder().url("ws://localhost:51343"), "user", "example")
 
-        @Test fun `no server fails the client start`() {
+        @Test fun `no server fails the client start with a ConnectException`() {
             val client = newClient()
-            assertFailsWith<ExecutionException> { client.start() }
+            assertFailsWith<ConnectException> { client.start() }
             client.close()
         }
 
@@ -117,11 +120,11 @@ class ProtocolViolationTest {
             client.close()
         }
 
-        @Test fun `server error fails the client start`() {
+        @Test fun `server error fails the client start with an IOException`() {
             startServer { it.closeSession(AbstractMessage.WS_SERVER_ERROR, "simulated") }
             val client = newClient()
-            val ex = assertFailsWith<ExecutionException> { client.start() }
-            expect("${AbstractMessage.WS_SERVER_ERROR}: simulated") { ex.cause!!.message }
+            val ex = assertFailsWith<IOException> { client.start() }
+            expect("${AbstractMessage.WS_SERVER_ERROR}: simulated") { ex.message }
             client.close()
         }
 
@@ -134,6 +137,7 @@ class ProtocolViolationTest {
             val client = newClient()
             client.start()
             expect(1002) { closeCode.get(5, TimeUnit.SECONDS) }
+            expectAsync(false) { client.isStarted }
             client.close()
         }
     }

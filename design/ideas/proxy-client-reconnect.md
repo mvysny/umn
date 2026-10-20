@@ -55,9 +55,13 @@ record.
 1. ~~A failing `umn-core` test for Bug 2.~~ Done: `SyncingUMNTest.ClientSwitch`.
 2. ~~Fix Bug 2~~ Done: `AckFIFOBuffer.rewindPoll()` when a pusher starts (at-least-once
    delivery, duplicates are fine), plus both late-callback guards, each with its test.
-3. **A dead client must look dead:** `ProxyClient` sets `closed` on `onFailure` and on any close
-   it didn't ask for, so `isStarted` turns false; `start()` unwraps the `ExecutionException`
-   and rethrows an IO cause as `IOException`, as the `GlobalLogClient` KDoc already asks.
+3. ~~A dead client must look dead~~ Done: `ProxyClient` turns `isStarted` false on `onFailure`
+   and on a server's close, `addAsync()` then throws `IOException`, and `start()` rethrows an IO
+   cause as the `IOException` itself. `GlobalLogClient`'s KDoc says a failed client never
+   recovers. Tested by `GlobalLogClientTestBattery.ConnectionLossTests` through the
+   `serverDown()`/`serverUp()` hooks, which only `UMNProxyServerTest` implements.
+   Until step 4, the `GlobalLogPusher` keeps calling `start()` on the failed client, and every
+   call fails with "Already started".
 4. **The `Syncer` reconnects** (`Q_reconnect_owner` answered): not the client, because "a new
    backend is a thin `GlobalLogClient`" (AGENTS.md promise), and the client's `rewind` is fixed
    at `setReceiverCallback` anyway. On a dead client the syncer closes client, pusher and

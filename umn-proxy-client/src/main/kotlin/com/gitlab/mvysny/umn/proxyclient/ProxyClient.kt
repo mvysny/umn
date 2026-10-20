@@ -6,12 +6,16 @@ import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import okhttp3.*
 import okio.ByteString
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.lang.RuntimeException
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * A client that connects to the UMN Proxy server.
+ *
+ * One client is one connection: once it fails or the server closes it, [isStarted] turns false for
+ * good, and [addAsync] throws [IOException]. Close it and take a new client.
  *
  * *NOTE*: It is a good idea to configure the [client] to send ping every 1 minute, to prevent the connection from timing out
  * (which happens by default in 5 minutes in Jetty). Use [OkHttpClient.Builder.pingInterval] for that.
@@ -42,10 +46,12 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
         override fun onMessage(webSocket: WebSocket, text: String) {
             log.error("Received text message $text which is unexpected, MITM?!?")
             webSocket.close(1003, "Encountered unexpected Text Message")
-            startFuture.completeExceptionally(RuntimeException("1003: encountered unexpected Text Message"))
+            fail(RuntimeException("1003: encountered unexpected Text Message"))
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+            // okhttp still delivers messages that were in flight when close() was called
+            if (closed.get()) return
             val msg = AbstractMessage.fromByteArray(bytes.toByteArray())
             log.debug("Received message $msg")
             when (msg) {
@@ -58,30 +64,48 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
                     addCallback()
                 }
                 AbstractMessage.Started -> startFuture.complete(Unit)
-                else -> webSocket.close(1002, "Unexpected message: $msg")
+                else -> {
+                    webSocket.close(1002, "Unexpected message: $msg")
+                    fail(RuntimeException("1002: unexpected message $msg"))
+                }
             }
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
             log.debug("Closing, code=$code reason=$reason")
+            webSocket.close(1000, null)
             if (code == AbstractMessage.WS_INVALID_USERNAME_PASSWORD) {
-                startFuture.completeExceptionally(InvalidUsernamePasswordException(reason))
+                fail(InvalidUsernamePasswordException(reason))
             } else {
-                startFuture.completeExceptionally(RuntimeException("$code: $reason"))
+                fail(IOException("$code: $reason"))
             }
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            log.error("$username: websocket failed: $t", t)
-            startFuture.completeExceptionally(RuntimeException(t.message, t))
+            if (!closed.get()) {
+                log.error("$username: websocket failed: $t", t)
+            }
+            fail(t)
         }
     }
 
     private var ws: WebSocket? = null
     override val isStarted: Boolean
-        get() = started.get() && !closed.get()
+        get() = started.get() && !closed.get() && !failed.get()
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
+    /**
+     * The connection failed or the server closed it; this client is dead for good.
+     */
+    private val failed = AtomicBoolean()
+
+    /**
+     * Fails a [start] still connecting with [cause], and a started client's [isStarted] turns false.
+     */
+    private fun fail(cause: Throwable) {
+        failed.set(true)
+        startFuture.completeExceptionally(cause)
+    }
     private var addCallback: () -> Unit = {}
     private var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
 
@@ -118,10 +142,12 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
         try {
             startFuture.get()
         } catch (e: ExecutionException) {
-            if (e.cause is InvalidUsernamePasswordException) {
-                throw InvalidUsernamePasswordException(e.cause!!.message!!, e)
+            when (val cause = e.cause) {
+                is InvalidUsernamePasswordException -> throw InvalidUsernamePasswordException(cause.message!!, e)
+                // retryable, per GlobalLogClient.start()'s contract; keeps a ConnectException a ConnectException
+                is IOException -> throw cause
+                else -> throw e
             }
-            throw e
         }
 
         // if we get here, we were not canceled and there has been no exception. we're started! ;)
@@ -131,7 +157,11 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
     override fun addAsync(record: SerializedLogRecord) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
-        ws!!.send(AbstractMessage.AddAsync(record))
+        val bytes = AbstractMessage.AddAsync(record).asByteArray()
+        // send() returns false once the websocket is closing or failed
+        if (failed.get() || !ws!!.send(ByteString.of(bytes, 0, bytes.size))) {
+            throw IOException("Connection lost")
+        }
     }
 
     override fun close() {

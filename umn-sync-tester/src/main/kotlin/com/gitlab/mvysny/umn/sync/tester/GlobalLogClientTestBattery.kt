@@ -6,9 +6,11 @@ import com.gitlab.mvysny.umn.core.LogRecord
 import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
@@ -35,6 +37,18 @@ abstract class GlobalLogClientTestBattery {
      * must be cleared between individual tests.
      */
     abstract fun newClient(): GlobalLogClient
+
+    /**
+     * Takes the server down: every connection drops, and [GlobalLogClient.start] fails until
+     * [serverUp]. A client with no connection to lose leaves it be, which skips
+     * [ConnectionLossTests].
+     */
+    open fun serverDown(): Unit = Assumptions.abort("${javaClass.simpleName} has no connection to lose")
+
+    /**
+     * Brings the server back after [serverDown], with the same global log.
+     */
+    open fun serverUp() {}
 
     // tests whether the client correctly responds with IllegalStateExceptions
     @Nested
@@ -113,6 +127,62 @@ abstract class GlobalLogClientTestBattery {
             client.addAsync(item)
             expectAsync(true) { addCallbackCalled }
             expectAsync(true) { receiverCallbackCalled }
+        }
+    }
+
+    @Nested
+    inner class ConnectionLossTests {
+        private val clients = mutableListOf<GlobalLogClient>()
+        private fun client(): GlobalLogClient = newClient().also { clients.add(it) }
+        private var isServerDown = false
+        private fun takeServerDown() {
+            serverDown()
+            isServerDown = true
+        }
+        private fun bringServerUp() {
+            serverUp()
+            isServerDown = false
+        }
+        @AfterEach fun cleanup() {
+            clients.forEach { it.closeQuietly() }
+            if (isServerDown) bringServerUp()
+        }
+
+        @Test fun `start() fails with IOException while the server is down`() {
+            takeServerDown()
+            val client = client()
+            assertFailsWith<IOException> { client.start() }
+            expect(false) { client.isStarted }
+        }
+
+        @Test fun `a dropped connection turns isStarted false`() {
+            val client = client()
+            client.start()
+            takeServerDown()
+            expectAsync(false) { client.isStarted }
+        }
+
+        @Test fun `addAsync() on a dropped connection fails with IOException`() {
+            val client = client()
+            client.start()
+            takeServerDown()
+            expectAsync(false) { client.isStarted }
+            assertFailsWith<IOException> { client.addLogCreated("foo") }
+        }
+
+        @Test fun `a new client syncs once the server is back`() {
+            val dead = client()
+            dead.start()
+            takeServerDown()
+            expectAsync(false) { dead.isStarted }
+            bringServerUp()
+
+            val item = LogRecord.DocumentCreated("foo", AutoTypeResolver.toType(String::class), UUID.randomUUID())
+            val client = client()
+            val ct = ClientTester(0L, client)
+            client.addAsync(item)
+            expectAsync(listOf(item)) { ct.getReceived() }
+            expect(false) { dead.isStarted }
         }
     }
 

@@ -43,3 +43,10 @@ no entries.
   log or the other nodes. The new client re-sends every unconfirmed change; a duplicate is
   harmless. Likewise, a change arriving from the old client as it closes is no longer applied
   out of order, nor does it move the sync position under the new client.
+- `ProxyClient` notices a lost connection: once the connection fails or the server closes it,
+  `isStarted` turns false and `addAsync()` throws `IOException`. 0.15 stayed "started" and sent
+  every later change into the dead socket. A failed client never reconnects; take a new one.
+- **Breaking:** `ProxyClient.start()` throws a connection failure (`ConnectException`,
+  `UnknownHostException`, a server's close) as the `IOException` itself, as
+  `GlobalLogClient.start()` documents; 0.15 wrapped it in an `ExecutionException`. Migration:
+  catch `IOException`.

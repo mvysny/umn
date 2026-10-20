@@ -119,12 +119,14 @@ public interface GlobalLogClient : Closeable {
      * Only called by one thread.
      *
      * @throws IllegalStateException if the client is not yet started or has been closed.
+     * @throws IOException if the connection has failed; the record may or may not have been sent.
      */
     @Throws(IOException::class)
     public fun addAsync(record: SerializedLogRecord)
 
     /**
-     * Returns true after [start] has been called. Returns false if the client is closed.
+     * Returns true after [start] has been called. Returns false if the client is closed, or its
+     * connection has failed: a failed client never recovers, so close it and take a new one.
      */
     public val isStarted: Boolean
 }
