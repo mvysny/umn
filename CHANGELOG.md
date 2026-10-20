@@ -20,7 +20,22 @@ no entries.
 - **Breaking:** published to Maven Central; 0.15 was on Bintray, which is gone. The groupId
   `com.gitlab.mvysny.umn` and the artifactIds are unchanged. Migration: `mavenCentral()` in your
   repositories.
-- Dependencies: h2-mvstore 1.4.198 (same file format as 0.15's 1.4.197); vok-dataloader 0.9.1,
-  whose `DataLoader` is part of the API through `keyLoader()`; okhttp 3.12.2 in
+- **Breaking:** an index key type must be `java.io.Serializable` as well as `Comparable`
+  (`IndexDef`, `IndexDef.simple()`, `getIndex()`). Migration: make a custom key class implement
+  `Serializable`; `String` and the boxed numbers already do.
+- **Breaking:** `UMN.openUtilityMap()` takes optional `keyType` and `valueType` arguments, so
+  callers compile unchanged, but a class implementing `UMN` must override the new signature;
+  `MvstoreUtilityMap`'s constructor takes them without defaults. Migration: add the two
+  `DataType?` parameters to an override and pass them on to the delegate; pass `null, null` to the
+  constructor.
+- **Breaking:** vok-dataloader 0.9.1 (0.15: 0.4), an `api` dependency since `keyLoader()` returns
+  its `DataLoader`. `DataLoader` itself is unchanged; gone are `PagedList`, `SqlWhereBuilder`,
+  `LikeFilter`, `ILikeFilter` and the `withFilter()` extension. Migration: only code that called
+  those has anything to change.
+- **Breaking:** `PasswordHash` can no longer be instantiated and lost its `main()`. Migration: call
+  its static methods, which are unchanged.
+- **Breaking:** not binary compatible with 0.15: code compiled against 0.15 that calls one of the
+  above fails at runtime. Migration: recompile against 0.16.
+- Dependencies: h2-mvstore 1.4.198 (same file format as 0.15's 1.4.197); okhttp 3.12.2 in
   `umn-proxy-client` (0.15: 3.13.1), the version Aedict already pinned 0.15 to.
 - `umn-proxy-server` needs Java 17; its Docker image runs on Java 21.

@@ -80,5 +80,5 @@ wrapper again, fixed as listed above.
 - `Q_fulltext_bench`: measure absolute times this time. The city list is gone, so pick a dataset
   that can be committed or downloaded again, ideally Aedict-shaped.
 - `Q_reindex`: rebuilding a node-local index from the documents, for `IndexingUMN` and full-text
-  alike. It is the prerequisite either way, and it would also fix the 0.15 round trip noted in
-  `review-incompatibilities-since-0.15.md`.
+  alike. It is the prerequisite either way. It would also fix a downgrade/upgrade round trip: a
+  wrapper new since 0.15 misses what 0.15 wrote meanwhile.
