@@ -20,7 +20,7 @@ build:
   image: eclipse-temurin:${JDK}-jdk
   parallel:
     matrix:
-      - JDK: ["17", "21"]
+      - JDK: ["17", "21", "25"]
   script:
     # the eclipse-temurin image has no git, which the tripwire needs; the design-tripwires job runs it
     - ./gradlew build -x verifyDesignTripwires

@@ -12,6 +12,8 @@ gson = "com.google.code.gson:gson:2.14.0"
 
 # okhttp 3.12.x was pinned for Android API < 21; minSdk 22 no longer needs it, since okhttp 3.13+
 # needs API 21: https://medium.com/square-corner-blog/okhttp-3-13-requires-android-5-818bb78d07ce
+# It stays 3.12.2, Aedict's own pin, because it is `api` in umn-proxy-client: a new major waits
+# until Aedict is ready for one.
 okhttp = "com.squareup.okhttp3:okhttp:3.12.2"
 snakeyaml = "org.yaml:snakeyaml:2.7"
 javalin = "io.javalin:javalin:7.2.3"
@@ -21,6 +23,7 @@ jetty-ee10-bom = "org.eclipse.jetty.ee10:jetty-ee10-bom:12.1.14"
 lucene = "org.apache.lucene:lucene-core:3.6.2"
 
 # 1.4.198+ requires Android 19 or higher, under minSdk 22: https://gitlab.com/mvysny/umn/issues/6
+# Never 2.x, and a 1.4.x bump keeps file format 1 and the ObjectDataType tags: D_frozen_0_15_formats
 h2-mvstore = "com.h2database:h2-mvstore:1.4.198"
 vok-dataloader = "com.github.mvysny.vokdataloader:vok-dataloader:0.9.1"
 
