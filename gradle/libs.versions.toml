@@ -13,7 +13,7 @@ gson = "com.google.code.gson:gson:2.14.0"
 # okhttp 3.12.x was pinned for Android API < 21; minSdk 22 no longer needs it, since okhttp 3.13+
 # needs API 21: https://medium.com/square-corner-blog/okhttp-3-13-requires-android-5-818bb78d07ce
 okhttp = "com.squareup.okhttp3:okhttp:3.12.2"
-snakeyaml = "org.yaml:snakeyaml:1.23"
+snakeyaml = "org.yaml:snakeyaml:2.7"
 javalin = "io.javalin:javalin:3.11.0"
 jetty = "org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830"
 lucene = "org.apache.lucene:lucene-core:3.6.2"
