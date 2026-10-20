@@ -43,10 +43,13 @@ or storage mismatch shows up as silently diverging data. `umn-compat-0.15`'s tes
 
 An index map (`__INDEX2_*`) is opened without a key type, so MVStore's `ObjectDataType` writes
 the keys: `String`, the boxed primitives, `UUID` and a few more natively, any other class with
-Java serialization. Those bytes carry the class's full name and `serialVersionUID`; rename, move
-or obfuscate the class and the store fails to open — Aedict hit it with `IdxCategoryOrdinal` and
-pinned the UID. A codec per index (an `IndexDef` handing a `DataType` to `openUtilityMap()`)
-helps new indices only: an existing index keeps its bytes (`D_frozen_0_15_formats`), and moving
-it needs the reindex `D_three_op_log` lacks. It also adds another `org.h2` type to the API. So
-`K` stays a bare `Comparable`, as in 0.15: a `Serializable` bound would steer users onto the
-fragile path, while a non-serializable key still fails on its first write.
+Java serialization, ordered by deserializing it and calling `compareTo`. Those bytes carry the
+class's full name and `serialVersionUID`; rename, move or obfuscate the class and the store
+fails to open — loudly: Aedict hit it with `IdxCategoryOrdinal` and pinned the UID. A key →
+`ByteArray` marshaler per index keeps H2 out of the API, but H2 orders a `byte[]` by its
+unsigned bytes, not by `compareTo`, so the encoding must preserve order (sign bits, `UUID`'s
+signed halves, terminated strings); a naive one, protobuf say, returns wrong ranges and pages
+silently. A `DataType` per index puts `org.h2` into the API. Either helps new indices only
+(`D_frozen_0_15_formats`; moving one needs the reindex `D_three_op_log` lacks). So Java
+serialization stays: its failures are loud. `K` is a bare `Comparable`, as in 0.15; a
+non-serializable key fails on its first write, a bound would only add an API break.
