@@ -53,3 +53,16 @@ silently. A `DataType` per index puts `org.h2` into the API. Either helps new in
 (`D_frozen_0_15_formats`; moving one needs the reindex `D_three_op_log` lacks). So Java
 serialization stays: its failures are loud. `K` is a bare `Comparable`, as in 0.15; a
 non-serializable key fails on its first write, a bound would only add an API break.
+
+## D_reconnect_in_syncer — Why does the Syncer reconnect rather than the GlobalLogClient?
+
+0.15's {GlobalLogClient} had to reconnect by itself; {ProxyClient} never did, and sync stalled
+until the app restarted the {Syncer}. A client that reconnects must also resume pulling where the
+node left off and re-send what was never acked, but its `rewind` is fixed at
+`setReceiverCallback` and the outgoing buffer belongs to the syncer — every backend would redo
+the sync engine's bookkeeping, against **Sync over any server**. So one client is one connection,
+dead for good once it fails, and the syncer replaces client, puller and pusher together: the
+puller recomputes the rewind, the pusher re-sends every unacked record. Delivery is therefore
+at-least-once: a duplicate is harmless, a {LogRecord} being idempotent, while a skipped record
+is a lost change. The cost: acks and log pointers are positional, so a closed pusher or puller
+must ignore its old client's late callbacks, or they move under the new one.
