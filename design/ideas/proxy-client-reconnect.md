@@ -52,10 +52,9 @@ record.
 
 ## Fix order (decided)
 
-1. A failing `umn-core` test for Bug 2.
-2. Fix Bug 2: `AckFIFOBuffer.rewindPoll()` when a pusher starts (at-least-once delivery,
-   duplicates are fine), plus both late-callback guards. Must land before step 4: working
-   reconnects make client switches frequent, and each would be a chance to lose a record.
+1. ~~A failing `umn-core` test for Bug 2.~~ Done: `SyncingUMNTest.ClientSwitch`.
+2. ~~Fix Bug 2~~ Done: `AckFIFOBuffer.rewindPoll()` when a pusher starts (at-least-once
+   delivery, duplicates are fine), plus both late-callback guards, each with its test.
 3. **A dead client must look dead:** `ProxyClient` sets `closed` on `onFailure` and on any close
    it didn't ask for, so `isStarted` turns false; `start()` unwraps the `ExecutionException`
    and rethrows an IO cause as `IOException`, as the `GlobalLogClient` KDoc already asks.

@@ -21,20 +21,30 @@ import kotlin.concurrent.thread
  * Typically used in conjunction with [AnnouncingUMN] which announces all mutation ops which are
  * then pushed by this class to the global log.
  *
+ * Starts by re-sending every unACKed item: a previous pusher may have polled items it never
+ * delivered. Once [close] returns, ACKs are ignored.
+ *
  * @param globalLogClient not closed by this class
  */
 private class GlobalLogPusher(
     private val globalLogClient: GlobalLogClient,
     private val buffer: AckFIFOBuffer<SerializedLogRecord>
 ) : Closeable {
+    @Volatile
+    private var closed: Boolean = false
+
     init {
+        buffer.rewindPoll()
         globalLogClient.setAddCallback {
-            // when the remote log ACKs that the item has been added, remove it from the buffer
-            buffer.ackLowest()
+            // ACKs are positional: a late one from a closed client would ack an item the next
+            // pusher hasn't delivered yet.
+            synchronized(this) {
+                if (!closed) {
+                    buffer.ackLowest()
+                }
+            }
         }
     }
-
-    private var closed: Boolean = false
 
     private val pusherThread = thread(isDaemon = true, name = "UMN Remote Log Pusher") {
 
@@ -67,7 +77,9 @@ private class GlobalLogPusher(
     }
 
     override fun close() {
-        closed = true
+        synchronized(this) {
+            closed = true
+        }
         pusherThread.join()
     }
 
@@ -105,13 +117,18 @@ private fun <T> retryIO(activityName: String, block: () -> T): T {
  * Also the items will be applied in correct global order hence everybody will see the
  * same effect.
  *
+ * Once [close] returns, records are ignored: a late one from a closed client would move the log
+ * pointer under the next puller.
+ *
  * @param globalLogClient not closed by this class
  */
 private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient,
                               val documentSerializer: DocumentSerializer,
                               val typeToClassResolver: TypeToClassResolver,
-                              forceRestartSync: Boolean) {
+                              forceRestartSync: Boolean) : Closeable {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
+    private var closed: Boolean = false
+
     init {
         if (forceRestartSync) {
             // start from the beginning, pull all changes from the server.
@@ -122,11 +139,21 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
         var currentPtr: Long = currentLogPointer.find(false) ?: 0L
 
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
-            if (serializedItem != null) {
-                val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
-                item.applyTo(umn)
+            synchronized(this) {
+                if (!closed) {
+                    if (serializedItem != null) {
+                        val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
+                        item.applyTo(umn)
+                    }
+                    currentLogPointer.put(false, ++currentPtr)
+                }
             }
-            currentLogPointer.put(false, ++currentPtr)
+        }
+    }
+
+    override fun close() {
+        synchronized(this) {
+            closed = true
         }
     }
 }
@@ -200,6 +227,8 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
     private var client: GlobalLogClient? = null
     //guarded-by: run in eventLoop
     private var pusher: GlobalLogPusher? = null
+    //guarded-by: run in eventLoop
+    private var puller: GlobalLogPuller? = null
 
     private val announcingUMN = AnnouncingUMN(underlyingUMN, mutationLog)
     /**
@@ -216,7 +245,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
     public fun start(): Unit = event {
         if (client == null) {
             client = clientProvider()
-            GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSyncOnFirstStart)
+            puller = GlobalLogPuller(underlyingUMN, client!!, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSyncOnFirstStart)
             forceRestartSyncOnFirstStart = false
             // also starts the client in the background
             pusher = GlobalLogPusher(client!!, mutationLog.fifolog)
@@ -244,6 +273,8 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
         // zisti ze eventLoop je shutdownuty a nic neurobi.
         pusher?.closeQuietly()
         pusher = null
+        puller?.closeQuietly()
+        puller = null
         client?.closeQuietly()
         client = null
     }

@@ -107,6 +107,25 @@ abstract class AckFifoBufferTestBattery {
         expect("foo") { buf.poll() }
         expect(null) { buf.poll() }
     }
+    @Test fun `rewindPoll() hands out the unacked items again`() {
+        buf.append("foo")
+        buf.append("bar")
+        buf.append("baz")
+        expect("foo") { buf.poll() }
+        expect("bar") { buf.poll() }
+        buf.ackLowest()
+        buf.rewindPoll()
+        expect("bar") { buf.poll() }
+        expect("baz") { buf.poll() }
+        expect(null) { buf.poll() }
+    }
+    @Test fun `rewindPoll() on a fully acked buffer hands out nothing`() {
+        buf.append("foo")
+        expect("foo") { buf.poll() }
+        buf.ackLowest()
+        buf.rewindPoll()
+        expect(null) { buf.poll() }
+    }
     @Test fun `clear removes all items`() {
         buf.append("foo")
         buf.clear()

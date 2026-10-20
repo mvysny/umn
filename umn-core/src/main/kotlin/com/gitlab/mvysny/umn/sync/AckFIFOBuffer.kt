@@ -55,6 +55,16 @@ public class AckFIFOBuffer<T: Any>(private val log: UtilityMap<Long, T>) {
         }
     }
 
+    /**
+     * Makes [poll] hand out every unacked item again, oldest first. Call it when a new consumer
+     * takes over: the previous one may have polled items it never delivered.
+     */
+    public fun rewindPoll() {
+        lock.withLock {
+            idOfItemToPoll = idOfItemToAck
+        }
+    }
+
     public fun clear() {
         lock.withLock {
             log.clear()

@@ -38,3 +38,8 @@ no entries.
 - `umn-proxy-server` needs Java 17; its Docker image runs on Java 21.
 - `ProxyClient` no longer logs the password: 0.15 logged every request header at debug level,
   the `password` header included.
+- A change no longer goes missing when the `Syncer` switches clients (`stop()`/`start()`): 0.15
+  skipped a change sent to the old client but not yet confirmed, so it never reached the global
+  log or the other nodes. The new client re-sends every unconfirmed change; a duplicate is
+  harmless. Likewise, a change arriving from the old client as it closes is no longer applied
+  out of order, nor does it move the sync position under the new client.
