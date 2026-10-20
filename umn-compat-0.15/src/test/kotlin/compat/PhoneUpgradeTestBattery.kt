@@ -2,19 +2,17 @@ package compat
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import org.testcontainers.junit.jupiter.Testcontainers
 import java.nio.file.Path
 import kotlin.test.assertEquals
 
 /**
- * B: Android's node file, written by 0.15, opened by 0.16 and never downgraded, against the unchanged 0.12 server.
+ * B: Android's node file, written by 0.15, opened by 0.16 and never downgraded, against an unchanged server.
  * A fresh 0.15 node, Aedict-Online's, checks that what the phone pushed reads back the same.
  */
-@Testcontainers(disabledWithoutDocker = true)
-class PhoneUpgradeTest {
+abstract class PhoneUpgradeTestBattery(server: ProxyServer) {
     @TempDir
     lateinit var dir: Path
-    private val account = Account()
+    private val account = Account(server)
     private val phone get() = account.node(dir, "phone.db")
     private val web get() = account.node(dir, "web.db")
 

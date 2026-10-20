@@ -111,7 +111,13 @@ Deferred to v2: 0.15 reopening a node file 0.16 wrote. `D_frozen_0_15_formats` p
 Aedict never needs it. Dropped: a large document (sizes above; Jetty's 64 KB message default
 lives in the unchanged server) and records sent but never ACKed before the upgrade (hard to
 stage; four years in production without a complaint). Out of scope: Aedict-Online's admin
-client and the server, both unchanged; hole punching, which the 0.12 server never does.
+client, unchanged; hole punching, which the 0.12 server never does.
+
+**E. The admin REST API:** the paths, success statuses and JSON the 0.15 `AdminClient` reads.
+A–C and E run twice, on the 0.12 image and on HEAD's server in-process, so a server rewrite
+keeps to what 0.15 nodes and Aedict-Online's registration see. The two already differ where
+the client doesn't look: `Content-Type`, and a missing query parameter is Spark's 500 HTML
+but Javalin's 400 text.
 
 ### How it's built
 

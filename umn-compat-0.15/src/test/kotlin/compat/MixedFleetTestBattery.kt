@@ -2,7 +2,6 @@ package compat
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import org.testcontainers.junit.jupiter.Testcontainers
 import java.nio.file.Path
 import kotlin.test.assertEquals
 
@@ -10,11 +9,10 @@ import kotlin.test.assertEquals
  * C: one account, its nodes on both versions for good: the phone on 0.16, Aedict-Online (`web`) and a never-updated
  * tablet on 0.15. Every case ends with the nodes holding the same documents.
  */
-@Testcontainers(disabledWithoutDocker = true)
-class MixedFleetTest {
+abstract class MixedFleetTestBattery(server: ProxyServer) {
     @TempDir
     lateinit var dir: Path
-    private val account = Account()
+    private val account = Account(server)
     private val phone get() = account.node(dir, "phone.db")
     private val web get() = account.node(dir, "web.db")
     private val tablet get() = account.node(dir, "tablet.db")

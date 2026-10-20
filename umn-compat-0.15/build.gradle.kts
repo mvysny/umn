@@ -1,4 +1,4 @@
-// Runs UMN 0.15 nodes against HEAD and the production proxy server image; unpublished.
+// Runs UMN 0.15 nodes against HEAD, through the production proxy server image and HEAD's; unpublished.
 // The scenarios are in design/ideas/review-incompatibilities-since-0.15.md.
 
 repositories {
@@ -24,6 +24,7 @@ dependencies {
     umn015(libs.umn015.slf4j.simple)
 
     testImplementation(project(":umn-proxy-client"))
+    testImplementation(project(":umn-proxy-server"))
     testImplementation(libs.slf4j.simple)
     testImplementation(libs.testcontainers)
     testImplementation(libs.testcontainers.junit.jupiter)

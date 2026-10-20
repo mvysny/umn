@@ -76,7 +76,7 @@ class NodeFile(private val account: Account, private val file: Path) {
     fun start015(vararg ops: String): Umn015.Running = Umn015.start(*session(ops))
 
     private fun session(ops: Array<out String>): Array<String> =
-        arrayOf("session", file.toString(), ProdServer.wsUrl, ProdServer.adminUrl, account.user, account.pass, *ops)
+        arrayOf("session", file.toString(), account.server.wsUrl, account.server.adminUrl, account.user, account.pass, *ops)
 }
 
 /**

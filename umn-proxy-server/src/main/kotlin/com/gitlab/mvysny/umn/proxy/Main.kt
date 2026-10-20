@@ -20,7 +20,7 @@ class Main(val cfg: Config) : Closeable {
     private var proxyServer: UMNProxyServer? = null
     private var adminServer: AdminServer? = null
 
-    internal fun start() {
+    fun start() {
         globalLogClientProvider = cfg.proxy.createLogClientProvider()
         log.info("Using log provider: $globalLogClientProvider")
         proxyServer = UMNProxyServer(cfg.socketAddress, cfg.secure, globalLogClientProvider!!)
