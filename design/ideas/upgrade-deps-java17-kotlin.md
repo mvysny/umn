@@ -28,7 +28,7 @@ acting on this; the table goes stale.
 | slf4j-api / slf4j-simple | 2.0.13 | 2.0.20 | drop-in |
 | gson | 2.11.0 | 2.14.0 | drop-in |
 | vok-dataloader | 0.8 | 0.9.1 | an `api` dependency; its types are in UMN's API |
-| h2-mvstore | 1.4.198 | 2.5.252 | **file format**, see below |
+| h2-mvstore | 1.4.198 | 2.5.252 | stays on 1.4.x (`D_frozen_0_15_formats`); a 1.4.x bump must keep format 1 and the `ObjectDataType` tags |
 | okhttp | 3.12.2 | 5.5.0 | pinned for Android API < 21, see `Q_android_floor` |
 | snakeyaml | 1.23 | 2.7 | 1.x has known CVEs; 2.x changed the `Yaml` constructor and safe-loading defaults |
 | javalin | 3.11.0 | 7.2.3 | four majors; brings Jetty 12; admin REST API rewrite |
@@ -46,15 +46,12 @@ major-upgrade module at a time. Each step should leave `./gradlew build` green.
 ## Open questions
 
 - `Q_android_floor`: the promise now says Java 17 bytecode, desugared by AGP 8+. Still open:
-  does it also need a minSdk? Once that is settled, the okhttp 3.12 and MVStore 1.4.198 pins
-  (both chosen for old Android) can go too. Aedict's own minSdk decides this.
-- `Q_mvstore2`: MVStore 2.x likely can't open 1.4.x files (unverified; check the H2
-  changelog and test it). If so, upgrading means a migration step for every existing
-  database. That's a big compatibility break and belongs in
-  `review-incompatibilities-since-0.15.md`; maybe stay on 1.4.x for 0.16.
+  does it also need a minSdk? Once that is settled, the okhttp 3.12 pin (chosen for old
+  Android) can go too. Aedict's own minSdk decides this.
 - `Q_proxy_server_stack`: Javalin 7 + Jetty 12 is close to a rewrite of `UMNProxyServer`
   and `AdminServer`. Upgrade, or replace the stack with something smaller (plain Jetty 12
-  for both the websocket and the admin endpoints)?
+  for both the websocket and the admin endpoints)? Either way the websocket bytes, headers
+  and close codes stay as 0.15 has them (`D_frozen_0_15_formats`).
 - `Q_backend_modules`: are the Kafka and Hazelcast backends still worth carrying? Neither
   runs on Android, Kafka isn't even published, and both need a three-major upgrade. Upgrade
   them, or drop them?

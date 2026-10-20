@@ -8,33 +8,34 @@ still on 0.15 syncing against the same global log. Scope: `git log 0.15..HEAD`, 
 The question isn't "did the API change" alone. UMN has four compatibility surfaces, and Aedict
 users have data on all of them.
 
-## 1. On-disk format: can 0.16 open a 0.15 database, and the other way round?
+The rule is `D_frozen_0_15_formats`: surfaces 1 and 2 must not break in either direction, and
+a break there is fixed, never documented. Surfaces 3–5 may break, with a migration note.
 
-- `78d88cf` "decrease umn db file size" changed `MvstoreUMN`. Did the stored document
-  layout or the map names change?
-- `760045c` "Allow specify data type for values": utility maps got a `valueType`. Do maps
-  written with the default `ObjectDataType` still read back the same?
-- MVStore 1.4.197 → 1.4.198 (`18db168`, issue #6). Is there a file-format change between
-  them? Check the H2 changelog.
-- `IndexingUMN` (+89/−) and `MutationLog` / `AckFIFOBuffer`: do the index maps, the
-  `OUTGOING_BUFFER` and `CURRENT_LOG_PTR` keep their names and encodings? A silent change
-  there loses unsynced changes, or re-pulls the whole log.
-- `Q_downgrade`: do we promise downgrade at all, or only upgrade?
+## 1. On-disk format and 2. wire formats — verified 2026-10-20, no break found
 
-How to check it: write a db with the 0.15 jars (`git worktree add ../umn-0.15 0.15`),
-then open it with HEAD. That needs Gradle running for both trees; see `Q_build_env`.
+Statically: h2-mvstore 1.4.197 and 1.4.198 both write `FORMAT_WRITE = 1` / `FORMAT_READ = 1`
+with identical `ObjectDataType` tags; every map name and its key/value types are unchanged;
+`openMap(name, Builder())` with null key/value types is the same `ObjectDataType` default; the
+`LogRecord` and proxy `AbstractMessage` type bytes and field order are unchanged (the diffs
+only add `public`); `PasswordHash` and `UMNProxyServer` are untouched since 0.15.
+`78d88cf` "decrease umn db file size" only adds an opt-in `MvstoreUMN.compact()`.
 
-## 2. Wire formats: can 0.15 and 0.16 nodes share one global log?
+Empirically: a harness ran the published `umn-core-0.15.jar` (from Aedict-Reader's committed
+`.m2`, on MVStore 1.4.197) and HEAD's jar (MVStore 1.4.198) in turns over the same node files
+and one `MVStoreGlobalLog` file: 0.15 writes and queues unsynced changes → HEAD opens them,
+the index finds them, HEAD pushes 0.15's queue → 0.15 opens HEAD's file and continues → and
+again; fresh nodes of either version pull the mixed log, and each version decodes every
+record. All passed, nothing pushed twice. The harness needs no Gradle, so 0.15 never has to be built.
 
-- `LogRecord.toByteArray` / `fromByteArray` (`AnnouncingUMN.kt`, +37/−): any new record
-  type or byte layout change? `DocumentCreated2`: was it there in 0.15?
-- Proxy protocol, `umn-proxy-client` `Messages.kt`: the diff seen so far only adds
-  `public`, but check the `TYPE_*` bytes and the field order.
-- `MVStoreGlobalLog` storage (`users`, `{username}__log`, `properties`): a 0.16 proxy server
-  started on a 0.15 server's db directory.
-- `PasswordHash`: do hashes stored by a 0.15 server still verify?
-- `Q_mixed_versions`: is a phone still on 0.15 against an upgraded proxy server a supported
-  setup? For Aedict it will happen.
+Not yet covered:
+- `DocumentCreated2`: the initial population of a node that had documents before it synced.
+  Its bytes are unchanged, but the harness syncs from the start.
+- The proxy over a real websocket. 0.15 `ProxyClient` → HEAD server can be run (the 0.15
+  client jar is in Aedict's `.m2`). HEAD client → 0.15 server can't be run here (no 0.15
+  server build), so it rests on the static review.
+- Keep the harness as a regression test before every release? Today it lives in a scratchpad.
+- A wrapper new since 0.15 (e.g. `FullTextUMN`) misses whatever 0.15 writes in between: the
+  `D_three_op_log` "no reindex" cost, now reachable by a downgrade/upgrade round-trip.
 
 ## 3. Kotlin API and binary compatibility for library consumers
 
@@ -81,12 +82,9 @@ then open it with HEAD. That needs Gradle running for both trees; see `Q_build_e
 
 ## Open questions
 
-- `Q_build_env`: Gradle 8.8 doesn't start on the JDK 25 here, and 0.15 needs a Gradle /
-  Kotlin 1.3 toolchain that likely wants JDK 8. Provide a JDK 17 (and an 8 for 0.15), or
-  bump the wrapper first?
 - `Q_findings_home`: where do the findings land? There's no CHANGELOG yet. A `CHANGELOG.md`
   with a 0.16 "Breaking:" section is the natural home for each incompatibility and its
   migration step. A format decision (e.g. "the db format is forward-only") goes into
   `design/decisions.md`.
-- `Q_fix_or_document`: for each break found, fix it (a compat shim, a format migration) or
-  document it and bump to 1.0 / 0.16 with a migration note?
+- `Q_fix_or_document`: an API break (surfaces 3–5): fix it or document it with a migration
+  note? Disk and wire breaks are always fixed, per `D_frozen_0_15_formats`.
