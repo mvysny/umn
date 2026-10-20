@@ -2,7 +2,7 @@
 
 Replace DynaTest (`com.github.mvysny.dynatest:dynatest` 0.25) with plain JUnit Jupiter 6
 (`org.junit:junit-bom` 6.1.3, latest on 2026-10-18). JUnit 6 needs Java 17, so this idea
-comes after the Java 17 step of `upgrade-deps-java17-kotlin.md`.
+can go ahead now that the build targets Java 17.
 
 ## What uses DynaTest today
 
@@ -69,5 +69,4 @@ Batteries also nest groups, and a group's `beforeEach` applies to every test ins
 - `Q_keep_helpers`: carry small `expectList` / `expectThrows` helpers so the 121 call sites
   don't change, or rewrite them?
 - `Q_order`: do this before or after the big dependency upgrades? Doing it first gives a
-  trustworthy test suite to upgrade against, but it needs Java 17, so the toolchain step has
-  to land first.
+  trustworthy test suite to upgrade against; the Java 17 toolchain it needs is in.

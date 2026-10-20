@@ -68,14 +68,14 @@ the synchronization commands to your server.
 
 The deployment is simple. First you need to compile the server:
 
-1. Install Java JDK 8 or higher
+1. Install Java JDK 17 or higher
 2. `git clone https://gitlab.com/mvysny/umn`
 3. `cd umn && ./gradlew umn-proxy-server:build -x test`
 4. Find the zip file at `umn-proxy-server/build/distributions/*.zip`
 
 To deploy:
 
-1. Install Java JRE 8 or higher
+1. Install Java JRE 17 or higher
 2. Unzip the zip file
 3. Run `./proxy`
 

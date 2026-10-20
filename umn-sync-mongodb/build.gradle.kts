@@ -6,5 +6,9 @@ dependencies {
     testImplementation(libs.testcontainers.mongodb)
 }
 
+tasks.test {
+    failOnNoDiscoveredTests = false  // SyncMongoDBClientTest skips itself when Testcontainers sees no Docker
+}
+
 val publish = ext["publish"] as (artifactId: String, description: String) -> Unit
 publish("umn-sync-mongodb", "UMN: Sync with MongoDB")

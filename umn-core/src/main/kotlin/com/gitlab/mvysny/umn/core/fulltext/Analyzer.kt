@@ -54,7 +54,7 @@ public class JavaSimpleAnalyzer : Analyzer {
     override fun normalize(word: String): String {
         var string = Normalizer.normalize(word, Normalizer.Form.NFKD)
         string = string.replace(ACCENT_MATCHER, "")
-        string = string.toLowerCase()
+        string = string.lowercase(Locale.getDefault())
         return string
     }
 

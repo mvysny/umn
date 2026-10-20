@@ -7,3 +7,7 @@ dependencies {
     testImplementation(project(":umn-sync-tester"))
     testImplementation(libs.testcontainers.kafka)
 }
+
+tasks.test {
+    failOnNoDiscoveredTests = false  // KafkaClientTest is disabled in its source
+}

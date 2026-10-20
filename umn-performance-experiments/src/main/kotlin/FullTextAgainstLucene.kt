@@ -18,6 +18,7 @@ import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
 import java.io.File
 import java.util.*
+import java.nio.file.Files
 
 fun withFullTextUMN(block: (umn: FullTextUMN)->Unit) {
     val analyzer = JavaSimpleAnalyzer()
@@ -53,10 +54,10 @@ fun main() {
     val wordCount = mutableMapOf<String, Int>()
     cityNames.forEach { analyzer.getTokens(it).forEach { wordCount.compute(it) { _, cnt -> if (cnt == null) 1 else cnt + 1 } } }
     println(wordCount.toList().sortedBy { it.second } .reversed().take(10))
-    println("Loaded ${cityNames.size} cities, total chars: ${cityNames.sumBy { it.length }}")
+    println("Loaded ${cityNames.size} cities, total chars: ${cityNames.sumOf { it.length }}")
 
     time("MVStore direct API") {
-        val temp = createTempFile()
+        val temp = File.createTempFile("tmp", null)
         val r = Random()
         val mvStore: MVStore = MVStore.Builder().compress().fileName(temp.absolutePath).open()
         try {
@@ -74,7 +75,7 @@ fun main() {
     }
 
     time("simple umn create") {
-        val temp = createTempFile()
+        val temp = File.createTempFile("tmp", null)
         createMvstoreUMN(temp.absolutePath).use { umn ->
             cityNames.forEach { umn.create(it) }
             umn.compact()
@@ -162,8 +163,8 @@ fun main() {
     }
 }
 
-private val luceneDir = createTempDir()
-private val umnFile = createTempFile()
+private val luceneDir = Files.createTempDirectory("tmp").toFile()
+private val umnFile = File.createTempFile("tmp", null)
 
 fun withLucene(block: (luceneWriter: IndexWriter)->Unit) {
     FSDirectory.open(luceneDir).use { directory ->

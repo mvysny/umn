@@ -4,7 +4,7 @@ This package hosts a client for your [UMN Proxy Server](../umn-proxy-server). Fo
 on how to set up UMN Proxy server please see the [UMN Proxy Server documentation](../umn-proxy-server).
 
 The Proxy Client is extremely portable - it only requires the [okhttp3](https://square.github.io/okhttp/)
-library and Java 6. The client works on Android. It uses WebSockets for communication,
+library and Java 17. The client works on Android. It uses WebSockets for communication,
 therefore it's very easy to use even in restricted networks which employ http proxy servers.
 
 ## How to use

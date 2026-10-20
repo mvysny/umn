@@ -5,12 +5,13 @@ import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import org.h2.mvstore.MVStore
 import java.util.*
 import kotlin.test.expect
+import java.io.File
 
 /**
  * Creates an [UMN] backed by a file-based MV Store.
  */
 fun createMvstoreUMN(): MvstoreUMN = MvstoreUMN(
-    MVStore.open(createTempFile().absolutePath), JavaDocumentSerializer,
+    MVStore.open(File.createTempFile("tmp", null).absolutePath), JavaDocumentSerializer,
     AutoTypeResolver)
 
 /**

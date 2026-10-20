@@ -16,6 +16,7 @@ import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.test.expect
+import java.nio.file.Files
 
 class UMNProxyServerTest : DynaTest({
     lateinit var httpClient: OkHttpClient
@@ -23,7 +24,7 @@ class UMNProxyServerTest : DynaTest({
         httpClient = OkHttpClient.Builder().pingInterval(1, TimeUnit.MINUTES).build()
     }
     beforeEach {
-        val dbDir = createTempDir().absoluteFile
+        val dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
         val lp = MVStoreGlobalLogProvider(dbDir)
         lp.mvstorelog.createOrUpdateUser("user", "example")
         server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), null, lp)

@@ -5,3 +5,11 @@ out
 *.iml
 local.properties
 
+.kotlin
+
+# Eclipse / jdtls
+.project
+.classpath
+.settings/
+.factorypath
+bin/

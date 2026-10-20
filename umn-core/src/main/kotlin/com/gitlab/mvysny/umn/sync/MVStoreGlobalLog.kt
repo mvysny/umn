@@ -189,5 +189,5 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     /**
      * Estimates current client count.
      */
-    public val activeClientCount: Int get() = startedClients.values.sumBy { it.size }
+    public val activeClientCount: Int get() = startedClients.values.sumOf { it.size }
 }

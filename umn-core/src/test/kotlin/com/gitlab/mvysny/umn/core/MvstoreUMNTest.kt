@@ -6,6 +6,7 @@ import org.h2.mvstore.MVStore
 import java.io.DataInputStream
 import java.util.*
 import kotlin.test.expect
+import java.io.File
 
 class MvstoreUMNTest : DynaTest({
     group("in-memory tests") {
@@ -21,7 +22,7 @@ class MvstoreUMNTest : DynaTest({
         lateinit var root: MVMap<UUID, ByteArray>
         lateinit var umn: MvstoreUMN
         beforeEach {
-            store = MVStore.open(createTempFile().absolutePath)
+            store = MVStore.open(File.createTempFile("tmp", null).absolutePath)
             root = store.openMap<UUID, ByteArray>("ROOT")
             umn = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver)
         }

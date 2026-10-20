@@ -3,14 +3,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    kotlin("jvm") version "2.0.0"
+    kotlin("jvm") version "2.4.21"
     `maven-publish`
     signing
 }
 
 defaultTasks("clean", "build")
 
-val verifyDesignTripwires by tasks.registering(Exec::class) {
+val verifyDesignTripwires = tasks.register<Exec>("verifyDesignTripwires") {
     description = "Checks the doc layer: AGENTS.md and design/"
     commandLine("design/verify_design_tripwires.sh")
 }
@@ -33,15 +33,20 @@ subprojects {
     }
 
     tasks.withType<KotlinCompile> {
-        compilerOptions.jvmTarget = JvmTarget.JVM_1_8  // retain compatibility with Android
+        compilerOptions.jvmTarget = JvmTarget.JVM_17
     }
 
     java {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
-tasks.withType<Test> {
+    dependencies {
+        // Gradle 9 no longer provides the launcher; the version comes from the junit-bom DynaTest pulls in
+        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+    }
+
+    tasks.withType<Test> {
         useJUnitPlatform()
         testLogging {
             // to see the exceptions of failed tests in CI console.
@@ -64,8 +69,8 @@ tasks.withType<Test> {
 		maven {
 		    setUrl("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
 		    credentials {
-		        username = project.properties["ossrhUsername"] as String? ?: "Unknown user"
-		        password = project.properties["ossrhPassword"] as String? ?: "Unknown user"
+		        username = project.findProperty("ossrhUsername") as String? ?: "Unknown user"
+		        password = project.findProperty("ossrhPassword") as String? ?: "Unknown user"
 		    }
 		}
 	    }
@@ -102,7 +107,7 @@ tasks.withType<Test> {
             }
         }
 
-        if (project.properties["signing.keyId"] != null) {
+        if (project.findProperty("signing.keyId") != null) {
             signing {
                 sign(publishing.publications["mavenJava"])
             }

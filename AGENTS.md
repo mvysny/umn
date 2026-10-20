@@ -9,9 +9,10 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 
 ## Promises
 
-- **Runs on Android.** `umn-core` and `umn-proxy-client` stay on JVM 1.8 bytecode and dependencies old Android APIs can load.
+- **Runs on Android.** `umn-core` and `umn-proxy-client` target Java 17 bytecode, which Android Gradle Plugin 8+ desugars, and keep to dependencies old Android APIs can load.
 - **A dumb core.** The storage is a UUID → blob map with three mutations; every other capability is a wrapper around it. See `D_three_op_log`.
 - **Sync over any server.** All sync logic is client-side; a new backend is a thin `GlobalLogClient`, nothing server-side.
+- **0.15-compatible on disk and on the wire, both ways.** Every later release opens 0.15 files and writes files 0.15 opens, and syncs with 0.15 nodes and proxy servers; only the API may change. See `D_frozen_0_15_formats`.
 
 ## Design docs
 
@@ -48,7 +49,7 @@ moved to the files above first.
 
 ## Conventions
 
-- **Kotlin on JVM 1.8, Gradle Kotlin DSL.** `kotlin("stdlib")`, never `-jdk8`, in anything Android loads.
+- **Kotlin targeting Java 17, Gradle 9 Kotlin DSL.** `kotlin("stdlib")`, never `-jdk8`, in anything Android loads.
 - **Library modules use `explicitApi()`**; every public declaration states its visibility.
 - **Tests: DynaTest on the JUnit platform**; backends via the `umn-sync-tester` batteries, Kafka and MongoDB via Testcontainers.
 - **Logging through slf4j-api**; `slf4j-simple` only in the proxy server and tests.

@@ -1,29 +1,22 @@
 # Upgrade dependencies, Gradle, Java 17 minimum, newest Kotlin
 
-Bring the toolchain and every dependency up to date: Gradle, Kotlin, and a Java 17 floor for
-all modules. Today the build doesn't even start on a current JDK: Gradle 8.8 fails on JDK 25
-with "What went wrong: 25.0.4".
+Bring every dependency up to date on top of the Java 17 floor.
+
+Done on 2026-10-20: Gradle 9.8.1, Kotlin 2.4.21, `jvmTarget` / `sourceCompatibility` 17, CI
+image `eclipse-temurin:21-jdk`, proxy-server Docker image `eclipse-temurin:21-jre`.
 
 Latest versions were looked up on 2026-10-18 via the `maven-versions` script. Re-run it before
 acting on this; the table goes stale.
 
-## Toolchain
+## Toolchain leftovers
 
-| What | Now | Latest |
-|---|---|---|
-| Gradle wrapper | 8.8 | 9.8.1 |
-| Kotlin plugin `org.jetbrains.kotlin.jvm` | 2.0.0 | 2.4.21 |
-| `jvmTarget` / `sourceCompatibility` | 1.8 | 17 |
-| CI image | `openjdk:11-jdk` (deprecated image) | a JDK 17+ image, e.g. `eclipse-temurin:21-jdk` (`Q_ci_image`) |
-
-- Gradle 9 itself needs JVM 17+ to run, so the CI image has to change anyway.
-- Regenerate the wrapper with `./gradlew wrapper --gradle-version 9.8.1`, per the `gradle`
-  skill. Never hand-edit the jar.
-- Use a Gradle toolchain (`kotlin { jvmToolchain(17) }`) rather than relying on whatever JDK
-  runs Gradle.
-- Gradle 9 removes old APIs. The root `ext["publish"]` lambda and the `subprojects { apply
-  { plugin(...) } }` block may need rewriting; `buildSrc` convention plugins are the
-  modern form (`Q_convention_plugins`).
+- No Gradle toolchain (`kotlin { jvmToolchain(17) }`) yet: the build compiles with whatever
+  JDK runs Gradle, and a toolchain would auto-download a JDK 17 where none is installed.
+- The root `ext["publish"]` lambda and the `subprojects { apply { plugin(...) } }` block still
+  work on Gradle 9; `buildSrc` convention plugins are the modern form (`Q_convention_plugins`).
+- `failOnNoDiscoveredTests = false` in `umn-sync-kafka` and `umn-sync-mongodb`: Kafka's test is
+  disabled in source, and Testcontainers 1.19.8 can't talk to Docker 29 (minimum API 1.44), so
+  the MongoDB test skips itself. Drop both once Testcontainers 2.x is in.
 - Bintray-era leftovers: the publish repo URL is `oss.sonatype.org`, but OSSRH was shut down
   in mid-2025 and publishing now goes through the Central Portal. Verify this before
   releasing.
@@ -47,16 +40,14 @@ acting on this; the table goes stale.
 | lucene-core | 3.6.2 | 10.5.2 | only in `umn-performance-experiments`; maybe just delete the module (`Q_perf_module`) |
 | dynatest | 0.25 | — | replaced by JUnit; see `drop-dynatest-for-junit6.md` |
 
-Suggested order: toolchain first (Gradle, Kotlin, Java 17), then the drop-ins, then one
+Suggested order: the drop-ins first, then one
 major-upgrade module at a time. Each step should leave `./gradlew build` green.
 
 ## Open questions
 
-- `Q_android_floor`: Java 17 contradicts the **Runs on Android** promise and the "Kotlin on
-  JVM 1.8" convention in `AGENTS.md`. Modern AGP (8+) desugars Java 17 bytecode, so this
-  mainly means "a current Android toolchain". What should the promise become: a minimum
-  AGP version, a minSdk, or both? Once the floor moves, the okhttp 3.12 and MVStore 1.4.198
-  pins (both chosen for old Android) can go too. Aedict's own minSdk decides this.
+- `Q_android_floor`: the promise now says Java 17 bytecode, desugared by AGP 8+. Still open:
+  does it also need a minSdk? Once that is settled, the okhttp 3.12 and MVStore 1.4.198 pins
+  (both chosen for old Android) can go too. Aedict's own minSdk decides this.
 - `Q_mvstore2`: MVStore 2.x likely can't open 1.4.x files (unverified; check the H2
   changelog and test it). If so, upgrading means a migration step for every existing
   database. That's a big compatibility break and belongs in
@@ -67,8 +58,8 @@ major-upgrade module at a time. Each step should leave `./gradlew build` green.
 - `Q_backend_modules`: are the Kafka and Hazelcast backends still worth carrying? Neither
   runs on Android, Kafka isn't even published, and both need a three-major upgrade. Upgrade
   them, or drop them?
-- `Q_ci_image`: which JDK image for CI? And should CI start running the tests (it currently
-  runs `-x test`), now that Testcontainers needs Docker-in-Docker on GitLab?
+- `Q_ci_image`: should CI start running the tests (it currently runs `-x test`), now that
+  Testcontainers needs Docker-in-Docker on GitLab?
 - `Q_convention_plugins`: move the shared `subprojects {}` config to `buildSrc` convention
   plugins while touching it, or keep the change minimal?
 - `Q_perf_module`: keep `umn-performance-experiments` (Lucene 3.6 comparison), or delete

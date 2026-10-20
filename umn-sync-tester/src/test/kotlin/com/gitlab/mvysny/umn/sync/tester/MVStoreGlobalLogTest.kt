@@ -6,11 +6,12 @@ import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
 import org.h2.mvstore.MVStore
+import java.io.File
 
 class MVStoreGlobalLogTest : DynaTest({
     lateinit var log: MVStoreGlobalLog
     beforeEach {
-        val db = MVStore.open(createTempFile().absolutePath)
+        val db = MVStore.open(File.createTempFile("tmp", null).absolutePath)
         log = MVStoreGlobalLog(db)
         log.createOrUpdateUser("foo", "bar")
     }

@@ -4,6 +4,7 @@ import com.github.mvysny.dynatest.DynaTest
 import com.gitlab.mvysny.umn.core.*
 import kotlin.concurrent.thread
 import kotlin.test.expect
+import java.io.File
 
 class SyncingUMNTest : DynaTest({
     lateinit var log: InMemoryGlobalLog
@@ -32,7 +33,7 @@ class SyncingUMNTest : DynaTest({
     }
 
     group("forceRestartSync-related tests") {
-        val tempFile = createTempFile().absolutePath
+        val tempFile = File.createTempFile("tmp", null).absolutePath
         lateinit var umn: SyncingUMN
         fun createUMN(forceRestartSync: Boolean): SyncingUMN = createMvstoreUMN(tempFile).syncing(
             { log.newClient() },

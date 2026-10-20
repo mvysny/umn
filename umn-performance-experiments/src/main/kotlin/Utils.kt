@@ -33,7 +33,7 @@ object FastSerializer : DocumentSerializer {
     }
 }
 
-fun createMvstoreUMN(dbFileName: String = createTempFile().absolutePath): MvstoreUMN {
+fun createMvstoreUMN(dbFileName: String = File.createTempFile("tmp", null).absolutePath): MvstoreUMN {
     val mvStore: MVStore = MVStore.Builder().compress().fileName(dbFileName).open()
     return MvstoreUMN(mvStore, FastSerializer,
             FastTypeResolver)

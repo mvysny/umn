@@ -17,6 +17,7 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.InetSocketAddress
 import kotlin.test.expect
+import java.nio.file.Files
 
 class AdminClientTest : DynaTest({
     lateinit var client: AdminClient
@@ -56,7 +57,7 @@ class AdminClientTest : DynaTest({
     group("with running server") {
         lateinit var adminServer: AdminServer
         beforeEach {
-            val dbDir = createTempDir().absoluteFile
+            val dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
             val lp = MVStoreGlobalLogProvider(dbDir)
             server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 10144), null, lp)
             server.start()

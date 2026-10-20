@@ -38,7 +38,7 @@ The syncing part is beta-quality and battle-tested in the Aedict Japanese Dictio
 
 ### Android Compatibility
 
-UMN itself runs on pretty old Android APIs. However, most recent [H2's MVStore](https://www.h2database.com/html/mvstore.html)
+UMN is compiled to Java 17 bytecode, which Android Gradle Plugin 8 or newer desugars for older Android APIs. However, most recent [H2's MVStore](https://www.h2database.com/html/mvstore.html)
 only runs on SDK 19 or higher. If you need compatibility with older Androids, downgrade MVStore version to 1.4.196.
 
 ## Adding it to your project
@@ -288,7 +288,7 @@ To activate syncing, you first need to create a client which transmits the log t
 UMN currently supports the following means of synchronization:
 
 * Via [UMN Proxy Server](umn-proxy-server) backed with the H2 MVStore log storage.
-  You use the [UMN Proxy Client](umn-proxy-client) which works on any Java 6 including Android.
+  You use the [UMN Proxy Client](umn-proxy-client) which works on any Java 17 including Android.
 * Via a MongoDB server: [umn-sync-mongodb](umn-sync-mongodb)
 * Via a Kafka server: [umn-sync-kafka](umn-sync-kafka)
 * Via Hazelcast server: [umn-sync-hazelcast](umn-sync-hazelcast)
