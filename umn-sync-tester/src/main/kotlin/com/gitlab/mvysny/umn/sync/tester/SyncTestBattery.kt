@@ -75,7 +75,8 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
         val id = writer.create("askdj124389akj")
         allClients().forEach { umn ->
             expectAsync(true) { umn.exists(id) }
-            expect(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
+            // a node applies a pulled record to its storage first, its indices a moment later
+            expectAsync(id to "askdj124389akj") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
         }
     }
     @Test fun `create()+update() propagates properly`() {
@@ -83,8 +84,8 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
         writer.update(id, "foo")
         allClients().forEach { umn ->
             expectAsync("foo") { umn.find(id, String::class) }
-            expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
-            expect(id to "foo") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
+            expectAsync(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
+            expectAsync(id to "foo") { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
         }
     }
     @Test fun `create()+update()+delete() propagates properly`() {
@@ -93,8 +94,8 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
         writer.delete(id)
         allClients().forEach { umn ->
             expectAsync(null) { umn.find(id, String::class) }
-            expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
-            expect(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
+            expectAsync(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(14)) }
+            expectAsync(null) { umn.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key(3)) }
         }
     }
 }
