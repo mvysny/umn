@@ -9,8 +9,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.io.File
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import kotlin.test.assertContains
 import kotlin.test.assertFailsWith
+import kotlin.test.expect
 
 class MVStoreGlobalLogTest {
     private lateinit var log: MVStoreGlobalLog
@@ -25,6 +29,40 @@ class MVStoreGlobalLogTest {
 
     @Nested inner class GlobalLogClientTests : GlobalLogClientTestBattery() {
         override fun newClient(): GlobalLogClient = log.newClient("foo", "bar")
+    }
+
+    @Test fun `clients of a new user starting at once all write into one log`() {
+        repeat(20) { round ->
+            val username = "new$round"
+            log.createOrUpdateUser(username, "bar")
+            val clients = List(8) { log.newClient(username, "bar") }
+            val barrier = CyclicBarrier(clients.size)
+            clients.map { client ->
+                thread {
+                    barrier.await()
+                    client.start()
+                    client.addLogCreated("foo")
+                }
+            }.forEach { it.join() }
+            clients.forEach { it.close() }
+            expect(8L, "round $round") { log.getLogMap(username).sizeAsLong() }
+        }
+    }
+
+    @Test fun `a client whose callback fails keeps the record from no other client`() {
+        val failing = log.newClient("foo", "bar")
+        failing.setReceiverCallback(0L) { throw RuntimeException("simulated: the session is gone") }
+        failing.start()
+        val received = AtomicInteger()
+        val ok = log.newClient("foo", "bar")
+        ok.setReceiverCallback(0L) { received.incrementAndGet() }
+        ok.start()
+        val writer = log.newClient("foo", "bar")
+        writer.start()
+
+        writer.addLogCreated("foo")
+        expect(1) { received.get() }
+        listOf(failing, ok, writer).forEach { it.close() }
     }
 
     @Nested inner class InvalidCredentials {

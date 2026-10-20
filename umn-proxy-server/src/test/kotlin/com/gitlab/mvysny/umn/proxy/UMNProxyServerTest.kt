@@ -1,8 +1,11 @@
 package com.gitlab.mvysny.umn.proxy
 
 import com.gitlab.mvysny.umn.core.AutoTypeResolver
+import com.gitlab.mvysny.umn.core.InMemoryUMN
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.core.LogRecord
+import com.gitlab.mvysny.umn.core.UMN
+import com.gitlab.mvysny.umn.sync.tester.WriterReaderTestBattery
 import com.gitlab.mvysny.umn.proxyclient.ProxyClient
 import com.gitlab.mvysny.umn.proxyclient.destroy
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
@@ -53,6 +56,13 @@ class UMNProxyServerTest {
     }
 
     @Nested inner class GlobalLogClientTests : GlobalLogClientTestBattery() {
+        override fun newClient(): GlobalLogClient = createSyncClient(httpClient)
+        override fun serverDown() { server.close() }
+        override fun serverUp() { startServer() }
+    }
+
+    @Nested inner class WriterReaderTests : WriterReaderTestBattery(2) {
+        override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
         override fun newClient(): GlobalLogClient = createSyncClient(httpClient)
         override fun serverDown() { server.close() }
         override fun serverUp() { startServer() }

@@ -61,9 +61,9 @@ record.
    recovers. Tested by `GlobalLogClientTestBattery.ConnectionLossTests` through the
    `serverDown()`/`serverUp()` hooks, which only `UMNProxyServerTest` implements.
 4. ~~The `Syncer` reconnects~~ Done: `Syncer.SyncLoop`, `Backoff`; tested in
-   `SyncingUMNTest.Reconnect`. `WriterReaderTestBattery` has the end-to-end reconnect tests and
-   `serverDown()`/`serverUp()` hooks, but nothing runs them yet: over the proxy server the
-   battery hits `proxy-server-missed-delivery.md`, which blocks step 5.
+   `SyncingUMNTest.Reconnect`, and end to end by `WriterReaderTestBattery`'s reconnect tests,
+   which `UMNProxyServerTest.WriterReaderTests` runs over the real proxy server. Adding those
+   found and fixed a server bug that lost records (`MVStoreGlobalLog.openMap()`).
    Design, as decided (`Q_reconnect_owner` answered): not the client, because "a new
    backend is a thin `GlobalLogClient`" (AGENTS.md promise), and the client's `rewind` is fixed
    at `setReceiverCallback` anyway. On a dead client the syncer closes client, pusher and

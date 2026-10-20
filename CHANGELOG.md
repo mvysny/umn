@@ -50,6 +50,13 @@ no entries.
   all, the syncer closes it and takes a new one from `clientProvider`, waiting from 1 second up
   to 1 minute between attempts. 0.15 never recovered until the app stopped and started the
   syncer. Only a wrong username or password stops it.
+- The proxy server no longer loses records when several devices of a user connect for the first
+  time at once: H2 MVStore's `openMap()` isn't atomic while the map doesn't exist yet, so each
+  device could get a log of its own, and the records written into all but one never reached the
+  other devices. 0.15 has the bug too.
+- The proxy server announces a new record to every device of the user even when sending to one
+  of them fails, say it just disconnected; 0.15 skipped the devices after it until the next
+  record arrived.
 - `InMemoryGlobalLog` no longer fails a client's `start()` with `ConcurrentModificationException`
   when another client adds a record meanwhile, nor delivers that record before older ones.
 - **Breaking:** `ProxyClient.start()` throws a connection failure (`ConnectException`,

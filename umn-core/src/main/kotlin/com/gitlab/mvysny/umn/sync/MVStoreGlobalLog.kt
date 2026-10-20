@@ -3,6 +3,7 @@ package com.gitlab.mvysny.umn.sync
 import com.gitlab.mvysny.umn.core.closeQuietly
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
+import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.util.*
 import java.util.concurrent.BlockingQueue
@@ -56,16 +57,14 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
         check(started.compareAndSet(false, true)) { "Already started" }
 
         // verify the username and password
-        val passwordHash = owner.db.openMap<String, String>("users")[username] ?: throw InvalidUsernamePasswordException("No such user: $username")
+        val passwordHash = owner.users[username] ?: throw InvalidUsernamePasswordException("No such user: $username")
         if (!PasswordHash.validatePassword(password, passwordHash)) {
             throw InvalidUsernamePasswordException("Invalid password for $username")
         }
 
-        // everything seems okay, notify owner that we are started
-        owner.startClient(this)
-
-        // open the log and broadcast any unsent items
+        // open the log before registering: a record added by another client notifies this one right away
         log = owner.getLogMap(username)
+        owner.startClient(this)
         onNewItems()
     }
 
@@ -146,29 +145,48 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
         startedClients[client.username]?.remove(client)
     }
 
+    /**
+     * Notifies every started client of [username], even when one fails: the others would miss the record until the
+     * next one arrives. A failed client catches up on its next notification.
+     */
     internal fun fireNewItemNotification(username: String) {
-        startedClients[username]?.forEach { it.onNewItems() }
+        startedClients[username]?.forEach { client ->
+            try {
+                client.onNewItems()
+            } catch (e: Exception) {
+                log.warn("$username: failed to announce new records to a client", e)
+            }
+        }
     }
 
     /**
      * Creates a new user with specified [username] and [password]. If the user exists, the password is updated.
      */
     public fun createOrUpdateUser(username: String, password: String) {
-        db.openMap<String, String>("users")[username] = PasswordHash.createHash(password)
+        users[username] = PasswordHash.createHash(password)
     }
 
-    public fun listUsers(): List<String> = db.openMap<String, String>("users").keyList().filterNotNull()
+    public fun listUsers(): List<String> = users.keyList().filterNotNull()
 
     /**
      * Deletes the user along with the entire log.
      * @param username the name of the user
      */
     public fun deleteUser(username: String) {
-        db.openMap<String, String>("users").remove(username)
+        users.remove(username)
         db.removeMap(getLogMap(username))
     }
 
-    public fun getLogMap(username: String): MVMap<Long, SerializedLogRecord> = db.openMap("${username}__log")
+    public fun getLogMap(username: String): MVMap<Long, SerializedLogRecord> = openMap("${username}__log")
+
+    internal val users: MVMap<String, String> get() = openMap("users")
+
+    /**
+     * Opens every map of this log: MVStore's `openMap()` isn't atomic while the map doesn't exist yet. Two threads
+     * creating one map get a map each, and the records written through the one whose name binding loses are orphaned.
+     */
+    @Synchronized
+    private fun <K, V> openMap(name: String): MVMap<K, V> = db.openMap(name)
 
     public fun deleteAllUsers() {
         listUsers().forEach { deleteUser(it) }
@@ -188,4 +206,9 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
      * Estimates current client count.
      */
     public val activeClientCount: Int get() = startedClients.values.sumOf { it.size }
+
+    private companion object {
+        @JvmStatic
+        private val log = LoggerFactory.getLogger(MVStoreGlobalLog::class.java)
+    }
 }

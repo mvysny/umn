@@ -123,9 +123,17 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
         }
     }
 
+    /**
+     * Returns once every node has synced a record, hence is connected. Take the server down only
+     * then: a connection attempt racing [serverDown] may hang until okhttp's 10 s read timeout.
+     */
+    private fun awaitAllConnected() {
+        val id = writer.create("connected")
+        allClients().forEach { umn -> expectAsync(true) { umn.exists(id) } }
+    }
+
     @Test fun `sync resumes once the server is back`() {
-        val before = writer.create("before")
-        allClients().forEach { umn -> expectAsync(true) { umn.exists(before) } }
+        awaitAllConnected()
         takeServerDown()
         val fromWriter = writer.create("from writer")
         val fromReader = readers[0].create("from reader")
@@ -136,9 +144,12 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
     }
 
     @Test fun `a node started while the server is down syncs once it is up`() {
+        awaitAllConnected()
         takeServerDown()
         createUMN().use { late ->
             val fromLate = late.create("from late")
+            // the late node's first connection attempt must find the server down, not racing serverUp()
+            Thread.sleep(300)
             bringServerUp()
             allClients().forEach { umn -> expectAsync(true, 10_000) { umn.exists(fromLate) } }
         }
