@@ -38,3 +38,15 @@ format 1, the same `ObjectDataType` tags; 2.x can't), the map names and key/valu
 REST paths and JSON. A new capability may add a node-local map, which 0.15 ignores, but never a
 record or message type: 0.15 throws on an unknown type byte, and its sync stops for good. The API may change freely: adapting the app is easy, while a sync
 or storage mismatch shows up as silently diverging data. `umn-compat-0.15`'s tests hold HEAD to it.
+
+## D_index_key_codec — Why do custom index keys go through Java serialization rather than a codec of their own?
+
+An index map (`__INDEX2_*`) is opened without a key type, so MVStore's `ObjectDataType` writes
+the keys: `String`, the boxed primitives, `UUID` and a few more natively, any other class with
+Java serialization. Those bytes carry the class's full name and `serialVersionUID`; rename, move
+or obfuscate the class and the store fails to open — Aedict hit it with `IdxCategoryOrdinal` and
+pinned the UID. A codec per index (an `IndexDef` handing a `DataType` to `openUtilityMap()`)
+helps new indices only: an existing index keeps its bytes (`D_frozen_0_15_formats`), and moving
+it needs the reindex `D_three_op_log` lacks. It also adds another `org.h2` type to the API. So
+`K` stays a bare `Comparable`, as in 0.15: a `Serializable` bound would steer users onto the
+fragile path, while a non-serializable key still fails on its first write.

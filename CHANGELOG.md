@@ -20,9 +20,6 @@ no entries.
 - **Breaking:** published to Maven Central; 0.15 was on Bintray, which is gone. The groupId
   `com.gitlab.mvysny.umn` and the artifactIds are unchanged. Migration: `mavenCentral()` in your
   repositories.
-- **Breaking:** an index key type must be `java.io.Serializable` as well as `Comparable`
-  (`IndexDef`, `IndexDef.simple()`, `getIndex()`). Migration: make a custom key class implement
-  `Serializable`; `String` and the boxed numbers already do.
 - **Breaking:** `UMN.openUtilityMap()` takes optional `keyType` and `valueType` arguments, so
   callers compile unchanged, but a class implementing `UMN` must override the new signature;
   `MvstoreUtilityMap`'s constructor takes them without defaults. Migration: add the two

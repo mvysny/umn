@@ -7,7 +7,6 @@ import com.github.mvysny.vokdataloader.intRange
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
 import org.h2.mvstore.type.DataType
-import java.io.Serializable
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -75,12 +74,13 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
      * This would save you the time which would be otherwise wasted by loading of the document, retrieving its parent ID from the document,
      * and loading the parent.
      *
-     * WARNING: if the key is not directly supported by [UtilityMap] then it might be serialized into the underlying storage by using traditional
-     * Java serialization procedure. Extreme care must be taken so that the serialization form doesn't change over time. It's strongly
-     * recommended for [K] to implement the [java.io.Externalizable] interface.
+     * WARNING: [MvstoreUMN] stores a key of any other type than [String], the boxed primitives, [java.math.BigInteger],
+     * [java.math.BigDecimal], [UUID] and [Date] with Java serialization, which writes the key class's full name and `serialVersionUID`
+     * into the file. Renaming, moving or obfuscating the class, or letting its `serialVersionUID` change, then makes the index
+     * unreadable, and the UMN fails to open. Build keys from those types where possible; a custom key class must be `Serializable`, pin
+     * its `serialVersionUID` and never move. See `D_index_key_codec`.
      *
-     * @property K the type of keys. Consult the underlying storage for [UtilityMap] key types. Yet, at least [String] and [Long] must always
-     * be supported. The type must be comparable and must properly implement [Any.equals] and [Any.hashCode]. Often the key is just a String,
+     * @property K the type of keys. The type must properly implement [Any.equals] and [Any.hashCode]. Often the key is just a String,
      * but sometimes it's more complex comparable so that we can select a range of keys and have the values sorted.
      * @property D the type of documents indexed by this index. The indexing function is run on these documents as they are created or updated
      * within the [UMN].
@@ -96,13 +96,13 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
      * @property valueIdGetter which ID to actually associate with the key. Receives the document ID and the document itself. By default simply
      * returns the ID
      */
-    public class IndexDef<K, D : Any, V : Any>(
+    public class IndexDef<K : Comparable<K>, D : Any, V : Any>(
             public val name: String,
             public val keyGetter: (D) -> Set<K>,
             public val documentType: KClass<D>,
             public val valueType: KClass<V>,
             public val valueIdGetter: (UUID, D) -> UUID
-    ) where K: Comparable<K>, K: Serializable {
+    ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (javaClass != other?.javaClass) return false
@@ -126,7 +126,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
              * @property documentType the type of documents indexed by this index. The [keyGetter] will only be called for documents of this type -
              * all other document types will be ignored and will not be indexed by this index.
              */
-            public fun <K, D: Any> simple(name: String, keyGetter: (D) -> Set<K>, documentType: KClass<D>) : IndexDef<K, D, D> where K: Comparable<K>, K:Serializable =
+            public fun <K : Comparable<K>, D: Any> simple(name: String, keyGetter: (D) -> Set<K>, documentType: KClass<D>) : IndexDef<K, D, D> =
                     IndexDef(name, keyGetter, documentType, documentType, { id, _ -> id })
         }
     }
@@ -144,7 +144,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
      * @property D the type of documents indexed by this index.
      * @property V the type of documents referenced by the keys.
      */
-    public inner class IndexImpl<K, D: Any, V: Any>(public val def: IndexDef<K, D, V>) where K: Comparable<K>, K: Serializable {
+    public inner class IndexImpl<K : Comparable<K>, D: Any, V: Any>(public val def: IndexDef<K, D, V>) {
 
         /**
          * Maps key to a set of documents IDs (the [V] documents). Don't use Set since that's serialized using Java serialization; use Arrays
@@ -459,12 +459,12 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
      * Returns a particular index with given [name], failing if no such index was provided to the constructor.
      */
     @Suppress("UNCHECKED_CAST")
-    public fun <K, D: Any, V: Any> getIndex(name: String): IndexImpl<K, D, V> where K: Comparable<K>, K: Serializable {
+    public fun <K : Comparable<K>, D: Any, V: Any> getIndex(name: String): IndexImpl<K, D, V> {
         return indexMap[name] as IndexImpl<K, D, V>? ?: throw IllegalStateException("Unknown index name $name, available indices: ${indexMap.keys}")
     }
 
     @Suppress("UNCHECKED_CAST")
-    public fun <K, D: Any, V: Any> getIndex(index: IndexDef<K, D, V>): IndexImpl<K, D, V> where K: Comparable<K>, K: Serializable {
+    public fun <K : Comparable<K>, D: Any, V: Any> getIndex(index: IndexDef<K, D, V>): IndexImpl<K, D, V> {
         return indexMap[index.name] as IndexImpl<K, D, V>? ?: throw IllegalStateException("Unknown index $index, available indices: ${indexMap.keys}")
     }
 
