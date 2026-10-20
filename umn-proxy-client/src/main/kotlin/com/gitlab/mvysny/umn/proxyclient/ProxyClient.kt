@@ -112,7 +112,8 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
         check(started.compareAndSet(false, true)) { "Already started" }
 
         val request: Request = requestBuilder.build()
-        log.debug("Sending request $request with headers ${request.headers()}")
+        // never log request.headers(): they carry the password
+        log.debug("Connecting to ${request.url()} as $username, rewind=${request.header("rewind")}")
         ws = client.newWebSocket(request, listener)
         try {
             startFuture.get()
