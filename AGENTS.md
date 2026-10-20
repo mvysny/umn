@@ -39,9 +39,6 @@ moved to the files above first.
 
 - `umn-core` — the `UMN` interface, MVStore and in-memory stores, indexing, full-text, the sync engine.
 - `umn-sync-tester` — shared test batteries every `GlobalLogClient` implementation runs.
-- `umn-sync-mongodb` — `GlobalLogClient` over a MongoDB capped collection, polling.
-- `umn-sync-kafka` — `GlobalLogClient` over a single-partition Kafka topic; unpublished.
-- `umn-sync-hazelcast` — `GlobalLogClient` over a Hazelcast `IList`.
 - `umn-proxy-client` — websocket `GlobalLogClient` for Android, okhttp only.
 - `umn-proxy-server` — standalone websocket proxy server with an MVStore global log and REST admin; Docker image.
 - `umn-proxy-server-adminclient` — Kotlin client for the proxy server's REST admin API.
@@ -51,14 +48,14 @@ moved to the files above first.
 
 - **Kotlin targeting Java 17, Gradle 9 Kotlin DSL.** `kotlin("stdlib")`, never `-jdk8`, in anything Android loads.
 - **Library modules use `explicitApi()`**; every public declaration states its visibility.
-- **Tests: DynaTest on the JUnit platform**; backends via the `umn-sync-tester` batteries, Kafka and MongoDB via Testcontainers.
+- **Tests: DynaTest on the JUnit platform**; every `GlobalLogClient` via the `umn-sync-tester` batteries.
 - **Logging through slf4j-api**; `slf4j-simple` only in the proxy server and tests.
 - **Dependencies live in `gradle/libs.versions.toml`**; an Android-forced pin carries its reason as a comment there.
 - **Release: Maven Central** through the root build's `publish(artifactId, description)`; a module without the call stays unpublished.
 
 ## Commands
 
-- `./gradlew build` — compile and test everything; the Kafka and MongoDB tests need Docker.
+- `./gradlew build` — compile and test everything.
 - `./gradlew umn-core:test` — one module's tests.
 - `./gradlew build -x test` and `./gradlew clean umn-proxy-client:build -x test` — what GitLab CI runs on push (`.gitlab-ci.yml`).
 - `./gradlew check` also runs `design/verify_design_tripwires.sh`; CI runs it as a job of its own.

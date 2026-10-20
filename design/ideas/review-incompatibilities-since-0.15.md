@@ -32,12 +32,46 @@ Not yet covered:
   Its bytes are unchanged, but the harness syncs from the start.
 - The proxy over a real websocket. 0.15 `ProxyClient` → HEAD server can be run (the 0.15
   client jar is in Aedict's `.m2`). HEAD client → *deployed* server can be run after all:
-  production runs a 0.13-SNAPSHOT server, shipped as Docker Hub image
-  `mvysny/umn-proxy-server:0.12` (see `drop-unused-sync-backends.md`). Pull it, point
-  `ProxyClient` and `AdminClient` at it.
-- Keep the harness as a regression test before every release? Today it lives in a scratchpad.
+  production runs Docker Hub image `mvysny/umn-proxy-server:0.12`, whose jars are
+  `0.13-SNAPSHOT` (a build between `f90b105` 2018-09-27 and `f4ca711` 2018-10-02). Pull it,
+  point `ProxyClient` and `AdminClient` at it.
+- The deployed server vs 0.15, statically (`git diff f90b105 0.15`): `umn_proxy_log` storage
+  is identical (same `users` / `{username}__log` maps, `PasswordHash`, MVStore 1.4.197), so an
+  in-place server upgrade opens the file. The wire differs only by 0.15's "`OnLogRecord` of
+  size 0 = hole": the old server never sends one, but a server that punches holes would break
+  pre-0.15 clients. `Started` is now sent after `start()` succeeds; bytes and close codes are
+  unchanged. The admin REST API isn't diffed yet (`f18cac3`, the Javalin bumps; see §4).
+- A regression test, so this holds for every later release: see the next section.
 - A wrapper new since 0.15 (e.g. `FullTextUMN`) misses whatever 0.15 writes in between: the
   `D_three_op_log` "no reindex" cost, now reachable by a downgrade/upgrade round-trip.
+
+## The `umn-compat-0.15` test module — after `drop-dynatest-for-junit6.md`
+
+Turn the scratchpad harness into an unpublished module whose plain JUnit 6 tests run the old
+jars for real on every `./gradlew build`, with no Docker.
+
+- **Old jars, committed.** `umn-core-0.15` and `umn-proxy-client-0.15` jars and poms in a
+  module-local Maven repo, as Aedict does: they died with JCenter. Their dependencies (MVStore
+  1.4.197, Kotlin 1.3, slf4j 1.7) resolve from Maven Central into a configuration of their own,
+  never mixed with HEAD's.
+- **Old code runs in a child JVM.** A small driver in its own source set compiles against that
+  configuration only. A test runs HEAD in-process and forks the driver for each 0.15 step over
+  the same files: no classloader isolation, no reflection.
+- **Cases:**
+  1. One node file, upgraded and downgraded in turns: 0.15 writes and queues unsynced
+     changes, HEAD opens them, its index finds them, HEAD pushes 0.15's queue, and 0.15
+     reopens HEAD's file and continues.
+  2. Fresh nodes of each version pull a global log both versions wrote; nothing is pushed twice.
+  3. `DocumentCreated2`: a node filled with sync off gets sync turned on, in both directions.
+  4. A 0.15 `ProxyClient` over a real websocket through a HEAD `UMNProxyServer`.
+  5. Golden bytes: the `LogRecord` and `AbstractMessage` bytes HEAD writes equal bytes
+     recorded from 0.15. This catches a format slip without starting old code.
+- **The deployed server.** For a HEAD `ProxyClient` and `AdminClient` against the 0.13-SNAPSHOT
+  server, pull its jars out of `mvysny/umn-proxy-server:0.12` once, commit them alongside, and
+  fork that server too. `Q_old_server_jars`: do the 2018 jars start on JDK 17+? If not, this
+  case becomes an opt-in Docker test.
+- When it lands, `AGENTS.md` names the module as the guard of `D_frozen_0_15_formats`, and
+  "Not yet covered" above shrinks to whatever it can't reach.
 
 ## 3. Kotlin API and binary compatibility for library consumers
 
@@ -78,6 +112,9 @@ Not yet covered:
 - `umn-sync-kafka`, `umn-proxy-server` and `umn-sync-tester` weren't published in 0.15
   either (no `configureBintray` call at the tag), so nothing disappears for users.
   `umn-sync-tester` losing `Docker.kt` breaks no one.
+- `umn-sync-mongodb` and `umn-sync-hazelcast` *were* published up to 0.15 and are deleted now
+  (unused, see `sync-over-third-party-log-stores.md`). Say so in the 0.16 release notes, or let
+  them lapse silently (`Q_dropped_backends_note`)?
 - `FullTextUMN` is new (`cabbe6f`..`dc05b77`). `7ad6b25` says "FullTextUMN probably a
   failure", so is it released as public API, marked experimental, or removed first?
   Shipping it public makes it a compatibility surface from 0.16 on.

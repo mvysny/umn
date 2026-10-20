@@ -1,17 +1,11 @@
 [versions]
 # https://repo1.maven.org/maven2/org/slf4j/slf4j-api/
 slf4j = "2.0.13"
-testcontainers = "1.19.8" # https://testcontainers.com/guides/getting-started-with-testcontainers-for-java
 
 [libraries]
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
-testcontainers-mongodb = { module = "org.testcontainers:mongodb", version.ref = "testcontainers" }
-testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
-mongodb-driver = "org.mongodb:mongodb-driver-sync:3.8.0"
 dynatest = "com.github.mvysny.dynatest:dynatest:0.25"
-kafka-client = "org.apache.kafka:kafka-clients:1.1.0"
-hazelcast = "com.hazelcast:hazelcast-client:3.10.2"
 gson = "com.google.code.gson:gson:2.11.0"
 
 # Keep okhttp at 3.12.x to stay compatible with older Androids: https://medium.com/square-corner-blog/okhttp-3-13-requires-android-5-818bb78d07ce

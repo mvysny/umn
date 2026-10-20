@@ -285,13 +285,10 @@ to all other clients. Every client contains a queue of log records; the queue is
 are confirmed to be received by the server.
 
 To activate syncing, you first need to create a client which transmits the log to a particular server of your choosing.
-UMN currently supports the following means of synchronization:
-
-* Via [UMN Proxy Server](umn-proxy-server) backed with the H2 MVStore log storage.
-  You use the [UMN Proxy Client](umn-proxy-client) which works on any Java 17 including Android.
-* Via a MongoDB server: [umn-sync-mongodb](umn-sync-mongodb)
-* Via a Kafka server: [umn-sync-kafka](umn-sync-kafka)
-* Via Hazelcast server: [umn-sync-hazelcast](umn-sync-hazelcast)
+UMN currently syncs via the [UMN Proxy Server](umn-proxy-server), which stores the log in H2 MVStore.
+You use the [UMN Proxy Client](umn-proxy-client) which works on any Java 17 including Android.
+Another server only needs a thin `GlobalLogClient` implementation, tested with the batteries in
+[umn-sync-tester](umn-sync-tester).
 
 ### Syncing Example
 

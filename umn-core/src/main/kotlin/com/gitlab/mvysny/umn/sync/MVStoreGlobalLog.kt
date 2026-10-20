@@ -125,9 +125,7 @@ public fun <V: Any> MVMap<Long, V>.append(value: V): Long {
  *
  * Contains the following maps:
  * * `users`: maps String username to String hashed password
- * * `{username}__log`: contains the global log for given user. Maps the log record ordinal to the serialized log record.
- * * `properties`: various properties of the MVStore: `globalLogStorageUUID` of type [UUID] is the global log storage UUID.
- */
+ * * `{username}__log`: contains the global log for given user. Maps the log record ordinal to the serialized log record. */
 public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     private val startedClients = ConcurrentHashMap<String, BlockingQueue<MVStoreGlobalLogClient>>()
     private val closed = AtomicBoolean(false)
