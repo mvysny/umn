@@ -19,16 +19,19 @@ import java.nio.ByteBuffer
  */
 class UMNProxyWebsocketListener : WebSocketListener {
     private lateinit var session: Session
-    private lateinit var username: String
-    private lateinit var logStorage: GlobalLogClient
+    private var username: String? = null
+    /**
+     * Null until the connection's headers have been verified.
+     */
+    private var logStorage: GlobalLogClient? = null
     override fun onWebSocketClose(statusCode: Int, reason: String?) {
         log.info("$username: Closing web socket: statusCode=$statusCode, reason=$reason")
-        logStorage.close()
+        logStorage?.close()
     }
 
     override fun onWebSocketError(t: Throwable) {
         log.error("$username: Web socket failure: $t", t)
-        logStorage.close()
+        logStorage?.close()
     }
 
     override fun onWebSocketConnect(session: Session): Unit {
@@ -43,7 +46,8 @@ class UMNProxyWebsocketListener : WebSocketListener {
                 throw InvalidUsernamePasswordException("Missing headers")
             }
             this.username = username
-            logStorage = server.globalLogClientProvider.createClient(username, password)
+            val logStorage = server.globalLogClientProvider.createClient(username, password)
+            this.logStorage = logStorage
 
             val rewind = rewindStr.toLong()
             logStorage.setAddCallback {
@@ -56,11 +60,11 @@ class UMNProxyWebsocketListener : WebSocketListener {
             session.remote.send(AbstractMessage.Started)
             log.info("Connection successful, sent handshake AbstractMessage.Started")
         } catch (e: InvalidUsernamePasswordException) {
-            logStorage.closeQuietly()
+            logStorage?.closeQuietly()
             log.warn("Invalid username/password", e)
             session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, e.message)
         } catch (e: Throwable) {
-            logStorage.closeQuietly()
+            logStorage?.closeQuietly()
             log.warn("General storage error", e)
             session.close(AbstractMessage.WS_SERVER_ERROR, e.message)
         }
@@ -69,17 +73,17 @@ class UMNProxyWebsocketListener : WebSocketListener {
     override fun onWebSocketText(message: String) {
         log.error("Unexpected: Received text message $message, MITM?!?")
         session.close(1003, "UNEXPECTED TEXT MESSAGE")
-        logStorage.close()
+        logStorage?.close()
     }
 
     override fun onWebSocketBinary(payload: ByteArray, offset: Int, len: Int) {
         val msg = AbstractMessage.fromByteArray(payload, offset, len)
         log.debug("Got message $msg")
         if (msg is AbstractMessage.AddAsync) {
-            logStorage.addAsync(msg.record)
+            logStorage!!.addAsync(msg.record)
         } else {
             session.close(1002, "Unexpected message arrived: $msg")
-            logStorage.close()
+            logStorage?.close()
         }
     }
 

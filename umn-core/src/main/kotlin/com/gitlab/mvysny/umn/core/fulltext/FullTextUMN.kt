@@ -43,8 +43,9 @@ public class FullTextUMN(override val delegate: UMN, private val tokens: (Any) -
         val oldTokens = tokens(oldDoc)
         val newTokens = tokens(document)
         delegate.update(id, document)
-        (oldTokens - newTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), null) }
-        (newTokens - oldTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
+        // the key carries the document's importance, which may have changed: re-key every token
+        oldTokens.forEach { token -> getTokenMap(token).put(key(oldDoc, token, id), null) }
+        newTokens.forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
     }
 
     override fun delete(id: UUID) {
@@ -94,8 +95,9 @@ public class FullText2UMN(override val delegate: UMN, private val tokens: (Any) 
         val oldTokens = tokens(oldDoc)
         val newTokens = tokens(document)
         delegate.update(id, document)
-        (oldTokens - newTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), null) }
-        (newTokens - oldTokens).forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
+        // the key carries the document's importance, which may have changed: re-key every token
+        oldTokens.forEach { token -> getTokenMap(token).put(key(oldDoc, token, id), null) }
+        newTokens.forEach { token -> getTokenMap(token).put(key(document, token, id), true) }
     }
 
     override fun delete(id: UUID) {

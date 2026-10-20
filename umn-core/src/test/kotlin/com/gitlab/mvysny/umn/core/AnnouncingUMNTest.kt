@@ -5,6 +5,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.util.*
+import kotlin.test.assertFailsWith
 import kotlin.test.expect
 
 /**
@@ -80,6 +82,56 @@ class AnnouncingUMNTest {
         }
         @Nested inner class OnMvstore : AnnouncingTestBattery() {
             override fun newStorage(): UMN = createMvstoreUMN()
+        }
+    }
+
+    @Test fun `findSerialized delegates`() {
+        val storage = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        val umn = AnnouncingUMN(storage, object : AnnouncingUMN.Listener {
+            override fun onRecord(logRecord: LogRecord) {}
+        })
+        val id = umn.create("kvak")
+        expect(storage.findSerialized(id)!!.toList()) { umn.findSerialized(id)!!.toList() }
+    }
+
+    @Nested inner class LogRecords {
+        private val stringType = AutoTypeResolver.toType(String::class)
+        private val umn = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        private fun LogRecord.roundTrip(): LogRecord? =
+            LogRecord.fromByteArray(toByteArray(JavaDocumentSerializer), JavaDocumentSerializer, AutoTypeResolver)
+
+        @Test fun `serialization round-trip`() {
+            val id = UUID.randomUUID()
+            listOf(LogRecord.DocumentCreated("kvak", stringType, id), LogRecord.DocumentUpdated("foo", stringType, id),
+                LogRecord.DocumentDeleted(id)).forEach { record ->
+                expect(record) { record.roundTrip() }
+            }
+            expect(null) { LogRecord.fromByteArray(null, JavaDocumentSerializer, AutoTypeResolver) }
+        }
+
+        @Test fun `DocumentCreated2 deserializes as DocumentCreated`() {
+            val id = umn.create("kvak")
+            val record = LogRecord.DocumentCreated2(umn.findSerialized(id)!!, id)
+            expect(LogRecord.DocumentCreated("kvak", stringType, id)) { record.roundTrip() }
+            assertFailsWith<IllegalStateException> { record.applyTo(umn) }
+        }
+
+        @Test fun `unknown record type fails to deserialize`() {
+            val bytes = serializeData { writeByte(25); writeLong(0L); writeLong(0L) }
+            assertFailsWith<RuntimeException> { LogRecord.fromByteArray(bytes, JavaDocumentSerializer, AutoTypeResolver) }
+        }
+
+        @Test fun `applying records`() {
+            val id = UUID.randomUUID()
+            LogRecord.DocumentCreated("kvak", stringType, id).applyTo(umn)
+            expect("kvak") { umn.get(id, String::class) }
+            LogRecord.DocumentUpdated("foo", stringType, id).applyTo(umn)
+            expect("foo") { umn.get(id, String::class) }
+            LogRecord.DocumentDeleted(id).applyTo(umn)
+            expect(false) { umn.exists(id) }
+            // an update of a deleted document must not resurrect it
+            LogRecord.DocumentUpdated("bar", stringType, id).applyTo(umn)
+            expect(false) { umn.exists(id) }
         }
     }
 }

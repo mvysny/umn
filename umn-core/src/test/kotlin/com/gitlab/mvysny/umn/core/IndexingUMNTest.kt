@@ -1,9 +1,11 @@
 package com.gitlab.mvysny.umn.core
 
+import com.github.mvysny.vokdataloader.SortClause
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.io.Serializable
 import java.util.*
+import kotlin.test.assertFailsWith
 import kotlin.test.expect
 
 /**
@@ -478,6 +480,77 @@ abstract class IndexingUmnTestBattery {
         expect(null) { umn.find(id, java.lang.Long::class) }
     }
 
+    @Test fun `update re-indexes a document whose type changes`() {
+        val umn = IndexingUMN(newStorage(), indices)
+        val id = umn.create(25L)
+        umn.update(id, "kvak")
+        expect(id to "kvak") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
+        umn.update(id, 45L)
+        expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("kvak")) }
+        expect(true) { umn.getIndex(idxIdentity).isEmpty() }
+    }
+
+    @Test fun `create with given ID indexes the document`() {
+        val umn = IndexingUMN(newStorage(), indices)
+        val id = UUID.randomUUID()
+        expect(true) { umn.create("kvak", id) }
+        expect(false) { umn.create("foo", id) }
+        expect(id) { umn.getIndex(idxIdentity).findFirstID(For.Key("kvak")) }
+        expect(null) { umn.getIndex(idxIdentity).findFirstID(For.Key("foo")) }
+    }
+
+    @Test fun `findLastID`() {
+        val umn = IndexingUMN(newStorage(), indices)
+        expect(null) { umn.getIndex(idxIdentity).findLastID(For.all()) }
+        umn.create("a")
+        val id = umn.create("b")
+        expect(id) { umn.getIndex(idxIdentity).findLastID(For.all()) }
+        expect(id) { umn.getIndex(idxIdentity).findLastID(For.KeySet("a", "b")) }
+    }
+
+    @Test fun `containsValueDocument`() {
+        val umn = IndexingUMN(newStorage(), indices)
+        val id = umn.create("a")
+        val unindexed = umn.create(25L)
+        expect(true) { umn.getIndex(idxIdentity).containsValueDocument(id) }
+        expect(false) { umn.getIndex(idxIdentity).containsValueDocument(unindexed) }
+        expect(false) { umn.getIndex(idxIdentity).containsValueDocument(UUID.randomUUID()) }
+    }
+
+    @Test fun `paging past the last match returns what there is`() {
+        val umn = IndexingUMN(newStorage(), setOf(idxToLong))
+        (0..100).forEach { umn.create(it.toString()) }
+        expect(listOf("54", "55")) { umn.getIndex(idxToLong).findAllDocsPaged(For.KeyRange(50L..55L), 4..10).values.toList() }
+        expect(2) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L), 4..10).size }
+    }
+
+    @Test fun `keyLoader pages through the keys`() {
+        val umn = IndexingUMN(newStorage(), setOf(idxToLong))
+        (0..9).shuffled().forEach { umn.create(it.toString()) }
+        val loader = umn.getIndex(idxToLong).keyLoader()
+        expect(10L) { loader.getCount(null) }
+        expect(listOf(2L, 3L, 4L)) { loader.fetch(null, listOf(), 2L..4L) }
+        expect(listOf()) { loader.fetch(null, listOf(), LongRange.EMPTY) }
+        assertFailsWith<IllegalArgumentException> { loader.fetch(null, listOf(SortClause("key", false)), 0L..1L) }
+        assertFailsWith<IllegalArgumentException> { loader.fetch(null, listOf(), -1L..1L) }
+    }
+
+    @Test fun `getIndex by name`() {
+        val umn = IndexingUMN(newStorage(), indices)
+        val id = umn.create("kvak")
+        expect(id) { umn.getIndex<String, String, String>("identity").findFirstID(For.Key("kvak")) }
+        assertFailsWith<IllegalStateException> { umn.getIndex<String, String, String>("nonexisting") }
+        assertFailsWith<IllegalStateException> { umn.getIndex(idxToLong) }
+    }
+
+    @Test fun `delegates the storage calls`() {
+        val storage = newStorage()
+        val umn = IndexingUMN(storage, indices)
+        val id = umn.create("kvak")
+        expect(storage.typeToClassResolver) { umn.typeToClassResolver }
+        expect(storage.findSerialized(id)!!.toList()) { umn.findSerialized(id)!!.toList() }
+    }
+
     @Nested inner class IsEmpty {
         @Test fun `initially the index is empty`() {
             val umn = IndexingUMN(newStorage(), indices)
@@ -569,6 +642,16 @@ data class CKey(val category: String, val ordering: Float) : Serializable, Compa
  * Tests the [IndexingUMN] class.
  */
 class IndexingUMNTest {
+    @Test fun `IndexDef is identified by its name`() {
+        val idx = IndexingUMN.IndexDef.simple<String, String>("identity", { setOf(it) }, String::class)
+        val sameName = IndexingUMN.IndexDef.simple<Int, String>("identity", { setOf(it.length) }, String::class)
+        expect(true) { idx == sameName }
+        expect(idx.hashCode()) { sameName.hashCode() }
+        expect(false) { idx == IndexingUMN.IndexDef.simple<String, String>("other", { setOf(it) }, String::class) }
+        expect(false) { idx.equals("identity") }
+        expect("IndexDef(name='identity')") { idx.toString() }
+    }
+
     // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
     @Nested inner class BasicTests {
         @Nested inner class InMemory : GenericUmnTestBattery() {

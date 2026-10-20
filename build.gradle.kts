@@ -6,6 +6,7 @@ plugins {
     kotlin("jvm") version "2.4.21"
     `maven-publish`
     signing
+    id("org.jetbrains.kotlinx.kover") version "0.9.11"
 }
 
 defaultTasks("clean", "build")
@@ -15,6 +16,18 @@ val verifyDesignTripwires = tasks.register<Exec>("verifyDesignTripwires") {
     commandLine("design/verify_design_tripwires.sh")
 }
 tasks.check { dependsOn(verifyDesignTripwires) }
+
+// `./gradlew koverHtmlReport` merges the coverage of the shipped modules into build/reports/kover/html
+dependencies {
+    kover(project(":umn-core"))
+    kover(project(":umn-sync-tester"))  // its tests exercise umn-core's MVStoreGlobalLog
+    kover(project(":umn-proxy-client"))
+    kover(project(":umn-proxy-server"))
+    kover(project(":umn-proxy-server-adminclient"))
+}
+kover.reports.filters.excludes {
+    packages("com.gitlab.mvysny.umn.sync.tester")  // test batteries, not shipped code
+}
 
 allprojects {
     group = "com.gitlab.mvysny.umn"
@@ -30,6 +43,7 @@ subprojects {
         plugin("maven-publish")
         plugin("kotlin")
         plugin("org.gradle.signing")
+        plugin("org.jetbrains.kotlinx.kover")
     }
 
     tasks.withType<KotlinCompile> {

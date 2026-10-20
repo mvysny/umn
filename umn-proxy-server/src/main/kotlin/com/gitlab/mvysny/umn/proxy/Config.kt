@@ -74,7 +74,6 @@ data class Secure(var port: Int = 10146,
         val httpsConnector = ServerConnector(server, sslContextFactory, HttpConnectionFactory(config))
         httpsConnector.port = port
         httpsConnector.host = host
-        server.addConnector(httpsConnector)
         return httpsConnector
     }
 }

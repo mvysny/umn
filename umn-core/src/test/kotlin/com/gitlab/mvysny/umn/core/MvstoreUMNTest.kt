@@ -20,6 +20,17 @@ class MvstoreUMNTest {
         override fun newUmn(): UMN = createMvstoreUMN()
     }
 
+    @Test fun `compact keeps the documents`() {
+        createMvstoreUMN().use { umn ->
+            expect(null) { umn.delegate }
+            val ids = (0..100).map { umn.create("doc $it") }
+            ids.take(50).forEach { umn.delete(it) }
+            umn.compact()
+            expect("doc 50") { umn.get(ids[50], String::class) }
+            expect(51) { umn.getSequenceOfIDs().count() }
+        }
+    }
+
     @Nested inner class MigrationV1V2Tests {
         private lateinit var store: MVStore
         private lateinit var root: MVMap<UUID, ByteArray>
