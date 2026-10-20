@@ -66,3 +66,14 @@ puller recomputes the rewind, the pusher re-sends every unacked record. Delivery
 at-least-once: a duplicate is harmless, a {LogRecord} being idempotent, while a skipped record
 is a lost change. The cost: acks and log pointers are positional, so a closed pusher or puller
 must ignore its old client's late callbacks, or they move under the new one.
+
+## D_empty_javadoc_jars — Why publish near-empty javadoc jars rather than Dokka's KDoc?
+
+Maven Central demands a `-javadoc.jar` beside every jar but not its content, so `publish()` keeps
+`withJavadocJar()`: empty in a Kotlin module, in `umn-core` only the Java `PasswordHash`. IDEs
+read KDoc from the `-sources.jar`, which is what matters. Dokka would fill the jar, and
+javadoc.io would render it, but its HTML bundles fonts, megabytes per module, while Central caps
+uploads at 80 MB a month, all releases together: three modules a release, and a 0.16, 0.16.1,
+0.16.2 burst eats much of it; today a whole release is about 0.3 MB. Online KDoc, if ever
+wanted: Dokka's HTML to GitLab Pages from CI, outside the quota. Watch the JDK too: javadoc
+bundles web fonts from JDK 23 on, unless given `--no-fonts`.

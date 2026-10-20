@@ -80,6 +80,7 @@ subprojects {
     // creates a reusable function which configures proper deployment to Maven Central
     ext["publish"] = { artifactId: String, description: String ->
         java {
+            // near-empty on purpose, no Dokka: D_empty_javadoc_jars
             withJavadocJar()
             withSourcesJar()
         }
