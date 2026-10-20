@@ -32,9 +32,11 @@ class UMNProxyServerTest {
         @AfterAll @JvmStatic fun destroyHttpClient() { httpClient.destroy() }
     }
 
+    private lateinit var server: UMNProxyServer
+    private lateinit var lp: MVStoreGlobalLogProvider
     @BeforeEach fun startServer() {
         val dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
-        val lp = MVStoreGlobalLogProvider(dbDir)
+        lp = MVStoreGlobalLogProvider(dbDir)
         lp.mvstorelog.createOrUpdateUser("user", "example")
         server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 51343), null, lp)
         server.start()
@@ -82,7 +84,7 @@ class UMNProxyServerTest {
             client.addAsync(item)
             expectAsync(true) { addCallbackCalled }
             expectAsync(true) { receiverCallbackCalled }
-            expect(mapOf("user" to 1L)) { AdminServer.mvstoreGlobalLog.getLogSizes() }
+            expect(mapOf("user" to 1L)) { lp.mvstorelog.getLogSizes() }
         }
     }
 }

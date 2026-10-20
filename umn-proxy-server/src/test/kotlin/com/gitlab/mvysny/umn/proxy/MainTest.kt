@@ -4,6 +4,7 @@ import com.gitlab.mvysny.umn.proxyclient.ProxyClient
 import com.gitlab.mvysny.umn.proxyclient.destroy
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
@@ -22,7 +23,7 @@ class MainTest {
             Main(cfg).use { main ->
                 main.start()
                 expect(true) { dbDir.isDirectory }
-                AdminServer.mvstoreGlobalLog.createOrUpdateUser("user", "example")
+                createUser(httpClient)
                 val users = httpClient.newCall(Request.Builder().url("http://127.0.0.1:51345/admin/users").build()).execute().use { it.body()!!.string() }
                 expect("[\"user\"]") { users }
 
@@ -51,7 +52,7 @@ class MainTest {
         try {
             Main(cfg).use { main ->
                 main.start()
-                AdminServer.mvstoreGlobalLog.createOrUpdateUser("user", "example")
+                createUser(httpClient)
                 val client = ProxyClient(httpClient, Request.Builder().url("wss://localhost:51346"), "user", "example")
                 client.start()
                 client.close()
@@ -59,5 +60,10 @@ class MainTest {
         } finally {
             httpClient.destroy()
         }
+    }
+
+    private fun createUser(httpClient: OkHttpClient) {
+        val put = Request.Builder().url("http://127.0.0.1:51345/admin/users?username=user&password=example").put(RequestBody.create(null, ByteArray(0))).build()
+        httpClient.newCall(put).execute().use { expect(204) { it.code() } }
     }
 }

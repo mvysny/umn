@@ -4,7 +4,6 @@ import com.gitlab.mvysny.umn.core.closeQuietly
 import com.gitlab.mvysny.umn.proxy.AdminServer
 import com.gitlab.mvysny.umn.proxy.MVStoreGlobalLogProvider
 import com.gitlab.mvysny.umn.proxy.UMNProxyServer
-import com.gitlab.mvysny.umn.proxy.server
 import com.google.gson.JsonParseException
 import io.javalin.Javalin
 import org.junit.jupiter.api.AfterEach
@@ -58,13 +57,15 @@ class AdminClientTest {
     }
 
     @Nested inner class WithRunningServer {
+        private lateinit var server: UMNProxyServer
         private lateinit var adminServer: AdminServer
+        private lateinit var lp: MVStoreGlobalLogProvider
         @BeforeEach fun startServers() {
             val dbDir = Files.createTempDirectory("tmp").toFile().absoluteFile
-            val lp = MVStoreGlobalLogProvider(dbDir)
+            lp = MVStoreGlobalLogProvider(dbDir)
             server = UMNProxyServer(InetSocketAddress.createUnresolved("127.0.0.1", 10144), null, lp)
             server.start()
-            adminServer = AdminServer(InetSocketAddress.createUnresolved("127.0.0.1", 10145))
+            adminServer = AdminServer(InetSocketAddress.createUnresolved("127.0.0.1", 10145), lp.mvstorelog)
         }
         @AfterEach fun stopServers() {
             adminServer.closeQuietly()
@@ -83,8 +84,8 @@ class AdminClientTest {
                 expect(listOf()) { client.getUsers() }
             }
             @Test fun `sample users`() {
-                AdminServer.mvstoreGlobalLog.createOrUpdateUser("duke leto atreides", "foo")
-                AdminServer.mvstoreGlobalLog.createOrUpdateUser("baron vladimir harkonnen", "ihateatreides")
+                lp.mvstorelog.createOrUpdateUser("duke leto atreides", "foo")
+                lp.mvstorelog.createOrUpdateUser("baron vladimir harkonnen", "ihateatreides")
                 expect(setOf("duke leto atreides", "baron vladimir harkonnen")) { client.getUsers().toSet() }
             }
         }
@@ -112,7 +113,7 @@ class AdminClientTest {
 
         @Test fun `log sizes`() {
             client.createOrUpdateUser("adam", "example")
-            AdminServer.mvstoreGlobalLog.getLogMap("adam").put(0, "foo".toByteArray())
+            lp.mvstorelog.getLogMap("adam").put(0, "foo".toByteArray())
             expect(mapOf("adam" to 1L)) { client.getLogSizes() }
         }
     }

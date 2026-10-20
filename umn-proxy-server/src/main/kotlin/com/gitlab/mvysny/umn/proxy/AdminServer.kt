@@ -11,7 +11,10 @@ import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.net.InetSocketAddress
 
-class AdminServer(adr: InetSocketAddress) : Closeable {
+/**
+ * Serves the REST admin API on [adr], over [globalLog]'s users and logs.
+ */
+class AdminServer(adr: InetSocketAddress, private val globalLog: MVStoreGlobalLog) : Closeable {
     private val javalin: Javalin = Javalin.create { config ->
         config.startup.showJavalinBanner = false
         config.jsonMapper(JavalinGson())
@@ -19,19 +22,19 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
     }.start(adr.hostString, adr.port)
 
     private fun RoutesConfig.restAPI() {
-        get("/admin/users") { ctx -> ctx.json(mvstoreGlobalLog.listUsers()) }
+        get("/admin/users") { ctx -> ctx.json(globalLog.listUsers()) }
         put("/admin/users") { ctx ->
             val username: String = ctx.requiredQueryParam("username")
             val password: String = ctx.requiredQueryParam("password")
-            mvstoreGlobalLog.createOrUpdateUser(username, password)
+            globalLog.createOrUpdateUser(username, password)
             ctx.status(204)
         }
         delete("/admin/users/{user}") { ctx ->
-            mvstoreGlobalLog.deleteUser(ctx.pathParam("user"))
+            globalLog.deleteUser(ctx.pathParam("user"))
             ctx.status(204)
         }
         get("/admin/stats/logsizes") { ctx ->
-            ctx.json(mvstoreGlobalLog.getLogSizes())
+            ctx.json(globalLog.getLogSizes())
         }
         // Javalin's own handler renders the errors through JavalinGson, which can't serialize a ValidationError
         exception(ValidationException::class.java) { e, ctx ->
@@ -52,8 +55,6 @@ class AdminServer(adr: InetSocketAddress) : Closeable {
     }
 
     companion object {
-        val mvstoreGlobalLog: MVStoreGlobalLog
-            get() = (server.globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog
         @JvmStatic
         private val log = LoggerFactory.getLogger(AdminServer::class.java)
     }

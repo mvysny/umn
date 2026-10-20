@@ -8,11 +8,6 @@ The disk and wire formats (`D_frozen_0_15_formats`) are done: `umn-compat-0.15` 
 them. What's left is the API, the inherited dependencies and the distribution; each finding
 lands in `CHANGELOG.md`, a break as a `Breaking:` line with its migration.
 
-## Disk and wire: not yet covered by `umn-compat-0.15`
-
-- HEAD's proxy server opening the 0.12 server's `umn_proxy_log` file in place: verified only
-  statically (same `users` / `{username}__log` maps, `PasswordHash`, MVStore 1.4.x).
-
 ## 3. Kotlin API and binary compatibility for library consumers
 
 - `explicitApi()` (`45d7c30`..`69bb069`): did anything that was public in 0.15 become

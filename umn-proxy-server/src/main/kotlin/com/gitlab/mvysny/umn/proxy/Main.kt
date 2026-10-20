@@ -23,9 +23,7 @@ class Main(val cfg: Config) : Closeable {
         log.info("Using log provider: $globalLogClientProvider")
         proxyServer = UMNProxyServer(cfg.socketAddress, cfg.secure, globalLogClientProvider!!)
         proxyServer!!.start()
-        server = proxyServer!!
-
-        adminServer = AdminServer(cfg.adminSocketAddress)
+        adminServer = AdminServer(cfg.adminSocketAddress, (globalLogClientProvider as MVStoreGlobalLogProvider).mvstorelog)
     }
 
     companion object {

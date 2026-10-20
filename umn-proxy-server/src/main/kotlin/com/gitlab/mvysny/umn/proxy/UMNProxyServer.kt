@@ -95,11 +95,6 @@ class UMNProxyWebsocketListener(private val session: Session, private val global
 }
 
 /**
- * The singleton server instance.
- */
-lateinit var server: UMNProxyServer
-
-/**
  * The UMN Proxy server itself. Call [start] to listen for websocket queries. Call [close] to stop the server.
  * @param adr listen on this socket address
  * @param secure optionally also listen on a secure socket address

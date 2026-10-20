@@ -31,6 +31,22 @@ public final class Server {
         }
     }
 
+    public static void deleteUser(String adminUrl, String user) throws IOException, InterruptedException {
+        HttpResponse<String> response = HTTP.send(HttpRequest.newBuilder(URI.create(adminUrl + "/admin/users/" + encode(user)))
+                .DELETE().build(), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 204) {
+            throw new IOException("deleting " + user + ": " + response.statusCode() + " " + response.body());
+        }
+    }
+
+    /**
+     * @return the JSON array of user names
+     */
+    public static String users(String adminUrl) throws IOException, InterruptedException {
+        return HTTP.send(HttpRequest.newBuilder(URI.create(adminUrl + "/admin/users")).build(),
+                HttpResponse.BodyHandlers.ofString()).body();
+    }
+
     /**
      * @return the number of records in {@code user}'s global log
      */

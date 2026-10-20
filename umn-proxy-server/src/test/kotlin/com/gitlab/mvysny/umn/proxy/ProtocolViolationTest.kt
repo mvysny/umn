@@ -51,6 +51,7 @@ class ProtocolViolationTest {
     }
 
     @Nested inner class MisbehavingClient {
+        private lateinit var server: UMNProxyServer
         @BeforeEach fun startServer() {
             val lp = MVStoreGlobalLogProvider(Files.createTempDirectory("tmp").toFile().absoluteFile)
             lp.mvstorelog.createOrUpdateUser("user", "example")
