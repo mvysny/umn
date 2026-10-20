@@ -146,6 +146,11 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
         map.remove(id)
     }
 
+    /**
+     * Synchronized: MVStore's `openMap()` isn't atomic while the map doesn't exist yet. Two threads creating one map
+     * get a map each, and what is written through the one whose name binding loses is orphaned.
+     */
+    @Synchronized
     override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> = MvstoreUtilityMap(store, name, keyType, valueType)
 
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
@@ -164,6 +169,8 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
 }
 
 /**
+ * Obtain one through [MvstoreUMN.openUtilityMap]: two constructors racing on a map not created yet split it in two.
+ *
  * Thread-safe.
  */
 public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String, keyType: DataType?, valueType: DataType?) : UtilityMap<K, V> {

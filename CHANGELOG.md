@@ -54,6 +54,8 @@ no entries.
   time at once: H2 MVStore's `openMap()` isn't atomic while the map doesn't exist yet, so each
   device could get a log of its own, and the records written into all but one never reached the
   other devices. 0.15 has the bug too.
+- `MvstoreUMN.openUtilityMap()` no longer splits a new utility map in two when threads open it
+  at once, which lost what was written through one of them. 0.15 has the bug too.
 - The proxy server announces a new record to every device of the user even when sending to one
   of them fails, say it just disconnected; 0.15 skipped the devices after it until the next
   record arrived.

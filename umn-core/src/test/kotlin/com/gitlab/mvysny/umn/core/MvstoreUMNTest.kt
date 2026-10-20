@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.io.DataInputStream
 import java.util.*
+import java.util.concurrent.CyclicBarrier
+import kotlin.concurrent.thread
 import kotlin.test.expect
 import java.io.File
 
@@ -28,6 +30,21 @@ class MvstoreUMNTest {
             umn.compact()
             expect("doc 50") { umn.get(ids[50], String::class) }
             expect(51) { umn.getSequenceOfIDs().count() }
+        }
+    }
+
+    @Test fun `threads opening a new utility map at once all write into one map`() {
+        MvstoreUMN(MVStore.open(null), JavaDocumentSerializer, AutoTypeResolver).use { umn ->
+            repeat(20) { round ->
+                val barrier = CyclicBarrier(8)
+                List(8) { i ->
+                    thread {
+                        barrier.await()
+                        umn.openUtilityMap<Int, String>("race$round").put(i, "foo")
+                    }
+                }.forEach { it.join() }
+                expect(8, "round $round") { umn.openUtilityMap<Int, String>("race$round").keyCount() }
+            }
         }
     }
 
