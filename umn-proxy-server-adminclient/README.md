@@ -5,10 +5,10 @@ A Java/Kotlin Proxy Server admin client which uses REST+Retrofit to communicate 
 Add the client as a Gradle dependency:
 ```
 repositories {
-    maven { url "https://dl.bintray.com/mvysny/gitlab" }
+    mavenCentral()
 }
 dependencies {
-    compile('com.gitlab.mvysny.umn:umn-proxy-server-adminclient:0.11')
+    implementation("com.gitlab.mvysny.umn:umn-proxy-server-adminclient:0.11")
 }
 ```
 

@@ -7,6 +7,7 @@ plugins {
     `maven-publish`
     signing
     id("org.jetbrains.kotlinx.kover") version "0.9.11"
+    id("io.github.gradle-nexus.publish-plugin") version "2.0.0"
 }
 
 defaultTasks("clean", "build")
@@ -46,8 +47,13 @@ subprojects {
         plugin("org.jetbrains.kotlinx.kover")
     }
 
+    // the Java 17 API, not the running JDK's; not jvmToolchain(17), which downloads a JDK where none is installed
     tasks.withType<KotlinCompile> {
         compilerOptions.jvmTarget = JvmTarget.JVM_17
+        compilerOptions.freeCompilerArgs.add("-Xjdk-release=17")
+    }
+    tasks.withType<JavaCompile> {
+        options.release = 17
     }
 
     java {
@@ -71,7 +77,7 @@ subprojects {
         }
     }
 
-    // creates a reusable function which configures proper deployment to Bintray
+    // creates a reusable function which configures proper deployment to Maven Central
     ext["publish"] = { artifactId: String, description: String ->
         java {
             withJavadocJar()
@@ -79,15 +85,6 @@ subprojects {
         }
 
         publishing {
-	    repositories {
-		maven {
-		    setUrl("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
-		    credentials {
-		        username = project.findProperty("ossrhUsername") as String? ?: "Unknown user"
-		        password = project.findProperty("ossrhPassword") as String? ?: "Unknown user"
-		    }
-		}
-	    }
             publications {
                 create("mavenJava", MavenPublication::class.java).apply {
                     groupId = project.group.toString()
@@ -125,6 +122,16 @@ subprojects {
             signing {
                 sign(publishing.publications["mavenJava"])
             }
+        }
+    }
+}
+
+nexusPublishing {
+    repositories {
+        // see https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/#configuration
+        sonatype {
+            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
         }
     }
 }

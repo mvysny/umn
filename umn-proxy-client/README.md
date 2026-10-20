@@ -12,10 +12,10 @@ therefore it's very easy to use even in restricted networks which employ http pr
 Add the client as a Gradle dependency:
 ```
 repositories {
-    maven { url "https://dl.bintray.com/mvysny/gitlab" }
+    mavenCentral()
 }
 dependencies {
-    compile('com.gitlab.mvysny.umn:umn-proxy-client:0.11')
+    implementation("com.gitlab.mvysny.umn:umn-proxy-client:0.11")
 }
 ```
 

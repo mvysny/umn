@@ -19,6 +19,7 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 | File | Owns | Loaded |
 |---|---|---|
 | `README.md`, module `README.md`s | the pitch, usage, the user-facing sync and proxy-server docs | — |
+| `CONTRIBUTING.md` | running the tests by hand, and the release flow | — |
 | `AGENTS.md` (this) | promises, invariants, the module map, conventions, commands | every turn |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |
 | KDoc | what one symbol does and why it is shaped so | at the symbol |
@@ -52,14 +53,14 @@ moved to the files above first.
 - **Tests: JUnit 6 Jupiter with `kotlin.test` assertions**; a reusable battery is an abstract class, run as a `@Nested inner class` subclass; every `GlobalLogClient` via the `umn-sync-tester` batteries.
 - **Logging through slf4j-api**; `slf4j-simple` only in the proxy server and tests.
 - **Dependencies live in `gradle/libs.versions.toml`**; an Android-forced pin carries its reason as a comment there.
-- **Release: Maven Central** through the root build's `publish(artifactId, description)`; a module without the call stays unpublished.
+- **Release: Maven Central** through the root build's `publish(artifactId, description)`; a module without the call stays unpublished. The steps are in `CONTRIBUTING.md`.
 
 ## Commands
 
 - `./gradlew build` — compile and test everything.
 - `./gradlew umn-core:test` — one module's tests.
 - `./gradlew koverHtmlReport` — line coverage of the shipped modules, merged, in `build/reports/kover/html/`.
-- `./gradlew build -x test -x verifyDesignTripwires` and `./gradlew clean umn-proxy-client:build -x test` — what GitLab CI runs on push (`.gitlab-ci.yml`).
+- `./gradlew build -x verifyDesignTripwires` and `./gradlew clean umn-proxy-client:build -x test` — what GitLab CI runs on push (`.gitlab-ci.yml`).
 - `./gradlew check` also runs `design/verify_design_tripwires.sh`; CI runs it as a job of its own.
 - `./gradlew umn-proxy-server:build -x test` — the proxy server zip, in `umn-proxy-server/build/distributions/`.
 

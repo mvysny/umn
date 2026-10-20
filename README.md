@@ -47,7 +47,7 @@ Make sure you have the following repository in your `build.gradle`:
 
 ```
 repositories {
-    maven { url "https://dl.bintray.com/mvysny/gitlab" }
+    mavenCentral()
 }
 ```
 
@@ -55,7 +55,7 @@ Then you can add the following dependency:
 
 ```
 dependencies {
-    compile 'com.gitlab.mvysny.umn:umn-core:0.8'
+    implementation("com.gitlab.mvysny.umn:umn-core:0.8")
 }
 ```
 
