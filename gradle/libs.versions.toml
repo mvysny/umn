@@ -10,8 +10,9 @@ junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api" }
 gson = "com.google.code.gson:gson:2.14.0"
 
-# okhttp 3.13+ and 4.x need Android API 21, under minSdk 22: https://square.github.io/okhttp/#requirements
-# It stays 4.x because it is `api` in umn-proxy-client: a new major waits until Aedict is ready for one.
+# okhttp 4.x needs Android API 21, under minSdk 22: https://square.github.io/okhttp/#requirements
+# Never 5.x: it is a Kotlin Multiplatform root over okhttp-jvm and okhttp-android, so a Maven user
+# of umn-proxy-client (`api`) gets no classes, and Android runs another build than the tests do.
 okhttp = "com.squareup.okhttp3:okhttp:4.12.0"
 snakeyaml = "org.yaml:snakeyaml:2.7"
 javalin = "io.javalin:javalin:7.2.3"
