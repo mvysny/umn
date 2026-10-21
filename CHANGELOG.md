@@ -6,8 +6,12 @@ no entries.
 
 ## 0.17 — unreleased
 
-- Dependencies: okhttp 3.14.9 in `umn-proxy-client` (0.16: 3.12.2), which needs Android 5.0
-  (API 21) and Java 8; Gradle lifts an app's own 3.12.x pin to it.
+- **Breaking:** okhttp 4.12.0 in `umn-proxy-client` (0.16: 3.12.2), an `api` dependency; Gradle
+  lifts an app's own 3.x pin to it. It is binary compatible with 3.x and Java code compiles
+  unchanged, but Kotlin code calling okhttp fails on its getters turned properties. Migration: in
+  Kotlin, `response.body()` → `response.body`, `HttpUrl.parse(s)` → `s.toHttpUrlOrNull()`,
+  `RequestBody.create(type, x)` → `x.toRequestBody(type)`; okhttp's
+  [upgrade guide](https://square.github.io/okhttp/changelogs/upgrading_to_okhttp_4/) lists the rest.
 
 ## 0.16 — 2026-10-21
 

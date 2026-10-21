@@ -10,10 +10,9 @@ junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api" }
 gson = "com.google.code.gson:gson:2.14.0"
 
-# okhttp 3.13+ needs Android API 21, under minSdk 22:
-# https://medium.com/square-corner-blog/okhttp-3-13-requires-android-5-818bb78d07ce
-# It stays 3.x because it is `api` in umn-proxy-client: a new major waits until Aedict is ready for one.
-okhttp = "com.squareup.okhttp3:okhttp:3.14.9"
+# okhttp 3.13+ and 4.x need Android API 21, under minSdk 22: https://square.github.io/okhttp/#requirements
+# It stays 4.x because it is `api` in umn-proxy-client: a new major waits until Aedict is ready for one.
+okhttp = "com.squareup.okhttp3:okhttp:4.12.0"
 snakeyaml = "org.yaml:snakeyaml:2.7"
 javalin = "io.javalin:javalin:7.2.3"
 # lift javalin's jetty to the newest 12.1.x patch

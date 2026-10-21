@@ -5,6 +5,7 @@ import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import okhttp3.*
 import okio.ByteString
+import okio.ByteString.Companion.toByteString
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.lang.RuntimeException
@@ -40,7 +41,7 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
         override fun onOpen(webSocket: WebSocket, response: Response) {
             // do nothing. We either await for socket close (on username/password mismatch or for some other reason), or
             // we expect a surge of messages to arrive
-            log.debug("Connected to ${webSocket.request().url()}")
+            log.debug("Connected to ${webSocket.request().url}")
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
@@ -137,7 +138,7 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
 
         val request: Request = requestBuilder.build()
         // never log request.headers(): they carry the password
-        log.debug("Connecting to ${request.url()} as $username, rewind=${request.header("rewind")}")
+        log.debug("Connecting to ${request.url} as $username, rewind=${request.header("rewind")}")
         ws = client.newWebSocket(request, listener)
         try {
             startFuture.get()
@@ -151,7 +152,7 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
         }
 
         // if we get here, we were not canceled and there has been no exception. we're started! ;)
-        log.info("Connected to Proxy Server at ${request.url()}")
+        log.info("Connected to Proxy Server at ${request.url}")
     }
 
     override fun addAsync(record: SerializedLogRecord) {
@@ -159,7 +160,7 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
         checkNotClosed()
         val bytes = AbstractMessage.AddAsync(record).asByteArray()
         // send() returns false once the websocket is closing or failed
-        if (failed.get() || !ws!!.send(ByteString.of(bytes, 0, bytes.size))) {
+        if (failed.get() || !ws!!.send(bytes.toByteString())) {
             throw IOException("Connection lost")
         }
     }
@@ -181,7 +182,7 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
 
 public fun WebSocket.send(msg: AbstractMessage) {
     val bytes: ByteArray = msg.asByteArray()
-    send(ByteString.of(bytes, 0, bytes.size))
+    send(bytes.toByteString())
 }
 
 /**
@@ -189,7 +190,7 @@ public fun WebSocket.send(msg: AbstractMessage) {
  * OTHER http clients if they share e.g. dispatcher executor service.
  */
 public fun OkHttpClient.destroy() {
-    dispatcher().executorService().shutdown()
-    connectionPool().evictAll()
-    cache()?.close()
+    dispatcher.executorService.shutdown()
+    connectionPool.evictAll()
+    cache?.close()
 }

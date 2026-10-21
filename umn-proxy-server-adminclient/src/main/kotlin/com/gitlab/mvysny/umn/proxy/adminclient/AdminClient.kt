@@ -1,9 +1,10 @@
 package com.gitlab.mvysny.umn.proxy.adminclient
 
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class AdminClient(val client: OkHttpClient, val baseUrl: String) {
     init {
@@ -16,18 +17,18 @@ class AdminClient(val client: OkHttpClient, val baseUrl: String) {
     }
 
     fun createOrUpdateUser(username: String, password: String) {
-        val url: HttpUrl = HttpUrl.parse("$baseUrl/users")!!.newBuilder()
+        val url: HttpUrl = "$baseUrl/users".toHttpUrl().newBuilder()
                 .addQueryParameter("username", username)
                 .addQueryParameter("password", password)
                 .build()
-        val request = Request.Builder().put(RequestBody.create(null, ""))
+        val request = Request.Builder().put("".toRequestBody())
                 .url(url)
                 .build()
         client.exec(request) {}
     }
 
     fun deleteUser(username: String) {
-        val url: HttpUrl = HttpUrl.parse("$baseUrl/users")!!.newBuilder()
+        val url: HttpUrl = "$baseUrl/users".toHttpUrl().newBuilder()
                 .addPathSegment(username)
                 .build()
         val request = Request.Builder().delete()

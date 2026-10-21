@@ -4,7 +4,7 @@ import com.gitlab.mvysny.umn.proxyclient.ProxyClient
 import com.gitlab.mvysny.umn.proxyclient.destroy
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
@@ -24,7 +24,7 @@ class MainTest {
                 main.start()
                 expect(true) { dbDir.isDirectory }
                 createUser(httpClient)
-                val users = httpClient.newCall(Request.Builder().url("http://127.0.0.1:51345/admin/users").build()).execute().use { it.body()!!.string() }
+                val users = httpClient.newCall(Request.Builder().url("http://127.0.0.1:51345/admin/users").build()).execute().use { it.body!!.string() }
                 expect("[\"user\"]") { users }
 
                 val client = ProxyClient(httpClient, Request.Builder().url("ws://127.0.0.1:51344"), "user", "example")
@@ -63,7 +63,7 @@ class MainTest {
     }
 
     private fun createUser(httpClient: OkHttpClient) {
-        val put = Request.Builder().url("http://127.0.0.1:51345/admin/users?username=user&password=example").put(RequestBody.create(null, ByteArray(0))).build()
-        httpClient.newCall(put).execute().use { expect(204) { it.code() } }
+        val put = Request.Builder().url("http://127.0.0.1:51345/admin/users?username=user&password=example").put(ByteArray(0).toRequestBody()).build()
+        httpClient.newCall(put).execute().use { expect(204) { it.code } }
     }
 }

@@ -17,9 +17,9 @@ import java.io.Reader
  * OTHER http clients if they share e.g. dispatcher executor service.
  */
 fun OkHttpClient.destroy() {
-    dispatcher().executorService().shutdown()
-    connectionPool().evictAll()
-    cache()?.close()
+    dispatcher.executorService.shutdown()
+    connectionPool.evictAll()
+    cache?.close()
 }
 
 /**
@@ -27,8 +27,8 @@ fun OkHttpClient.destroy() {
  */
 fun Response.checkOk(): Response {
     if (!isSuccessful) {
-        val msg = "${code()}: ${body()!!.string()} (${request().url()})"
-        if (code() == 404) throw FileNotFoundException(msg)
+        val msg = "${code}: ${body!!.string()} (${request.url})"
+        if (code == 404) throw FileNotFoundException(msg)
         throw IOException(msg)
     }
     return this
@@ -92,5 +92,5 @@ fun <T> Gson.fromJsonMap(reader: Reader, valueClass: Class<T>): Map<String, T> {
  */
 fun <T> OkHttpClient.exec(request: Request, responseBlock: (ResponseBody) -> T): T =
         newCall(request).execute().use {
-            responseBlock(it.checkOk().body()!!)
+            responseBlock(it.checkOk().body!!)
         }
