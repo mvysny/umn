@@ -18,7 +18,7 @@ dependencies {
     umn015(libs.umn015.proxy.client) {
         exclude(group = "com.squareup.okhttp3")
     }
-    umn015(libs.okhttp)
+    umn015(libs.umn015.okhttp)
     umn015(libs.umn015.vok.dataloader)
     umn015(libs.umn015.kotlin.stdlib)
     umn015(libs.umn015.slf4j.simple)

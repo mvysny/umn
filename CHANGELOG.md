@@ -4,6 +4,11 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the disk and wire formats never break (`D_frozen_0_15_formats`). Releases before 0.16 have
 no entries.
 
+## 0.17 — unreleased
+
+- Dependencies: okhttp 3.14.9 in `umn-proxy-client` (0.16: 3.12.2), which needs Android 5.0
+  (API 21) and Java 8; Gradle lifts an app's own 3.12.x pin to it.
+
 ## 0.16 — 2026-10-21
 
 - 0.16 opens database files 0.15 wrote, and syncs with 0.15 nodes through the same proxy server,
