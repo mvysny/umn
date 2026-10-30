@@ -14,7 +14,7 @@ import kotlin.test.expect
 class ConfigTest {
     @Test fun `load from empty config should fetch defaults`() {
         val cfg = Config.loadFrom(ByteArrayInputStream(byteArrayOf()))
-        expect(InetSocketAddress.createUnresolved("0.0.0.0", 10144)) { cfg.socketAddress }
+        expect(InetSocketAddress.createUnresolved("127.0.0.1", 10144)) { cfg.socketAddress }
         expect(InetSocketAddress.createUnresolved("127.0.0.1", 10145)) { cfg.adminSocketAddress }
     }
     @Test fun `load from test config`() {

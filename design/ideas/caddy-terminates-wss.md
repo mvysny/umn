@@ -34,6 +34,26 @@ What the Caddy docs say (checked 2026-10-30, caddyserver.com/docs):
   `ForwardedRequestCustomizer`, only `Secure.createJettyConnector` does, so the server sees
   127.0.0.1 for every client. Nothing reads the client address today.
 
+Plain ws already listens on localhost only (`Config.host`), so Caddy on the same host reaches it
+and nothing else does.
+
+## Old Android: the app bundles the Let's Encrypt roots
+
+Let's Encrypt's chain ends at ISRG Root X1, which Android trusts only from 7.1.1. The DST Root CA X3
+cross-sign that covered older devices expired in 2024. Today's Jetty setup has the same problem.
+The app fixes it by trusting the roots itself, and UMN's code doesn't change: `ProxyClient` already
+takes the app's `OkHttpClient`.
+
+- **API 24+: a network security config.** Aedict does this (`aedict-apk/src/main/res/xml/
+  network_security_config.xml`, commit b0a5937). It keeps `<certificates src="system"/>` and adds
+  `@raw/isrg_root_x1` and `@raw/isrg_root_x2` (X2 covers an ECDSA chain), PEMs taken from the
+  Mozilla CA store. The manifest's `<application android:networkSecurityConfig=…>` points at it.
+  okhttp uses the platform's default trust manager, so `ProxyClient` gets the roots with no code.
+- **API 22–23: code.** These versions ignore the network security config. The app builds an
+  `X509TrustManager` that checks against the system roots plus the bundled PEMs, then passes it to
+  `OkHttpClient.Builder.sslSocketFactory(factory, trustManager)`. Nobody has tried this on an
+  API 22 emulator yet.
+
 ## Minimum versions
 
 - **Caddy: any 2.x.** WebSocket proxying has worked out of the box since 2.0.
@@ -48,17 +68,19 @@ What the Caddy docs say (checked 2026-10-30, caddyserver.com/docs):
   hook stays.
 - **nginx or HAProxy** work the same way but have no built-in ACME: certbot plus a reload hook again.
 
+`secure:` stays as it is: Caddy is documented next to it and doesn't replace it.
+
+## On graduation
+
+- The proxy-client README gets the old-Android trust-anchor trap, with Aedict's config as the
+  example. Without it, wss fails on Android below 7.1.1 with "Trust anchor for certification path
+  not found".
+
 ## Open questions
 
-- `Q_old_android_ca`: Let's Encrypt's chain ends at ISRG Root X1, which Android trusts only from
-  7.1.1. The DST Root CA X3 cross-sign that covered older devices expired in 2024. So minSdk 22
-  devices (5.1 to 7.1.0) may fail to validate a Let's Encrypt certificate, and that's equally true
-  of today's Jetty setup. Should Caddy use its ZeroSSL issuer (a different root) instead? Verify
-  on an API 22 emulator before recommending either.
-- `Q_secure_stanza`: keep `secure:` as is, or deprecate it in the README in favour of Caddy?
-  Removing it would break `config.yaml`, not the wire, but the Docker README documents it too.
-- `Q_plain_bind`: once wss goes through Caddy, should the README suggest `host: 127.0.0.1` for
-  10144? That hides plain ws from the internet, so passwords no longer cross it unencrypted. It
-  only works if no client still connects over plain `ws://`.
+- `Q_min_sdk`: Aedict moved to minSdk 24 (commit 463cb3a: Play Console showed about one active
+  user on 5.1/6.0). `AGENTS.md` still says UMN runs on minSdk 22 because that was "Aedict's floor".
+  Raise UMN's floor to 24? Then the network security config alone covers every device, and the
+  API 22–23 trust-manager code never has to be written.
 - `Q_docker`: add a `caddy` service to `src/main/docker/docker-compose.yml` (official Docker Hub
   image), or describe only the host install?

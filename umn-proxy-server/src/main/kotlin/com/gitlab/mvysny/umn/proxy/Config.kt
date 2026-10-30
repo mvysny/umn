@@ -8,8 +8,14 @@ import java.io.File
 import java.io.InputStream
 import java.net.InetSocketAddress
 
+/**
+ * The server's `config.yaml`.
+ *
+ * @property host where plain ws listens. Localhost by default: plain ws carries the passwords unencrypted, so only a
+ *   local wss terminator (Caddy, or [secure]) should reach it.
+ */
 data class Config(var port: Int = 10144,
-                  var host: String = "0.0.0.0",
+                  var host: String = "127.0.0.1",
                   var adminPort: Int = 10145,
                   var adminHost: String = "127.0.0.1",
                   var proxy: Proxy = Proxy(),

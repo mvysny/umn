@@ -7,8 +7,12 @@ UMN Proxy Server images are hosted on the Docker Hub at [UMN Proxy Server Docker
 To run the UMN Proxy Server, simply issue the following command in your terminal:
 
 ```
-docker run --rm -ti -p 10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.12
+docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.12
 ```
+
+Inside the container the server listens on all interfaces, since the host can't reach the
+container's own localhost; the `127.0.0.1:` prefixes keep both ports off the network. Plain ws on
+10144 sends the passwords unencrypted, so remote clients connect over wss (see Security below).
 
 
 You can test that the server is running:
@@ -83,5 +87,5 @@ docker build -t umn-proxy-server .
 And run it:
 
 ```bash
-docker run --rm -ti -p 10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db umn-proxy-server
+docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db umn-proxy-server
 ```

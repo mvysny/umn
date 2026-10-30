@@ -41,7 +41,7 @@ Example content of the configuration file:
 
 ```yaml
 port: 10144
-host: 0.0.0.0
+host: 127.0.0.1
 adminPort: 10145
 adminHost: 127.0.0.1
 proxy:
@@ -52,6 +52,9 @@ secure:
   host: 0.0.0.0
   pkcs12: /opt/keystore.p12
 ```
+
+Plain ws on 10144 listens on localhost only, the default since 0.17: it sends the passwords
+unencrypted, so remote clients connect over wss (the `secure:` stanza below), never plain ws.
 
 `proxy: standalone:` is the only log storage there is; its `db` is the directory holding the database
 file (just a single file, `umn_proxy_log`), created automatically. To create users, please use the

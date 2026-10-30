@@ -23,6 +23,11 @@ no entries.
   keystore every N seconds and serves a renewed certificate to new connections, with no restart and
   no dropped connection. Off by default. In Docker, mount the keystore's directory, not the file
   alone, or the container never sees the renewed one.
+- **Breaking:** the proxy server's plain ws (`host:`) listens on `127.0.0.1` by default (0.16:
+  `0.0.0.0`), since it sends the passwords unencrypted; a `config.yaml` with no `host:` stops serving
+  remote clients. The Docker image is unchanged, and its docs publish 10144 as
+  `-p 127.0.0.1:10144:10144`. Migration: remote clients connect over wss (`secure:`) instead;
+  `host: 0.0.0.0` restores the old bind.
 
 ## 0.16 — 2026-10-21
 

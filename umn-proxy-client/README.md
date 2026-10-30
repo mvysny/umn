@@ -23,7 +23,7 @@ Simply use the following code to create the proxy client:
 
 ```kotlin
 val httpClient = OkHttpClient()
-val request = Request.Builder().url("ws://umn-proxy-hostname:10144")
+val request = Request.Builder().url("wss://umn-proxy-hostname:10146")
 ProxyClient(httpClient, request, "username", "password")
 ```
 
@@ -32,7 +32,7 @@ To add syncing capabilities to your existing UMN database:
 ```kotlin
 val umn = ...
 val httpClient = OkHttpClient()
-val request = Request.Builder().url("ws://umn-proxy-hostname:10144")
+val request = Request.Builder().url("wss://umn-proxy-hostname:10146")
 
 val syncingumn = umn.syncing({
     ProxyClient(httpClient, request, "username", "password")

@@ -3,7 +3,7 @@ services:
   umn-proxy-server:
     image: mvysny/umn-proxy-server:0.12
     ports:
-      - "10144:10144"
+      - "127.0.0.1:10144:10144"
       - "127.0.0.1:10145:10145"
     volumes:
       - ./db:/var/umn-proxy-server/db
