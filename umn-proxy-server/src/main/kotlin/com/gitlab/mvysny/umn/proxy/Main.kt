@@ -51,19 +51,18 @@ class Main(val cfg: Config) : Closeable {
             println(buildString {
                 append("\n")
                 append("********************************************************************[ UMN Proxy Server ]***\n")
-                append("- Sync Server is running on ws://${cfg.socketAddress}\n")
-                append("- Admin is running on http://${cfg.adminSocketAddress}/admin\n")
                 val secure = cfg.secure
                 if (secure != null) {
-                    append("- Secure Sync Server is running on wss://${secure.host}:${secure.port}\n")
+                    append("- Secure Sync Server is running on wss://${secure.host}:${secure.port}, plain ws is off\n")
                     if (secure.keystoreReloadSeconds > 0) {
                         append("  its keystore is checked for changes every ${secure.keystoreReloadSeconds}s\n")
                     } else {
                         append("  its keystore was read once; restart to load a new one\n")
                     }
                 } else {
-                    append("- Secure Sync Server access disabled\n")
+                    append("- Sync Server is running on ws://${cfg.socketAddress}, secure wss is off\n")
                 }
+                append("- Admin is running on http://${cfg.adminSocketAddress}/admin\n")
                 append("******************************************************************************************\n")
             })
             loop()

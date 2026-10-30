@@ -96,8 +96,8 @@ class UMNProxyWebsocketListener(private val session: Session, private val global
 
 /**
  * The UMN Proxy server itself. Call [start] to listen for websocket queries. Call [close] to stop the server.
- * @param adr listen on this socket address
- * @param secure optionally also listen on a secure socket address
+ * @param adr plain ws listens here, unless [secure] is given.
+ * @param secure serves wss instead of plain ws: Javalin adds its plain connector only when no other connector is added.
  * @param globalLogClientProvider [UMNProxyWebsocketListener] uses this guy to delegate the global log calls to.
  */
 class UMNProxyServer(private val adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {

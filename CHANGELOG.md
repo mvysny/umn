@@ -35,6 +35,8 @@ no entries.
   in both directions: the disk and wire formats are unchanged.
 - The proxy server upgrades in place: it opens the 0.12 server's database (`umn_proxy_log`) as
   is, users, passwords and logs included.
+- **Breaking:** with a `secure:` stanza, the proxy server serves wss only and ignores `port`/`host`
+  (0.15 served plain ws beside it). Migration: point every client at `wss://…:10146`.
 - **Breaking:** needs Android 5.1 (API 22): UMN is now Java 17 bytecode, which Android Gradle
   Plugin 8+ desugars. Migration: `minSdk = 22` or higher, and AGP 8 or newer.
 - **Breaking:** built with Kotlin 2.4 (0.15: 1.3). Migration: compile a Kotlin app with Kotlin 2.3

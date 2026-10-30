@@ -61,6 +61,8 @@ secure:
 
 Then, use `-v /opt/umn-tls:/opt/umn-tls` to mount the directory holding the keystore into your
 image; also don't forget to add `-p 10146:10146` to expose the SSL port from your image.
+`secure:` replaces plain ws: the server then serves wss on 10146 only, and nothing listens on
+10144, so leave out its `-p`.
 `keystoreReloadSeconds` makes the server pick up a renewed keystore without a restart; see
 [Let's Encrypt](../../../README.md#lets-encrypt) for the renewal hook.
 
