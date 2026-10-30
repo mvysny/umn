@@ -55,10 +55,7 @@ secure:
 
 Plain ws on 10144 listens on localhost only, the default since 0.17: it sends the passwords
 unencrypted, so remote clients connect over wss (the `secure:` stanza below), never plain ws.
-
-**`secure:` replaces plain ws, it doesn't add to it.** With the stanza present, the server serves
-wss on 10146 only, and `port`/`host` are ignored. Every client, local ones included, connects over
-`wss://`.
+`secure:` adds wss on 10146 beside plain ws, so local clients may keep `ws://localhost:10144`.
 
 `proxy: standalone:` is the only log storage there is; its `db` is the directory holding the database
 file (just a single file, `umn_proxy_log`), created automatically. To create users, please use the

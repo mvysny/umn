@@ -11,9 +11,9 @@ import java.net.InetSocketAddress
 /**
  * The server's `config.yaml`.
  *
- * @property host where plain ws listens. Localhost by default: plain ws carries the passwords unencrypted, so only a
- *   local wss terminator such as Caddy should reach it.
- * @property secure serves wss instead of plain ws: when set, [host] and [port] are ignored.
+ * @property host where plain ws listens. Localhost by default: plain ws carries the passwords unencrypted, so only
+ *   local clients, or a local wss terminator such as Caddy, should reach it.
+ * @property secure also serves wss, beside plain ws.
  */
 data class Config(var port: Int = 10144,
                   var host: String = "127.0.0.1",
@@ -55,8 +55,7 @@ data class Standalone(var db: String = "db") {
 }
 
 /**
- * The `secure:` stanza: serves wss on [host]:[port] with the certificate in the passwordless PKCS12 keystore [pkcs12],
- * and no plain ws at all.
+ * The `secure:` stanza: serves wss on [host]:[port] with the certificate in the passwordless PKCS12 keystore [pkcs12].
  * @property keystoreReloadSeconds 0 reads [pkcs12] once at startup; N checks it every N seconds and serves a changed
  * one to new connections, dropping none. A symlink retargeted at another file counts as a change; a host-side move
  * behind a Docker bind mount of the single file goes unnoticed.

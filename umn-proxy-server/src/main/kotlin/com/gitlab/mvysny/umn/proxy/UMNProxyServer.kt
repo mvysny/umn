@@ -7,6 +7,8 @@ import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import io.javalin.Javalin
 import io.javalin.websocket.WsConfig
 import io.javalin.websocket.WsContext
+import org.eclipse.jetty.server.HttpConnectionFactory
+import org.eclipse.jetty.server.ServerConnector
 import org.eclipse.jetty.websocket.api.Callback
 import org.eclipse.jetty.websocket.api.Session
 import org.slf4j.LoggerFactory
@@ -96,15 +98,23 @@ class UMNProxyWebsocketListener(private val session: Session, private val global
 
 /**
  * The UMN Proxy server itself. Call [start] to listen for websocket queries. Call [close] to stop the server.
- * @param adr plain ws listens here, unless [secure] is given.
- * @param secure serves wss instead of plain ws: Javalin adds its plain connector only when no other connector is added.
+ * @param adr plain ws listens here.
+ * @param secure also serves wss, beside plain ws.
  * @param globalLogClientProvider [UMNProxyWebsocketListener] uses this guy to delegate the global log calls to.
  */
-class UMNProxyServer(private val adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
+class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
     private val javalin = Javalin.create { config ->
         config.startup.showJavalinBanner = false
         // Jetty 9's default, which ProxyClient's ping interval is set against; Jetty 12's is 30 seconds
         config.jetty.modifyWebSocketServletFactory { it.idleTimeout = Duration.ofMinutes(5) }
+        // Explicit, not Javalin's default connector: Javalin adds that one only when no other connector is added,
+        // so the secure one would silently replace plain ws.
+        config.jetty.addConnector { server, httpConfiguration ->
+            ServerConnector(server, HttpConnectionFactory(httpConfiguration)).apply {
+                host = adr.hostString
+                port = adr.port
+            }
+        }
         if (secure != null) {
             config.jetty.addConnector { server, _ -> secure.createJettyConnector(server) }
         }
@@ -116,7 +126,7 @@ class UMNProxyServer(private val adr: InetSocketAddress, secure: Secure?, val gl
      * Starts the server asynchronously.
      */
     fun start() {
-        javalin.start(adr.hostString, adr.port)
+        javalin.start()
     }
 
     override fun close() {

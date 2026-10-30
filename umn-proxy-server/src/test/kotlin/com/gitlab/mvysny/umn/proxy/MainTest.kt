@@ -9,8 +9,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Test
 import java.io.File
-import java.net.ConnectException
-import java.net.Socket
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -21,7 +19,6 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
-import kotlin.test.assertFailsWith
 import kotlin.test.expect
 
 class MainTest {
@@ -72,13 +69,21 @@ class MainTest {
         }
     }
 
-    @Test fun `secure replaces plain ws`() {
+    @Test fun `serves plain ws beside wss`() {
         val p12 = resource("localhost.p12")
         val cfg = Config(port = 51344, host = "127.0.0.1", adminPort = 51345, proxy = Proxy(Standalone(File(Files.createTempDirectory("tmp").toFile(), "db").absolutePath)),
             secure = Secure(port = 51346, host = "127.0.0.1", pkcs12 = p12.absolutePath))
-        Main(cfg).use { main ->
-            main.start()
-            assertFailsWith<ConnectException> { Socket("127.0.0.1", 51344).close() }
+        val httpClient = OkHttpClient()
+        try {
+            Main(cfg).use { main ->
+                main.start()
+                createUser(httpClient)
+                val client = ProxyClient(httpClient, Request.Builder().url("ws://127.0.0.1:51344"), "user", "example")
+                client.start()
+                client.close()
+            }
+        } finally {
+            httpClient.destroy()
         }
     }
 

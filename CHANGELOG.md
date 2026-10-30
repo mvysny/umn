@@ -28,6 +28,8 @@ no entries.
   remote clients. The Docker image is unchanged, and its docs publish 10144 as
   `-p 127.0.0.1:10144:10144`. Migration: remote clients connect over wss (`secure:`) instead;
   `host: 0.0.0.0` restores the old bind.
+- With a `secure:` stanza, the proxy server serves plain ws beside wss again, as 0.15 did, so
+  local clients can keep `ws://localhost:10144`.
 
 ## 0.16 — 2026-10-21
 
