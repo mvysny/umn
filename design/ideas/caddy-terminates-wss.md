@@ -23,8 +23,8 @@ What the Caddy docs say (checked 2026-10-30, caddyserver.com/docs):
 
 - **WebSockets need no config.** `reverse_proxy` sees the upgrade and turns the connection into a
   bidirectional tunnel; Caddy 1's `websocket` sub-directive is gone. It has no stream timeout by
-  default. Jetty's 5-minute idle timeout still closes a quiet socket, so the app keeps the
-  `pingInterval(1, MINUTES)` the README's client snippet sets.
+  default. Jetty's 5-minute idle timeout still closes a quiet socket; `ProxyClient` pings every
+  minute against it.
 - **A client that sends no SNI fails the handshake** with `internal_error`, because Caddy has no
   certificate to pick. Every client omits SNI for an IP address, and the JDK also omits it for a
   dotless host such as `localhost`; the global `default_sni <host>` fixes both.

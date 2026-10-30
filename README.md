@@ -310,9 +310,7 @@ $ curl -i -X PUT "localhost:10145/admin/users?username=user&password=example"
 We will now construct the Proxy Client in your Kotlin code:
 
 ```kotlin
-val httpClient = OkHttpClient.Builder()
-        .pingInterval(1, TimeUnit.MINUTES)
-        .build()
+val httpClient = OkHttpClient()
 
 fun createProxyClient(): GlobalLogClient {
     val request = Request.Builder().url("ws://localhost:10144")

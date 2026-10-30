@@ -15,6 +15,10 @@ no entries.
 - The proxy server's `PUT /admin/users` takes the credentials as a JSON body,
   `{"username": "...", "password": "..."}`, so the password stays out of URLs and logs. The query
   params still work when both are present.
+- `ProxyClient` sends a websocket ping every minute on its own, so an idle connection no longer
+  drops every 5 minutes when the app's `OkHttpClient` has no `pingInterval`. The new
+  `pingIntervalSeconds` parameter changes it, 0 turns pings off, and it overrides the
+  `OkHttpClient`'s own interval.
 - The proxy server no longer logs a connecting client's `password` header; 0.16 logged it in
   plain text with the other headers, at INFO.
 - `AdminClient.createOrUpdateUser2` sends that JSON body and **needs a 0.17+ proxy server**; an

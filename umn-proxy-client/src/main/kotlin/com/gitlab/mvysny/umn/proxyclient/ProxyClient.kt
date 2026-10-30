@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.lang.RuntimeException
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -18,20 +19,33 @@ import java.util.concurrent.atomic.AtomicBoolean
  * One client is one connection: once it fails or the server closes it, [isStarted] turns false for
  * good, and [addAsync] throws [IOException]. Close it and take a new client.
  *
- * *NOTE*: It is a good idea to configure the [client] to send ping every 1 minute, to prevent the connection from timing out
- * (which happens by default in 5 minutes in Jetty). Use [OkHttpClient.Builder.pingInterval] for that.
- *
  * *WARNING*: [client] is not closed by this client: [OkHttpClient] instances should be reused as stated in the [OkHttpClient]
  * docs. You should probably create one singleton instance and close it when JVM is being killed.
  *
- * @property client the client which will be used to WS-connect to the server. NOT CLOSED! You should remember to send
- * ping every 1 minute.
+ * @property client the client which will be used to WS-connect to the server. NOT CLOSED!
  * @param requestBuilder the request builder with [Request.Builder.url] set.
+ * @property pingIntervalSeconds 0 sends no websocket pings; replaces [client]'s own [OkHttpClient.Builder.pingInterval].
+ * Pings keep the server from closing a connection quiet for 5 minutes, and an unanswered one fails a dead connection,
+ * so the syncer reconnects.
+ * @throws IllegalArgumentException if [pingIntervalSeconds] is negative.
  */
-public class ProxyClient(public val client: OkHttpClient, public val requestBuilder: Request.Builder, public val username: String, private val password: String) : GlobalLogClient {
+public class ProxyClient @JvmOverloads public constructor(
+    public val client: OkHttpClient,
+    public val requestBuilder: Request.Builder,
+    public val username: String,
+    private val password: String,
+    public val pingIntervalSeconds: Int = 60,
+) : GlobalLogClient {
     private val listener = Listener()
 
+    /**
+     * [client] pinging every [pingIntervalSeconds]; shares its connection pool and threads.
+     */
+    internal val pingingClient: OkHttpClient
+
     init {
+        require(pingIntervalSeconds >= 0) { "Parameter pingIntervalSeconds: invalid value $pingIntervalSeconds - must be 0 or greater" }
+        pingingClient = client.newBuilder().pingInterval(pingIntervalSeconds.toLong(), TimeUnit.SECONDS).build()
         requestBuilder.header("username", username)
                 .header("password", password)
                 .header("rewind", "0")
@@ -139,7 +153,7 @@ public class ProxyClient(public val client: OkHttpClient, public val requestBuil
         val request: Request = requestBuilder.build()
         // never log request.headers(): they carry the password
         log.debug("Connecting to ${request.url} as $username, rewind=${request.header("rewind")}")
-        ws = client.newWebSocket(request, listener)
+        ws = pingingClient.newWebSocket(request, listener)
         try {
             startFuture.get()
         } catch (e: ExecutionException) {

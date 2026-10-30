@@ -27,7 +27,6 @@ import java.security.cert.X509Certificate
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManagerFactory
@@ -112,10 +111,10 @@ class CaddyTest {
     data class Note(val text: String) : Serializable
 
     /**
-     * A node syncing through [caddy], pinging every minute as [ProxyClient] recommends.
+     * A node syncing through [caddy].
      */
     class Node(caddy: Caddy, user: String) : Closeable {
-        private val http = caddy.httpClient().newBuilder().pingInterval(1, TimeUnit.MINUTES).build()
+        private val http = caddy.httpClient()
         val statuses = CopyOnWriteArrayList<SyncerStatus>()
         val umn: SyncingUMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
             .syncing({ ProxyClient(http, Request.Builder().url("wss://localhost:${caddy.port}"), user, "example") }, JavaDocumentSerializer)
