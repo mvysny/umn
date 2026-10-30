@@ -37,12 +37,16 @@ What the Caddy docs say (checked 2026-10-30, caddyserver.com/docs):
 Plain ws already listens on localhost only (`Config.host`), so Caddy on the same host reaches it
 and nothing else does.
 
+**Docker: Caddy runs on the host as well.** It proxies to the container's
+`-p 127.0.0.1:10144:10144`, the same `Caddyfile` as above. The docs don't ship a Caddy container
+or a compose file for it; a Docker user can write that themselves.
+
 ## Old Android: the app bundles the Let's Encrypt roots
 
 Let's Encrypt's chain ends at ISRG Root X1, which Android trusts only from 7.1.1. The DST Root CA X3
 cross-sign that covered older devices expired in 2024. Today's Jetty setup has the same problem.
 The app fixes it by trusting the roots itself, and UMN's code doesn't change: `ProxyClient` already
-takes the app's `OkHttpClient`.
+takes the app's `OkHttpClient`. UMN's floor stays at API 22, so the docs cover both halves below.
 
 - **API 24+: a network security config.** Aedict does this (`aedict-apk/src/main/res/xml/
   network_security_config.xml`, commit b0a5937). It keeps `<certificates src="system"/>` and adds
@@ -72,15 +76,7 @@ takes the app's `OkHttpClient`.
 
 ## On graduation
 
-- The proxy-client README gets the old-Android trust-anchor trap, with Aedict's config as the
-  example. Without it, wss fails on Android below 7.1.1 with "Trust anchor for certification path
-  not found".
-
-## Open questions
-
-- `Q_min_sdk`: Aedict moved to minSdk 24 (commit 463cb3a: Play Console showed about one active
-  user on 5.1/6.0). `AGENTS.md` still says UMN runs on minSdk 22 because that was "Aedict's floor".
-  Raise UMN's floor to 24? Then the network security config alone covers every device, and the
-  API 22–23 trust-manager code never has to be written.
-- `Q_docker`: add a `caddy` service to `src/main/docker/docker-compose.yml` (official Docker Hub
-  image), or describe only the host install?
+- The proxy-client README gets the old-Android trust-anchor trap, with both halves: Aedict's
+  network security config for API 24+, and the trust-manager code for API 22–23, checked on an
+  API 22 emulator first. Without either, wss fails on Android below 7.1.1 with "Trust anchor for
+  certification path not found".
