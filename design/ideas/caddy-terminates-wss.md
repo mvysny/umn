@@ -23,7 +23,11 @@ What the Caddy docs say (checked 2026-10-30, caddyserver.com/docs):
 
 - **WebSockets need no config.** `reverse_proxy` sees the upgrade and turns the connection into a
   bidirectional tunnel; Caddy 1's `websocket` sub-directive is gone. It has no stream timeout by
-  default, and `ProxyClient` pings every minute anyway.
+  default. Jetty's 5-minute idle timeout still closes a quiet socket, so the app keeps the
+  `pingInterval(1, MINUTES)` the README's client snippet sets.
+- **A client that sends no SNI fails the handshake** with `internal_error`, because Caddy has no
+  certificate to pick. Every client omits SNI for an IP address, and the JDK also omits it for a
+  dotless host such as `localhost`; the global `default_sni <host>` fixes both.
 - **Renewal runs in the background, with no restart and no dropped connection.**
 - **A config reload drops the websockets**: `systemctl reload caddy` force-closes them unless you
   set `stream_close_delay`. That's harmless because the `Syncer` reconnects (`D_reconnect_in_syncer`).
@@ -76,28 +80,31 @@ takes the app's `OkHttpClient`. UMN's floor stays at API 22, so the docs cover b
 
 ## Test plan
 
-The proposal changes no UMN code, so nothing new gets committed: the wire is unchanged, and
-`MainTest` already covers plain ws. Instead, each claim above gets checked once, by hand, and the
-outcome is written next to its step here; on graduation the outcomes go into the READMEs.
+The proposal changes no UMN code and the wire is unchanged. Step 1 became `CaddyTest`, committed
+in `umn-proxy-server`; it runs wherever `caddy` is on the PATH (`CONTRIBUTING.md`). Steps 2–3 are
+checked once, by hand. Each step's outcome is written next to it here, and on graduation the
+outcomes go into the READMEs.
 
-**Setup, shared by steps 1–3.** Caddy 2.6.2 from resolute's universe, the version this file names
-as the floor. Stop the package's systemd unit and run `caddy run` as the user instead. The site is
-`localhost:10146` with `tls internal`, plus the global `skip_install_trust` so Caddy leaves the
-system trust store alone. Clients trust Caddy's own root,
-`~/.local/share/caddy/pki/authorities/local/root.crt`. The server is HEAD's distribution zip
-with plain ws on 127.0.0.1:10144 and no `secure:`.
+**Setup for steps 2–3.** Caddy 2.6.2 from resolute's universe, the version this file names as the
+floor, run as the user with `caddy run`. The site is `localhost:10146` with `tls internal`. The
+globals are `CaddyTest`'s: `skip_install_trust`, `auto_https disable_redirects` (a user can't bind
+the redirect server's :80), `default_sni localhost`, and an `admin` port beside the package's
+running unit on 2019. Clients trust Caddy's own root, `pki/authorities/local/root.crt` under its
+data dir. The server is HEAD's distribution zip with plain ws on 127.0.0.1:10144 and no `secure:`.
 
-1. **JVM through Caddy.** Write a throwaway copy of `MainTest`'s `serves wss on the secure port`
-   that trusts Caddy's root, and run two nodes syncing through `wss://localhost:10146`.
-   - a. Records sync both ways. This checks "WebSockets need no config".
-   - b. Leave the nodes idle for 15 minutes, then write. The write syncs, and the server logs no
-     new connection. This checks that Caddy has no stream timeout.
-   - c. Edit the Caddyfile and run `caddy reload` with both nodes connected. The connection drops,
-     the `Syncer` reconnects, and a write made during the drop arrives.
-   - d. Renewal: set a short leaf lifetime with `issuer internal { lifetime … }` (check that 2.6.2
-     has it), then keep a node connected across a renewal Caddy logs. The node stays connected,
-     and a new `openssl s_client` sees a new serial.
-   - e. `ss -ltnp` shows 10144 on 127.0.0.1 only.
+1. **JVM through Caddy.** Done 2026-10-30 on Caddy 2.6.2, first by hand against the zip, then as
+   `CaddyTest` (about 30 s). Every claim held.
+   - a. Records sync both ways, with no WebSocket config. The server sees
+     `X-Forwarded-For/-Host/-Proto`.
+   - b. A pair pinging every minute stayed connected for 15 idle minutes, then synced. A pair
+     without pings was closed by Jetty (`1001 Connection Idle Timeout`) every 5 minutes, never
+     sooner, so Caddy adds no timeout. `CaddyTest` runs this only with `CADDY_IDLE_MINUTES` set.
+   - c. `caddy reload` of an edited Caddyfile drops both nodes. The `Syncer` reconnects, and a
+     write made while offline arrives. An unchanged Caddyfile reloads nothing.
+   - d. 2.6.2 has `issuer internal { lifetime }`, and the default leaf is 12 hours. With a 30 s leaf
+     and `renew_interval 5s`, the served serial changed after about 25 s, and both nodes stayed
+     `Connected`, with no reconnect.
+   - e. `ss -ltnp`: 10144 and 10145 on 127.0.0.1 only, Caddy on 10146.
 2. **Docker.** Build the image from `umn-proxy-server/Dockerfile` and run it under podman with
    `-p 127.0.0.1:10144:10144`, with the same Caddyfile. Repeat 1a and 1e.
 3. **Android, local CA.** This tests the trust mechanism only. The ISRG PEMs need no test of
@@ -116,6 +123,8 @@ with plain ws on 127.0.0.1:10144 and no `secure:`.
 
 ## On graduation
 
+- The proxy-server README's Caddy section warns that a client connecting by IP address sends no
+  SNI and fails with `internal_error` unless the Caddyfile sets `default_sni`.
 - The proxy-client README gets the old-Android trust-anchor trap, with both halves: Aedict's
   network security config for API 24+, and the trust-manager code for API 22–23, checked on an
   API 22 emulator first. Without either, wss fails on Android below 7.1.1 with "Trust anchor for
