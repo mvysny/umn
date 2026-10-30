@@ -38,7 +38,7 @@ class UMNProxyWebsocketListener(private val session: Session, private val global
 
     fun onWebSocketConnect() {
         try {
-            log.info("Got connection; headers=${session.upgradeRequest.headers}")
+            log.info("Got connection; headers=${session.upgradeRequest.headers.filterKeys { !it.equals("password", ignoreCase = true) }}")
 
             // Jetty's lookup ignores the header name's case, Javalin's WsContext.header() doesn't
             val username: String? = session.upgradeRequest.getHeader("username")
