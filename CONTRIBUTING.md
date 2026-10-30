@@ -4,11 +4,18 @@ Run `./gradlew build` to compile and test everything. Keep Docker running: witho
 `umn-compat-0.15` battery against the production proxy-server image is skipped. Testcontainers
 also pulls its reaper image `testcontainers/ryuk`; `TESTCONTAINERS_RYUK_DISABLED=true` skips it.
 
+Install Caddy too, `sudo apt install caddy` (Ubuntu 24.04+): without it `CaddyTest`, which syncs
+through Caddy terminating wss in front of the proxy server, is skipped. Each test runs its own
+`caddy run` on free ports with a throwaway local CA, so the package's `caddy.service` may keep
+running. Its idle-connection test runs only when asked:
+`CADDY_IDLE_MINUTES=15 ./gradlew umn-proxy-server:test --tests CaddyTest`.
+
 # Releasing
 
 To release the library to Maven Central:
 
-1. Run `./gradlew clean build` with Docker running, and check that no compat test was skipped.
+1. Run `./gradlew clean build` with Docker running and Caddy installed, and check that no compat
+   test or `CaddyTest` was skipped.
 2. Edit `build.gradle.kts` and remove `-SNAPSHOT` from the `version =` stanza, e.g. "0.16"
 3. Bump the version in the install snippets of `README.md`, `umn-proxy-client/README.md` and
    `umn-proxy-server-adminclient/README.md` to match the release, and replace "unreleased" in
