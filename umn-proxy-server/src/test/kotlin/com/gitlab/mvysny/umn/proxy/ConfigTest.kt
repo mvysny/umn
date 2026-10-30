@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.proxy
 
 import org.eclipse.jetty.server.Server
+import org.eclipse.jetty.util.ssl.KeyStoreScanner
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
@@ -21,7 +22,7 @@ class ConfigTest {
         expect(InetSocketAddress.createUnresolved("127.0.0.1", 25)) { cfg.socketAddress }
         expect(InetSocketAddress.createUnresolved("0.0.0.0", 45)) { cfg.adminSocketAddress }
         expect("/some/weird/place") { cfg.proxy.standalone!!.db }
-        expect(Secure(666, "127.0.0.1", "/opt/somewhere/keystore.p12")) { cfg.secure }
+        expect(Secure(666, "127.0.0.1", "/opt/somewhere/keystore.p12", 60)) { cfg.secure }
     }
     @Test fun `load without a config file falls back to the standalone defaults`() {
         // tests run in the module directory, which has no config.yaml
@@ -49,6 +50,20 @@ class ConfigTest {
             val connector = Secure(port = 666, host = "127.0.0.1", pkcs12 = p12.absolutePath).createJettyConnector(Server())
             expect(666) { connector.port }
             expect("127.0.0.1") { connector.host }
+        }
+        @Test fun `reads the keystore once by default`() {
+            val server = Server()
+            Secure(pkcs12 = File.createTempFile("keystore", ".p12").absolutePath).createJettyConnector(server)
+            expect(listOf()) { server.getBeans(KeyStoreScanner::class.java).toList() }
+        }
+        @Test fun `keystoreReloadSeconds scans the keystore`() {
+            val server = Server()
+            Secure(pkcs12 = File.createTempFile("keystore", ".p12").absolutePath, keystoreReloadSeconds = 60).createJettyConnector(server)
+            expect(60) { server.getBeans(KeyStoreScanner::class.java).single().scanInterval }
+        }
+        @Test fun `negative keystoreReloadSeconds fails`() {
+            val p12 = File.createTempFile("keystore", ".p12").absolutePath
+            assertFailsWith<IllegalArgumentException> { Secure(pkcs12 = p12, keystoreReloadSeconds = -1).createJettyConnector(Server()) }
         }
     }
 }

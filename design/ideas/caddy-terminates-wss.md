@@ -43,9 +43,9 @@ What the Caddy docs say (checked 2026-10-30, caddyserver.com/docs):
 
 ## Alternatives
 
-- **Jetty reloads the keystore in place**: `keystore-hot-reload.md`. It needs no new daemon, but
-  the certbot plus `openssl pkcs12` post-hook stays. It can ship as well as the Caddy docs, for
-  people who keep `secure:`.
+- **Jetty reloads the keystore in place**: `secure: keystoreReloadSeconds` already does that (see
+  the proxy server's README). It needs no new daemon, but the certbot plus `openssl pkcs12` deploy
+  hook stays.
 - **nginx or HAProxy** work the same way but have no built-in ACME: certbot plus a reload hook again.
 
 ## Open questions

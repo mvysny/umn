@@ -1,6 +1,7 @@
 package com.gitlab.mvysny.umn.proxy
 
 import org.eclipse.jetty.server.*
+import org.eclipse.jetty.util.ssl.KeyStoreScanner
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.yaml.snakeyaml.Yaml
 import java.io.File
@@ -46,15 +47,23 @@ data class Standalone(var db: String = "db") {
     fun createLogClientProvider(): GlobalLogClientProvider = MVStoreGlobalLogProvider(File(db).absoluteFile)
 }
 
+/**
+ * The `secure:` stanza: serves wss on [host]:[port] with the certificate in the passwordless PKCS12 keystore [pkcs12].
+ * @property keystoreReloadSeconds 0 reads [pkcs12] once at startup; N checks it every N seconds and serves a changed
+ * one to new connections, dropping none. A symlink retargeted at another file counts as a change; a host-side move
+ * behind a Docker bind mount of the single file goes unnoticed.
+ */
 data class Secure(var port: Int = 10146,
                   var host: String = "0.0.0.0",
-                  var pkcs12: String? = null) {
+                  var pkcs12: String? = null,
+                  var keystoreReloadSeconds: Int = 0) {
 
     fun createJettyConnector(server: Server): ServerConnector {
         val pkcs12 = File(requireNotNull(pkcs12) { "The pkcs12 key is missing!" })
         require(pkcs12.exists()) { "$pkcs12 does not exist" }
         require(pkcs12.isFile) { "$pkcs12 is not a file" }
         require(pkcs12.canRead()) { "$pkcs12 is not readable" }
+        require(keystoreReloadSeconds >= 0) { "keystoreReloadSeconds must be 0 or greater, was $keystoreReloadSeconds" }
 
         // taken from https://danielflower.github.io/2017/04/08/Lets-Encrypt-Certs-with-embedded-Jetty.html
         val config = HttpConfiguration()
@@ -67,6 +76,9 @@ data class Secure(var port: Int = 10146,
         sslContextFactory.keyStorePath = pkcs12.absolutePath
         sslContextFactory.setKeyStorePassword("")
         sslContextFactory.setKeyManagerPassword("")
+        if (keystoreReloadSeconds > 0) {
+            server.addBean(KeyStoreScanner(sslContextFactory).apply { scanInterval = keystoreReloadSeconds })
+        }
         val httpsConnector = ServerConnector(server, sslContextFactory, HttpConnectionFactory(config))
         httpsConnector.port = port
         httpsConnector.host = host

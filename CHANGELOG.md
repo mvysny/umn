@@ -19,6 +19,10 @@ no entries.
   older one fails it (the 0.12 server with a 500) and creates nobody. `createOrUpdateUser` is
   deprecated. Migration: upgrade the server first,
   then switch the admin client to `createOrUpdateUser2`.
+- The proxy server's `secure:` stanza takes `keystoreReloadSeconds: N`: the server checks the
+  keystore every N seconds and serves a renewed certificate to new connections, with no restart and
+  no dropped connection. Off by default. In Docker, mount the keystore's directory, not the file
+  alone, or the container never sees the renewed one.
 
 ## 0.16 — 2026-10-21
 

@@ -51,11 +51,19 @@ proxy:
 secure:
   port: 10146
   host: 0.0.0.0
-  pkcs12: /opt/keystore.p12
+  pkcs12: /opt/umn-tls/keystore.p12
+  keystoreReloadSeconds: 60
 ```
 
-Then, use `-v yourkeystore.p12:/opt/keystore.p12` to mount the keystore file into your
+Then, use `-v /opt/umn-tls:/opt/umn-tls` to mount the directory holding the keystore into your
 image; also don't forget to add `-p 10146:10146` to expose the SSL port from your image.
+`keystoreReloadSeconds` makes the server pick up a renewed keystore without a restart; see
+[Let's Encrypt](../../../README.md#lets-encrypt) for the renewal hook.
+
+**Mount the directory, never the keystore file alone.** A single-file bind mount
+(`-v keystore.p12:/opt/keystore.p12`) stays on the file that was there when the container started:
+once the renewal hook moves a new keystore over it on the host, the container keeps seeing the old
+one forever, and keeps serving the old certificate until it expires.
 
 ## Building the image
 

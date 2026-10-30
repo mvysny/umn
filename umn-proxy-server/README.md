@@ -82,10 +82,32 @@ secure:
   port: 10146
   host: 0.0.0.0
   pkcs12: /opt/keystore.p12
+  keystoreReloadSeconds: 60
 ```
 
-Don't forget to add the post hook to convert the keystore after it has been updated by Certbot, and
-to restart the UMN Proxy Server to load the new key.
+`keystoreReloadSeconds: 60` makes the server check the keystore every 60 seconds and serve a changed one
+to new connections, with no restart and no dropped connection. It is off by default (absent or `0`:
+the keystore is read once at startup), and it needs UMN Proxy Server 0.17 or newer; an older server
+refuses to start with the key in its `config.yaml`.
+
+Certbot renews the certificate every couple of months; convert it after each renewal with a deploy
+hook, e.g. `/etc/letsencrypt/renewal-hooks/deploy/umn-keystore.sh` (make it executable):
+
+```bash
+#!/bin/sh
+set -e
+cd "$RENEWED_LINEAGE"
+openssl pkcs12 -export -in fullchain.pem -inkey privkey.pem -out /opt/keystore.p12.new -name crickam -CAfile chain.pem -caname root -passout "pass:"
+chmod a+r /opt/keystore.p12.new
+mv /opt/keystore.p12.new /opt/keystore.p12
+```
+
+Write the new keystore beside the old one and `mv` it over, so the server never reads a half-written
+file. `pkcs12:` may also point at a symlink, or into a symlinked directory: retargeting the symlink at
+a new file counts as a change too.
+
+Without `keystoreReloadSeconds`, the hook also has to restart the UMN Proxy Server to load the new
+key.
 
 ## Admin Interface
 
