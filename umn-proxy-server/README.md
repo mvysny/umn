@@ -102,7 +102,7 @@ For every user a separate global log is created.
 | Method+Endpoint | Explanation
 | --------------- | -----------------------------
 | GET /admin/users | Returns all users, as a JSON List of String usernames. Example: `curl -i localhost:10145/admin/users` should print `["user", "user25"]`
-| PUT /admin/users | Creates a new user with given plaintext password. Requires two parameters, passed as query params: `username` and `password`. If the user already exists, its password is updated. Example: `curl -i -X PUT "localhost:10145/admin/users?username=user&password=example"` should print 204 NO CONTENT on success.
+| PUT /admin/users | Creates a new user with given plaintext password, passed as a JSON body `{"username": "...", "password": "..."}`; the `Content-Type` doesn't matter. If the user already exists, its password is updated. Example: `curl -i -X PUT localhost:10145/admin/users -d '{"username":"user","password":"example"}'` should print 204 NO CONTENT on success. Servers before 0.17 only take the credentials as query params: `curl -i -X PUT "localhost:10145/admin/users?username=user&password=example"`. 0.17+ still accepts that form when both params are present, but prefer the body: URLs end up in logs.
 | DELETE /admin/users/:username | Deletes the user with given username. Example: `curl -i -X DELETE localhost:10145/admin/users/user` should print 204 NO CONTENT on success.
 
 ### Statistics

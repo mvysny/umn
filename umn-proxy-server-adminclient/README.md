@@ -15,5 +15,9 @@ dependencies {
 Example:
 ```
 val client = createAdminClient("http://localhost:10145/admin/")
-client.createOrUpdateUser("user", "example")
+client.createOrUpdateUser2("user", "example")
 ```
+
+`createOrUpdateUser2` needs UMN proxy server 0.17+; an older server fails it, e.g. the 0.12 server
+with a 500, and creates nobody. Against an
+older server, use the deprecated `createOrUpdateUser`, which sends the password in the URL.

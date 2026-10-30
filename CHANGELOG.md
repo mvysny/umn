@@ -12,6 +12,13 @@ no entries.
   Kotlin, `response.body()` → `response.body`, `HttpUrl.parse(s)` → `s.toHttpUrlOrNull()`,
   `RequestBody.create(type, x)` → `x.toRequestBody(type)`; okhttp's
   [upgrade guide](https://square.github.io/okhttp/changelogs/upgrading_to_okhttp_4/) lists the rest.
+- The proxy server's `PUT /admin/users` takes the credentials as a JSON body,
+  `{"username": "...", "password": "..."}`, so the password stays out of URLs and logs. The query
+  params still work when both are present.
+- `AdminClient.createOrUpdateUser2` sends that JSON body and **needs a 0.17+ proxy server**; an
+  older one fails it (the 0.12 server with a 500) and creates nobody. `createOrUpdateUser` is
+  deprecated. Migration: upgrade the server first,
+  then switch the admin client to `createOrUpdateUser2`.
 
 ## 0.16 — 2026-10-21
 
