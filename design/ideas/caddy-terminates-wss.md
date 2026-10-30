@@ -106,7 +106,17 @@ data dir. The server is HEAD's distribution zip with plain ws on 127.0.0.1:10144
      `Connected`, with no reconnect.
    - e. `ss -ltnp`: 10144 and 10145 on 127.0.0.1 only, Caddy on 10146.
 2. **Docker.** Build the image from `umn-proxy-server/Dockerfile` and run it under podman with
-   `-p 127.0.0.1:10144:10144`, with the same Caddyfile. Repeat 1a and 1e.
+   `-p 127.0.0.1:10144:10144`, with the same Caddyfile. Repeat 1a and 1e. Done 2026-10-30 under
+   rootless podman on Caddy 2.6.2, with the image built from the 0.17-SNAPSHOT zip and the docker
+   README's `-p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145`. Both claims held.
+   - a. Two JVM nodes synced both ways through `wss://localhost:10146`. Caddy's upgrade to the
+     container returned 101 with `X-Forwarded-For: 127.0.0.1`, `-Proto: https` and
+     `-Host: localhost:10146`.
+   - e. `ss -ltnp`: podman's `pasta` holds 10144 and 10145 on 127.0.0.1 only, and Caddy holds 10146.
+     From the host's LAN address, 10144 and 10145 refuse connections and 10146 answers.
+   - With an older zip still in `build/distributions`, podman's `COPY …-*.zip /server.zip` copies
+     both, and the last in sort order wins without an error. Docker untried. The docker README's
+     `./gradlew clean …` avoids that.
 3. **Android, local CA.** This tests the trust mechanism only. The ISRG PEMs need no test of
    their own: Aedict ships them in its network security config, and no errors have been reported
    from production. Use a
