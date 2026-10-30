@@ -21,14 +21,35 @@ keeps `secure:` as the zero-extra-daemon option beside `caddy-terminates-wss.md`
 
 ## Sketch
 
-In `Secure.createJettyConnector`, which already gets the `Server`:
+**Off by default, switched on in `config.yaml`.** Existing deployments keep today's behaviour,
+including any keystore set up as a symlink or mounted as a single file in Docker, which reloading
+can't see (see the gotchas below). One key in the `secure:` stanza both switches it on and sets
+the scan interval, which also answers the old `Q_scan_interval`:
 
-```kotlin
-server.addBean(KeyStoreScanner(sslContextFactory))
+```yaml
+secure:
+  port: 10146
+  host: 0.0.0.0
+  pkcs12: /opt/umn-tls/keystore.p12
+  reloadSeconds: 60     # absent or 0: read once at startup, as today
 ```
 
-As a bean of the not-yet-started server, it starts and stops with it. That's the whole code
-change. The README's Let's Encrypt section then drops "restart the UMN Proxy Server".
+`Secure` gains `var reloadSeconds: Int = 0`. It goes last, so the positional
+`Secure(666, "127.0.0.1", …)` in `ConfigTest` still compiles. In `Secure.createJettyConnector`,
+which already gets the `Server`:
+
+```kotlin
+if (reloadSeconds > 0) {
+    server.addBean(KeyStoreScanner(sslContextFactory).apply { scanInterval = reloadSeconds })
+}
+```
+
+As a bean of the not-yet-started server, it starts and stops with it. `Main` should print whether
+reloading is on next to the `wss://` line, so an operator can see it took effect.
+
+**An older server refuses a config that has the new key.** snakeyaml fails on unknown properties,
+so a `config.yaml` written for this release won't load on 0.16 or earlier. This affects config
+files only, not `D_frozen_0_15_formats`, but the README should say which release added the key.
 
 ## Gotchas to document
 
@@ -50,23 +71,27 @@ The owner calls these warnings vital. Getting any of them wrong silently stops r
 implementing commit must not delete this file before both READMEs carry them:
 
 - `umn-proxy-server/README.md`, in the Let's Encrypt section:
+  - `reloadSeconds:` in the `secure:` example, off by default, and the release that added it;
   - the keystore must be a real file, not a symlink;
   - the post-hook writes to `.p12.new` and then `mv`s it over the old file;
-  - no restart is needed any more.
+  - with `reloadSeconds` set, no restart is needed. Without it, the restart step stays as today.
 - `umn-proxy-server/src/main/docker/README.md`: mount the keystore's directory, never the single
   file, with the reason (the bind mount pins the inode). Its `-v yourkeystore.p12:/opt/keystore.p12`
-  example and the `pkcs12:` path in its `config.yaml` change to match.
+  example and the `pkcs12:` path in its `config.yaml` change to match, and gain `reloadSeconds:`.
+- `CHANGELOG.md`: a line for the new key.
 
 ## Testing
 
 `MainTest.serves wss on the secure port` already has `localhost.p12`. Add a second self-signed
 keystore (different serial or subject), start the server on a temp copy of the first, `mv` the
-second over it, wait for a scan, then open a fresh wss connection. Check that the peer certificate
-changed and that the websocket opened before the swap still works.
+second over it, wait for a scan, then open a fresh wss connection. With `reloadSeconds: 1`, check that the peer
+certificate changed and that the websocket opened before the swap still works. Without the key,
+check that the first certificate is still served. `ConfigTest` also checks that `reloadSeconds`
+parses and defaults to 0.
 
 ## Open questions
 
-- `Q_scan_interval`: 1 s is Jetty's default. Renewals happen every ~60 days, so 60 s would do.
-  Is it worth a `config.yaml` knob, or should it just be hardcoded?
+- `Q_key_name`: `reloadSeconds`, or `keystoreReloadSeconds` to say what it reloads? The stanza
+  holds only the one keystore, so the short name reads fine there.
 - `Q_old_android_ca`: the Let's Encrypt trust problem on Android below 7.1.1, shared with the
   Caddy route. See `caddy-terminates-wss.md`.
