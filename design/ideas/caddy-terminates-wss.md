@@ -127,15 +127,28 @@ data dir. The server is HEAD's distribution zip with plain ws on 127.0.0.1:10144
      config that adds Caddy's root, it syncs.
    - b. API 22: the same failure without the code, and a sync with the `X509TrustManager` that
      merges the system roots with Caddy's. An HTTPS GET to a public site still succeeds, which
-     proves the trust manager merges the roots rather than replacing them. Only `API_21` and
-     `API_24` AVDs exist here: the `android-22` system image is a download from Google's SDK
-     repo, so ask first.
+     proves the trust manager merges the roots rather than replacing them.
+
+   Done 2026-10-30 on Caddy 2.6.2 and HEAD's server zip, with an app built against HEAD's
+   `umn-core` and `umn-proxy-client` (AGP 8.13.2, minSdk 22). Every claim held. The new `API_22`
+   AVD runs `system-images;android-22;google_apis;x86_64`.
+   - a. API 24, with no config: `SyncerStatus.Offline` with the trust-anchor
+     `SSLHandshakeException`, retrying every 1, 2, 4 and 8 s, and nothing reached the server. With
+     `<certificates src="system"/>` plus `@raw/caddy_root`: `Connected`, and the record arrived.
+   - b. API 22: the plain build fails the same way, and so does the build with the network security
+     config, which proves API 22 ignores it. The merged trust manager syncs. It loads
+     `TrustManagerFactory.init(null as KeyStore?)`'s `acceptedIssuers` (162 roots) and the
+     bundled PEM into an empty `KeyStore`, then passes the result to
+     `OkHttpClient.Builder().sslSocketFactory(SSLContext.socketFactory, trustManager)`. A GET to
+     `https://www.google.com/` returned 200 with it.
+   - The public site has to chain to an old root. `https://www.wikipedia.org/` serves a Let's
+     Encrypt chain, so it fails on API 24 even with no Caddy in the path.
 
 ## On graduation
 
 - The proxy-server README's Caddy section warns that a client connecting by IP address sends no
   SNI and fails with `internal_error` unless the Caddyfile sets `default_sni`.
 - The proxy-client README gets the old-Android trust-anchor trap, with both halves: Aedict's
-  network security config for API 24+, and the trust-manager code for API 22–23, checked on an
-  API 22 emulator first. Without either, wss fails on Android below 7.1.1 with "Trust anchor for
+  network security config for API 24+, and step 3b's trust-manager code for API 22–23, which
+  ignore the config. Without either, wss fails on Android below 7.1.1 with "Trust anchor for
   certification path not found".
