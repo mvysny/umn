@@ -1,7 +1,7 @@
 # Survive a server log restored from a backup
 
 Brainstorm only (the owner, 2026-10-30): not for today. It comes from Aedict Online's backups,
-`../aedict/aedict-online/design/ideas/backup-production.md`.
+`../aedict/aedict-online/README.md`, "Backups".
 
 ## The problem
 
