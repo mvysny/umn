@@ -41,8 +41,11 @@ docker-compose up
 
 ### Security
 
-By default the SSL WebSocket port is not enabled. To enable it, you need to modify the `config.yaml`
-as follows:
+By default the SSL WebSocket port is not enabled. The simplest wss is Caddy on the host, in front
+of the container's `-p 127.0.0.1:10144:10144`, with the Caddyfile from
+[Caddy](../../../README.md#caddy): the image stays as it is, with no keystore and no restarts.
+
+To let the server serve wss itself instead, modify the `config.yaml` as follows:
 
 ```yaml
 port: 10144
@@ -77,6 +80,9 @@ To build the image, first build the server:
 ```bash
 ./gradlew clean umn-proxy-server:build -x test
 ```
+
+Keep the `clean`: the `Dockerfile` copies `build/distributions/umn-proxy-server-*.zip`, and with an
+older version's zip still there, podman takes the last one in sort order with no error.
 
 Then you can build the docker image:
 

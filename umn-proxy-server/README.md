@@ -54,7 +54,8 @@ secure:
 ```
 
 Plain ws on 10144 listens on localhost only, the default since 0.17: it sends the passwords
-unencrypted, so remote clients connect over wss (the `secure:` stanza below), never plain ws.
+unencrypted, so remote clients connect over wss (Caddy in front, or the `secure:` stanza; see
+below), never plain ws.
 `secure:` adds wss on 10146 beside plain ws, so local clients may keep `ws://localhost:10144`.
 
 `proxy: standalone:` is the only log storage there is; its `db` is the directory holding the database
@@ -63,13 +64,57 @@ Admin REST API as described below.
 
 ### Secure WebSockets over SSL/HTTPS
 
-The UMN Proxy Server supports secure WebSockets over HTTPS/SSL. In order to activate this, you'll need
-your certificate and private key stored in a passwordless PKCS12 key store. Then, just
-make sure to provide the `secure:` stanza in the `config.yaml` as shown above.
+Remote clients connect over wss, with the `wss://somehost:10146` URL in their UMN Proxy client.
+There are two ways to serve it: put Caddy in front of the plain ws port, which gets and renews the
+certificate by itself, or let the server serve wss on its own from a PKCS12 keystore, with the
+`secure:` stanza. Clients can't tell the two apart.
 
-In order to use the secure sockets, you need to provide the `wss://somehost:10146` URL to your UMN Proxy client.
+Android below 7.1.1 doesn't trust Let's Encrypt's root, behind either setup, and fails with
+"Trust anchor for certification path not found"; the app has to bundle the root, see
+[old Android](../umn-proxy-client/README.md#old-android-and-lets-encrypt).
 
-#### Let's Encrypt
+#### Caddy
+
+[Caddy](https://caddyserver.com) listens on 10146, gets a Let's Encrypt certificate and renews it
+in the background, with no restart and no dropped connection, and forwards plain ws to the server
+on localhost. Any Caddy 2.x works; Ubuntu ships it from 24.04 on (`sudo apt install caddy`), while
+22.04 has it only from Caddy's own apt repo. Put this into `/etc/caddy/Caddyfile` and run
+`sudo systemctl reload caddy`:
+
+```
+{
+	default_sni umn.example.com
+}
+umn.example.com:10146 {
+	reverse_proxy 127.0.0.1:10144
+}
+```
+
+The server's `config.yaml` has no `secure:` stanza, and plain ws keeps listening on `127.0.0.1`, so
+only Caddy reaches it.
+
+- **Keep `default_sni`.** A client that sends no SNI fails the handshake with `internal_error`,
+  since Caddy has no certificate to pick. Every client connecting by IP address sends none, and so
+  does Java for a dotless host such as `localhost`.
+- **Let's Encrypt has to reach port 80 or 443** on the host, for its HTTP or TLS-ALPN challenge;
+  it never connects to 10146. When Caddy serves the same hostname on 443 too, both sites share
+  the certificate.
+- **WebSockets need no configuration**, and Caddy adds no idle timeout of its own. The server
+  closes a connection idle for 5 minutes, and `ProxyClient` pings every minute against it since
+  0.17; give an older one an `OkHttpClient` with a `pingInterval`.
+- **A config reload drops every websocket**, unless the Caddyfile sets `stream_close_delay`. The
+  nodes' syncers reconnect by themselves.
+- The server sees every client as `127.0.0.1`: it ignores Caddy's `X-Forwarded-For`.
+
+nginx or HAProxy work the same way, but they don't get certificates by themselves: they need
+certbot and a reload hook, as `secure:` does.
+
+#### The server's own wss
+
+Store your certificate and private key in a passwordless PKCS12 key store, and provide the
+`secure:` stanza in the `config.yaml` as shown above.
+
+##### Let's Encrypt
 
 You can use UMN Proxy server with Let's Encrypt easily. You just need to make sure to
 convert PEM produced by Let's Encrypt to PKCS12 (taken from excellent [LetsEncrypt certs with embedded Jetty on](https://danielflower.github.io/2017/04/08/Lets-Encrypt-Certs-with-embedded-Jetty.html)):

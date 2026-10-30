@@ -50,3 +50,54 @@ syncingumn.close()
 
 Just configure your UMN Proxy Server to use secure websockets; then simply specify
 the following URL into the client: `wss://umn-proxy-hostname:10146`.
+
+### Old Android and Let's Encrypt
+
+Let's Encrypt's chain ends at ISRG Root X1, which Android trusts only from 7.1.1 on; the
+cross-sign that covered older devices expired in 2024. Below 7.1.1 the syncer stays
+`SyncerStatus.Offline` with "Trust anchor for certification path not found" and retries forever.
+`ProxyClient` uses the `OkHttpClient` you give it, so the fix lives in your app: bundle ISRG
+Root X1 and X2 (X2 covers an ECDSA chain), PEMs taken from the Mozilla CA store, as
+`res/raw/isrg_root_x1.pem` and `res/raw/isrg_root_x2.pem`.
+
+On API 24 and up, a network security config does it with no code. Put this into
+`res/xml/network_security_config.xml`, and point the manifest's
+`<application android:networkSecurityConfig="@xml/network_security_config">` at it:
+
+```xml
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/isrg_root_x1" />
+            <certificates src="@raw/isrg_root_x2" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
+```
+
+API 22 and 23 ignore the network security config. There, give `ProxyClient` an `OkHttpClient`
+whose trust manager merges the system roots with the bundled ones; it keeps trusting every site
+the system does:
+
+```kotlin
+fun Context.trustManager(): X509TrustManager {
+    val system = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+        .apply { init(null as KeyStore?) }.trustManagers.single() as X509TrustManager
+    val roots = KeyStore.getInstance(KeyStore.getDefaultType()).apply { load(null) }
+    system.acceptedIssuers.forEachIndexed { i, cert -> roots.setCertificateEntry("system$i", cert) }
+    for (res in listOf(R.raw.isrg_root_x1, R.raw.isrg_root_x2)) {
+        resources.openRawResource(res).use {
+            roots.setCertificateEntry("bundled$res", CertificateFactory.getInstance("X.509").generateCertificate(it))
+        }
+    }
+    return TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+        .apply { init(roots) }.trustManagers.single() as X509TrustManager
+}
+
+val httpClient = if (Build.VERSION.SDK_INT < 24) {
+    val trust = context.trustManager()
+    val ssl = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
+    OkHttpClient.Builder().sslSocketFactory(ssl.socketFactory, trust).build()
+} else OkHttpClient()
+```
