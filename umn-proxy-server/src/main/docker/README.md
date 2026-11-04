@@ -14,6 +14,11 @@ Inside the container the server listens on all interfaces, since the host can't 
 container's own localhost; the `127.0.0.1:` prefixes keep both ports off the network. Plain ws on
 10144 sends the passwords unencrypted, so remote clients connect over wss (see Security below).
 
+**A `config.yaml` of your own needs `host: 0.0.0.0` and `adminHost: 0.0.0.0` too**, as the bundled
+one has. Without them the server listens on the container's own localhost, which no `-p` reaches:
+since 0.17 plain ws defaults to `127.0.0.1`, as the admin port always has. Clients get "connection
+reset" and the server logs nothing. wss is unaffected, since `secure.host` defaults to `0.0.0.0`.
+
 
 You can test that the server is running:
 

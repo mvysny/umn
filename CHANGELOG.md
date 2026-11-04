@@ -12,30 +12,37 @@ no entries.
   Kotlin, `response.body()` → `response.body`, `HttpUrl.parse(s)` → `s.toHttpUrlOrNull()`,
   `RequestBody.create(type, x)` → `x.toRequestBody(type)`; okhttp's
   [upgrade guide](https://square.github.io/okhttp/changelogs/upgrading_to_okhttp_4/) lists the rest.
+- **Breaking:** the proxy server's plain ws (`host:`) listens on `127.0.0.1` by default (0.16:
+  `0.0.0.0`), since it sends the passwords unencrypted; a `config.yaml` with no `host:` stops serving
+  remote clients. The Docker image's bundled `config.yaml` keeps `host: 0.0.0.0`, and its docs and
+  `docker-compose.yml` publish 10144 as `127.0.0.1:10144:10144`; but a `config.yaml` of your own
+  mounted into the container with no `host:` loses plain ws altogether, since no `-p` reaches the
+  container's own localhost. Migration: remote clients connect over wss (Caddy in front, or
+  `secure:`) instead; `host: 0.0.0.0` restores the old bind, and a container's own `config.yaml`
+  needs it.
+- With a `secure:` stanza, the proxy server serves plain ws beside wss again, as 0.15 did, so
+  local clients can keep `ws://localhost:10144`.
+- The proxy server's `secure:` stanza takes `keystoreReloadSeconds: N`: the server checks the
+  keystore every N seconds and serves a renewed certificate to new connections, with no restart and
+  no dropped connection. Off by default. In Docker, mount the keystore's directory, not the file
+  alone, or the container never sees the renewed one.
 - The proxy server's `PUT /admin/users` takes the credentials as a JSON body,
   `{"username": "...", "password": "..."}`, so the password stays out of URLs and logs. The query
   params still work when both are present.
+- `AdminClient.createOrUpdateUser2` sends that JSON body and **needs a 0.17+ proxy server**; an
+  older one fails it (the 0.12 server with a 500) and creates nobody. `createOrUpdateUser` is
+  deprecated. Migration: upgrade the server first,
+  then switch the admin client to `createOrUpdateUser2`.
 - `ProxyClient` sends a websocket ping every minute on its own, so an idle connection no longer
   drops every 5 minutes when the app's `OkHttpClient` has no `pingInterval`. The new
   `pingIntervalSeconds` parameter changes it, 0 turns pings off, and it overrides the
   `OkHttpClient`'s own interval.
 - The proxy server no longer logs a connecting client's `password` header; 0.16 logged it in
   plain text with the other headers, at INFO.
-- `AdminClient.createOrUpdateUser2` sends that JSON body and **needs a 0.17+ proxy server**; an
-  older one fails it (the 0.12 server with a 500) and creates nobody. `createOrUpdateUser` is
-  deprecated. Migration: upgrade the server first,
-  then switch the admin client to `createOrUpdateUser2`.
-- The proxy server's `secure:` stanza takes `keystoreReloadSeconds: N`: the server checks the
-  keystore every N seconds and serves a renewed certificate to new connections, with no restart and
-  no dropped connection. Off by default. In Docker, mount the keystore's directory, not the file
-  alone, or the container never sees the renewed one.
-- **Breaking:** the proxy server's plain ws (`host:`) listens on `127.0.0.1` by default (0.16:
-  `0.0.0.0`), since it sends the passwords unencrypted; a `config.yaml` with no `host:` stops serving
-  remote clients. The Docker image is unchanged, and its docs publish 10144 as
-  `-p 127.0.0.1:10144:10144`. Migration: remote clients connect over wss (`secure:`) instead;
-  `host: 0.0.0.0` restores the old bind.
-- With a `secure:` stanza, the proxy server serves plain ws beside wss again, as 0.15 did, so
-  local clients can keep `ws://localhost:10144`.
+- Docs: the proxy server's README shows Caddy in front of plain ws serving wss, with a Let's
+  Encrypt certificate Caddy renews by itself, no keystore and no `secure:` stanza.
+  `umn-proxy-client`'s README shows how an app on Android below 7.1.1 trusts Let's Encrypt's root;
+  without it the syncer stays offline with "Trust anchor for certification path not found".
 
 ## 0.16 — 2026-10-21
 
