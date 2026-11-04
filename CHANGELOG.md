@@ -4,7 +4,7 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the disk and wire formats never break (`D_frozen_0_15_formats`). Releases before 0.16 have
 no entries.
 
-## 0.17 — unreleased
+## 0.17 — 2026-11-04
 
 - **Breaking:** okhttp 4.12.0 in `umn-proxy-client` (0.16: 3.12.2), an `api` dependency; Gradle
   lifts an app's own 3.x pin to it. It is binary compatible with 3.x and Java code compiles
