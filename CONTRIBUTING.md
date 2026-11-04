@@ -24,10 +24,15 @@ To release the library to Maven Central:
    `CHANGELOG.md`'s heading with the release date
 4. Run `./gradlew clean build publish closeAndReleaseStagingRepositories`
 5. (Optional) watch [Maven Central Publishing Deployments](https://central.sonatype.com/publishing/deployments) as the deployment is published.
-6. Build and push the proxy server's Docker image, logged in to Docker Hub (`docker login`) as its
-   owner: `cd umn-proxy-server && docker build -t mvysny/umn-proxy-server:0.16 . && docker push mvysny/umn-proxy-server:0.16`.
-   Step 4's `clean` left exactly the release's zip in `build/distributions/`, which the `Dockerfile`
-   copies; any other zip there gets in silently instead.
+6. Build and push the proxy server's Docker image for amd64 and arm64, logged in to Docker Hub
+   (`docker login`) as its owner:
+   `docker buildx build --platform linux/amd64,linux/arm64 -t mvysny/umn-proxy-server:0.16 --push umn-proxy-server`.
+   Push only the version tag, never `latest`. Step 4's `clean` left exactly the release's zip in
+   `build/distributions/`, which the `Dockerfile` copies; any other zip there gets in silently instead.
+   The arm64 half runs the `Dockerfile`'s `RUN` steps under qemu: `sudo apt install qemu-user-binfmt`
+   once, then `docker run --rm --platform linux/arm64 eclipse-temurin:25-jre uname -m` prints
+   `aarch64`. A multi-platform build also needs Docker's containerd image store, the default
+   since Docker 29.
 7. Commit with the commit message of simply being the version being released, e.g. "0.16"
 8. git tag the commit with the same tag name as the commit message above, e.g. `0.16`
 9. `git push`, `git push --tags`

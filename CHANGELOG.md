@@ -39,6 +39,8 @@ no entries.
   `OkHttpClient`'s own interval.
 - The proxy server no longer logs a connecting client's `password` header; 0.16 logged it in
   plain text with the other headers, at INFO.
+- The proxy server's Docker image is on Docker Hub again, `mvysny/umn-proxy-server:0.17` (the last
+  one was 0.12), for amd64 and arm64.
 - Docs: the proxy server's README shows Caddy in front of plain ws serving wss, with a Let's
   Encrypt certificate Caddy renews by itself, no keystore and no `secure:` stanza.
   `umn-proxy-client`'s README shows how an app on Android below 7.1.1 trusts Let's Encrypt's root;
