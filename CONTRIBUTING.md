@@ -22,7 +22,7 @@ To release the library to Maven Central:
    `mvysny/umn-proxy-server:` image tag in `README.md`,
    `umn-proxy-server/src/main/docker/README.md` and `docker-compose.yml` beside it; replace "unreleased" in
    `CHANGELOG.md`'s heading with the release date
-4. Run `./gradlew clean build publish closeAndReleaseStagingRepositories`
+4. Run `mise exec -- ./gradlew clean build publish closeAndReleaseStagingRepositories`
 5. (Optional) watch [Maven Central Publishing Deployments](https://central.sonatype.com/publishing/deployments) as the deployment is published.
 6. Build and push the proxy server's Docker image for amd64 and arm64, logged in to Docker Hub
    (`docker login`) as its owner:

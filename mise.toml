@@ -1,0 +1,3 @@
+[tools]
+# JDK 17 builds and releases; -Xjdk-release=17 in build.gradle.kts keeps any newer JDK safe too
+java = "jetbrains-17"

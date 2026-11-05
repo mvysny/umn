@@ -58,6 +58,7 @@ moved to the files above first.
 
 ## Commands
 
+- `mise.toml` pins the JDK, 17: run Gradle as `mise exec -- ./gradlew …`, a release included.
 - `./gradlew build` — compile and test everything.
 - `./gradlew umn-core:test` — one module's tests.
 - `./gradlew koverHtmlReport` — line coverage of the shipped modules, merged, in `build/reports/kover/html/`.
