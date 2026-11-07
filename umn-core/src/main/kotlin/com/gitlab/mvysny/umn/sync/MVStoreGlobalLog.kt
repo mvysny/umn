@@ -174,7 +174,10 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
      */
     public fun deleteUser(username: String) {
         users.remove(username)
-        db.removeMap(getLogMap(username))
+        val log = getLogMap(username)
+        // removeMap() alone leaves the pages counted live, and the file never gets them back: R_mvstore_removemap_leaks
+        log.clear()
+        db.removeMap(log)
     }
 
     public fun getLogMap(username: String): MVMap<Long, ByteArray> = openMap("${username}__log")

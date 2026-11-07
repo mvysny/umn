@@ -3,6 +3,7 @@ package com.gitlab.mvysny.umn.sync.tester
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
+import com.gitlab.mvysny.umn.sync.append
 import org.h2.mvstore.MVStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -12,8 +13,10 @@ import java.io.File
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
+import kotlin.random.Random
 import kotlin.test.assertContains
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.test.expect
 
 class MVStoreGlobalLogTest {
@@ -63,6 +66,27 @@ class MVStoreGlobalLogTest {
         writer.addLogCreated("foo")
         expect(1) { received.get() }
         listOf(failing, ok, writer).forEach { it.close() }
+    }
+
+    @Test fun `deleteUser() frees the user's log in the file`() {
+        // auto-compaction off: it would refill the store while the test measures it
+        val db = MVStore.Builder().autoCompactFillRate(0).fileName(File.createTempFile("tmp", null).absolutePath).open()
+        db.retentionTime = 0  // young chunks count as wholly live
+        MVStoreGlobalLog(db).use { log ->
+            val users = listOf("kept", "deleted")
+            users.forEach { log.createOrUpdateUser(it, "bar") }
+            repeat(600) { i ->
+                users.forEach { log.getLogMap(it).append(Random.nextBytes(1000)) }
+                if (i % 20 == 0) db.commit()
+            }
+            db.commit()
+            val before = db.currentFillRate
+            log.deleteUser("deleted")
+            db.commit()
+            // half the data gone: the fill rate halves, give or take the B-tree's own garbage
+            assertTrue(db.currentFillRate < before * 2 / 3, "fill rate $before % → ${db.currentFillRate} %")
+            expect(listOf("kept")) { log.listUsers() }
+        }
     }
 
     @Nested inner class InvalidCredentials {

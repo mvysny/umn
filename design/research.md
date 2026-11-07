@@ -35,6 +35,10 @@ keep it short. When you have written an entry, re-read it against the one above 
   map: its space is never reclaimed. Three interleaved maps, two removed: 47 % full before and
   after; `clear()` first, 15 %, and compaction then brings it to 49 %.
   **[verified 2026-11-07, 1.4.198]**
+- `clear()` is cheap: it swaps in an empty root, then reads only the inner pages, freeing an
+  unloaded leaf by its position alone. **[src]**
+- Space already leaked comes back only offline: `MVStoreTool.compact()` writes a new file holding
+  the maps `getMapNames()` lists, so a removed map's pages are left behind. **[src]**
 
 ## R_mvstore_compact_concurrency — `compact()` is safe beside concurrent writers
 
