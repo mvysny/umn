@@ -2,7 +2,6 @@
 // compat module's Golden.java compiles against 0.15 and HEAD alike, and apps importing it change nothing.
 dependencies {
     api(kotlin("stdlib"))  // don't use -jdk8 to stay compatible with Android
-    api(project(":umn-core"))
 }
 
 val publish = ext["publish"] as (artifactId: String, description: String) -> Unit

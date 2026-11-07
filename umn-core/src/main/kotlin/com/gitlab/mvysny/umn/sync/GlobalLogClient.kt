@@ -47,6 +47,9 @@ import java.util.concurrent.CancellationException
  * * At some point, when [close] is called, the client disconnects and no callbacks are made. This
  *   is the final state - a closed client can not be reused nor started.
  *
+ * A record travels as a `ByteArray`: a [LogRecord]'s bytes, from [LogRecord.toByteArray]. A client and the global
+ * log store and relay them, never decode them.
+ *
  * One client is one connection, and it does not reconnect: once the connection fails,
  * [isStarted] turns false for good. [Syncer] then closes the client and takes a new one.
  *
@@ -69,7 +72,7 @@ public interface GlobalLogClient : Closeable {
      * In case of null just do nothing, just increase internal sync pointer.
      * @throws IllegalStateException if the client has already been started or is closed
      */
-    public fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit)
+    public fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit)
 
     /**
      * Invoked for every [LogRecord] sent by [addAsync] of this client, serves as a confirmation
@@ -121,7 +124,7 @@ public interface GlobalLogClient : Closeable {
      * @throws IOException if the connection has failed; the record may or may not have been sent.
      */
     @Throws(IOException::class)
-    public fun addAsync(record: SerializedLogRecord)
+    public fun addAsync(record: ByteArray)
 
     /**
      * Returns true after [start] has been called. Returns false if the client is closed, or its

@@ -1,6 +1,5 @@
 package com.gitlab.mvysny.umn.core
 
-import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import org.h2.mvstore.type.DataType
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -206,7 +205,7 @@ public sealed class LogRecord(public open val id: UUID) {
             }
         }
 
-        public fun fromByteArray(bytes: SerializedLogRecord?, serializer: DocumentSerializer,
+        public fun fromByteArray(bytes: ByteArray?, serializer: DocumentSerializer,
                           typeToClassResolver: TypeToClassResolver): LogRecord? =
                 if (bytes == null) null else readFrom(DataInputStream(bytes.inputStream()), serializer, typeToClassResolver)
     }

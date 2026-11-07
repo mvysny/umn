@@ -14,7 +14,7 @@ public class InMemoryGlobalLogClient internal constructor(public val owner: InMe
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     internal var addCallback: () -> Unit = {}
-    internal var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
+    internal var receiveCallback: (record: ByteArray?) -> Unit = {}
     private var currentLogPointer: Long = 0L
 
     private fun checkNotClosed() {
@@ -36,14 +36,14 @@ public class InMemoryGlobalLogClient internal constructor(public val owner: InMe
         addCallback = callback
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         currentLogPointer = rewind
         receiveCallback = callback
     }
 
-    override fun addAsync(record: SerializedLogRecord) {
+    override fun addAsync(record: ByteArray) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
         owner.add(this, record)
@@ -56,7 +56,7 @@ public class InMemoryGlobalLogClient internal constructor(public val owner: InMe
     }
 
     @Synchronized
-    internal fun onNewItem(record: SerializedLogRecord) {
+    internal fun onNewItem(record: ByteArray) {
         receiveCallback(record)
         currentLogPointer++
     }
@@ -70,7 +70,7 @@ public class InMemoryGlobalLog() {
     /**
      * Any message sent by any client produced by [newClient] is stored here.
      */
-    internal val log = CopyOnWriteArrayList<SerializedLogRecord>()
+    internal val log = CopyOnWriteArrayList<ByteArray>()
 
     public fun newClient() : GlobalLogClient = InMemoryGlobalLogClient(this)
 
@@ -90,7 +90,7 @@ public class InMemoryGlobalLog() {
     }
 
     @Synchronized
-    internal fun add(client: InMemoryGlobalLogClient, record: SerializedLogRecord) {
+    internal fun add(client: InMemoryGlobalLogClient, record: ByteArray) {
         log.add(record)
         client.addCallback()
         clients.forEach { it.onNewItem(record) }

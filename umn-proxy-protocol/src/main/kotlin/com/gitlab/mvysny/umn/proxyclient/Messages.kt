@@ -3,14 +3,16 @@ package com.gitlab.mvysny.umn.proxyclient
 import com.gitlab.mvysny.umn.proxyclient.AbstractMessage.*
 import com.gitlab.mvysny.umn.proxyclient.AbstractMessage.Companion.WS_INVALID_USERNAME_PASSWORD
 import com.gitlab.mvysny.umn.proxyclient.AbstractMessage.Companion.WS_SERVER_ERROR
-import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 
 /**
- * The messages sent over a WebSocket as binary serialized blobs; the protocol generally resembles a RPC of the
- * [com.gitlab.mvysny.umn.sync.GlobalLogClient] interface.
+ * The messages sent over a WebSocket as binary blobs, written field by field with [DataOutputStream]; the protocol
+ * generally resembles a RPC of the [com.gitlab.mvysny.umn.sync.GlobalLogClient] interface.
+ *
+ * A record is opaque: [AddAsync] and [OnLogRecord] carry a `LogRecord`'s bytes, length-prefixed, and neither this
+ * protocol nor the proxy server ever decodes them.
  *
  * # Communication protocol
  *
@@ -52,7 +54,7 @@ public sealed class AbstractMessage {
      * Sent by the client to notify the Global Log of a new log record. The server will reply with [OnAdded] when the record
      * is stored safely on the server.
      */
-    public class AddAsync(public val record: SerializedLogRecord) : AbstractMessage() {
+    public class AddAsync(public val record: ByteArray) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ADD_ASYNC)
             dout.writeInt(record.size)
@@ -81,7 +83,7 @@ public sealed class AbstractMessage {
      * @property record the added record, may be null in case a hole has been punched into the log. See [com.gitlab.mvysny.umn.sync.GlobalLogClient]
      * for details. A client older than UMN 0.15 can't read a null record, so the proxy server never punches holes.
      */
-    public class OnLogRecord(public val record: SerializedLogRecord?) : AbstractMessage() {
+    public class OnLogRecord(public val record: ByteArray?) : AbstractMessage() {
         override fun writeTo(dout: DataOutputStream) {
             dout.writeByte(TYPE_ON_LOG_RECORD)
             if (record == null) {

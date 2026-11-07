@@ -29,7 +29,7 @@ import kotlin.concurrent.thread
  */
 private class GlobalLogPusher(
     private val globalLogClient: GlobalLogClient,
-    private val buffer: AckFIFOBuffer<SerializedLogRecord>
+    private val buffer: AckFIFOBuffer<ByteArray>
 ) : Closeable {
     @Volatile
     private var closed: Boolean = false

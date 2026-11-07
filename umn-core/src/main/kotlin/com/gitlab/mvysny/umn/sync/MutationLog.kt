@@ -7,8 +7,9 @@ import java.io.DataOutputStream
 import kotlin.reflect.KClass
 
 /**
- * A [LogRecord], serialized using [LogRecord.toByteArray]. Deserialize using [LogRecord.fromByteArray].
+ * A [LogRecord]'s bytes, from [LogRecord.toByteArray]; plain bytes, no Java serialization.
  */
+@Deprecated("Use ByteArray: the alias hid that a record is plain bytes", ReplaceWith("ByteArray"))
 public typealias SerializedLogRecord = ByteArray
 
 private object FailingSerializer : DocumentSerializer {
@@ -36,11 +37,11 @@ public class MutationLog(
         public val serializer: DocumentSerializer,
         public val forceRepopulate: Boolean
 ) : AnnouncingUMN.Listener {
-    public val fifolog: AckFIFOBuffer<SerializedLogRecord>
+    public val fifolog: AckFIFOBuffer<ByteArray>
 
     init {
         // buffer which stores the UMN mutation log.
-        val map: UtilityMap<Long, SerializedLogRecord> = umn.openUtilityMap(bufferName)
+        val map: UtilityMap<Long, ByteArray> = umn.openUtilityMap(bufferName)
         val initialPopulationMarker = umn.openUtilityMap<String, Boolean>("$bufferName-marker")
         fifolog = AckFIFOBuffer(map)
         if (forceRepopulate || initialPopulationMarker.find("isPopulated") == null) {

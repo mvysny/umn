@@ -292,7 +292,7 @@ class FailingClient(val delegate: GlobalLogClient, private val startFailure: Exc
         startFailure?.let { throw it }
         delegate.start()
     }
-    override fun addAsync(record: SerializedLogRecord) {
+    override fun addAsync(record: ByteArray) {
         if (failed) throw IOException("simulated: connection lost")
         delegate.addAsync(record)
     }
@@ -304,7 +304,7 @@ class FailingClient(val delegate: GlobalLogClient, private val startFailure: Exc
 fun GlobalLogClient.droppingAdds(): GlobalLogClient = ClientDroppingAdds(this)
 class ClientDroppingAdds(val delegate: GlobalLogClient) : GlobalLogClient by delegate {
     val dropped = AtomicInteger()
-    override fun addAsync(record: SerializedLogRecord) {
+    override fun addAsync(record: ByteArray) {
         dropped.incrementAndGet()
     }
 }
@@ -329,8 +329,8 @@ class ClientWithHeldAcks(val delegate: GlobalLogClient) : GlobalLogClient by del
  * Exposes the [receiver] callback, so a test can fire it after [close].
  */
 class ClientCapturingReceiver(val delegate: GlobalLogClient) : GlobalLogClient by delegate {
-    lateinit var receiver: (record: SerializedLogRecord?) -> Unit
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
+    lateinit var receiver: (record: ByteArray?) -> Unit
+    override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
         receiver = callback
         delegate.setReceiverCallback(rewind, callback)
     }

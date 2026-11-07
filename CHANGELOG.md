@@ -13,6 +13,9 @@ no entries.
 - The proxy wire messages (`AbstractMessage`) move from `umn-proxy-client` to the new
   `umn-proxy-protocol` artifact, in the same package. `umn-proxy-client` depends on it, so apps
   change nothing; the proxy server depends on it instead of the client, and brings no okhttp.
+- `SerializedLogRecord` is deprecated: it was only ever `ByteArray`, a `LogRecord`'s bytes, no Java
+  serialization, and the alias hid that. `GlobalLogClient` and the proxy messages say `ByteArray`
+  now; binaries are unaffected. Migration: replace `SerializedLogRecord` with `ByteArray`.
 
 ## 0.17 — 2026-11-04
 

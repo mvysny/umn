@@ -2,7 +2,6 @@ package com.gitlab.mvysny.umn.proxyclient
 
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
-import com.gitlab.mvysny.umn.sync.SerializedLogRecord
 import okhttp3.*
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
@@ -122,7 +121,7 @@ public class ProxyClient @JvmOverloads public constructor(
         startFuture.completeExceptionally(cause)
     }
     private var addCallback: () -> Unit = {}
-    private var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
+    private var receiveCallback: (record: ByteArray?) -> Unit = {}
 
     private fun checkNotClosed() {
         check(!closed.get()) { "Already closed" }
@@ -132,7 +131,7 @@ public class ProxyClient @JvmOverloads public constructor(
         check(!started.get()) { "Already started" }
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         requestBuilder.header("rewind", rewind.toString())
@@ -169,7 +168,7 @@ public class ProxyClient @JvmOverloads public constructor(
         log.info("Connected to Proxy Server at ${request.url}")
     }
 
-    override fun addAsync(record: SerializedLogRecord) {
+    override fun addAsync(record: ByteArray) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
         val bytes = AbstractMessage.AddAsync(record).asByteArray()

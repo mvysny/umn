@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * The database structure is as follows:
  * * The `users` map maps `String` username to `String` hashed password (produced by [PasswordHash.createHash].
- * * The `$user__log` map maps `Long` ordinal to [SerializedLogRecord]. The ordering is strict (the key starts at 0 and increments by 1).
+ * * The `$user__log` map maps `Long` ordinal to a [com.gitlab.mvysny.umn.core.LogRecord]'s bytes. The ordering is strict (the key starts at 0 and increments by 1).
  *
  * Thread-safe.
  * @property owner the owner log
@@ -28,7 +28,7 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
     private val closed = AtomicBoolean()
     private val started = AtomicBoolean()
     internal var addCallback: () -> Unit = {}
-    internal var receiveCallback: (record: SerializedLogRecord?) -> Unit = {}
+    internal var receiveCallback: (record: ByteArray?) -> Unit = {}
 
     /**
      * We have broadcasted (invoked [receiveCallback]) for log items up to this pointer, including.
@@ -42,7 +42,7 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
      * in the ID sequence, otherwise the client will not update its sync pointer properly and will seek to earlier item next
      * time the client connects.
      */
-    private lateinit var log: MVMap<Long, SerializedLogRecord>
+    private lateinit var log: MVMap<Long, ByteArray>
 
     private fun checkNotClosed() {
         check(!closed.get()) { "Already closed" }
@@ -73,14 +73,14 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
         addCallback = callback
     }
 
-    override fun setReceiverCallback(rewind: Long, callback: (record: SerializedLogRecord?) -> Unit) {
+    override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
         require(rewind >= 0L) { "Parameter rewind: invalid value $rewind - must be 0 or greater" }
         checkNotStarted()
         currentLogPointer = rewind
         receiveCallback = callback
     }
 
-    override fun addAsync(record: SerializedLogRecord) {
+    override fun addAsync(record: ByteArray) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
         log.append(record)
@@ -177,7 +177,7 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
         db.removeMap(getLogMap(username))
     }
 
-    public fun getLogMap(username: String): MVMap<Long, SerializedLogRecord> = openMap("${username}__log")
+    public fun getLogMap(username: String): MVMap<Long, ByteArray> = openMap("${username}__log")
 
     internal val users: MVMap<String, String> get() = openMap("users")
 
