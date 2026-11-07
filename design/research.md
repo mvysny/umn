@@ -39,6 +39,11 @@ keep it short. When you have written an entry, re-read it against the one above 
   unloaded leaf by its position alone. **[src]**
 - Space already leaked comes back only offline: `MVStoreTool.compact()` writes a new file holding
   the maps `getMapNames()` lists, so a removed map's pages are left behind. **[src]**
+- It copies each map page by page, the tree's shape kept (`MVMap.copyFrom()`), so the new file
+  holds exactly the reachable pages. **[src]**
+- Production's proxy log: 3 769 MB, 129 299 chunks, 42 % full, of it 1.47 GB counted live →
+  755 MB, 1 181 chunks, in 17 s; the same 711 maps and 2 257 170 entries. So ~0.7 GB counted live
+  was unreachable: the deleted users' logs. **[verified 2026-11-07, 1.4.198]**
 
 ## R_mvstore_compact_concurrency — `compact()` is safe beside concurrent writers
 
