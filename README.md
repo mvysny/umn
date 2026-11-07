@@ -49,6 +49,13 @@ default an older reader rejects fields it doesn't know, and never rename a prope
 keys fields by name. [Google Protobuf](https://github.com/protocolbuffers/protobuf) itself
 works too, at the cost of `.proto` files and generated Java classes.
 
+[JPUtils Box](https://gitlab.com/mvysny/jputils/-/tree/master/box) needs no code generation
+and no compiler plugin, and reads the same from Java as from Kotlin: a class writes its values
+under keys by hand, so renaming a property never changes the data. An older reader skips keys
+it doesn't know, but not a value type that a later Box release added, so store such a type only
+once every node runs that release. Box is GPL 3.0, so an app that ships it must be GPL-licensed
+as well.
+
 Avoid [Kryo](https://github.com/EsotericSoftware/kryo) for stored or synced data: its default
 `FieldSerializer` can't read data written before a class's fields changed. Only its
 `TaggedFieldSerializer` and `CompatibleFieldSerializer` are safe there.
