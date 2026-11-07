@@ -78,3 +78,17 @@ uploads at 80 MB a month, all releases together: three modules a release, and a 
 wanted: Dokka's HTML to GitLab Pages from CI, outside the quota. Watch the JDK too: javadoc
 bundles web fonts from JDK 23 on, 4.3 MB in `umn-core`'s jar, so `publish()` passes
 `--no-fonts` there.
+
+## D_own_compaction_timer — Why does the proxy server compact its log on its own timer rather than MVStore's?
+
+MVStore's auto-compaction makes an idle store walk every chunk ten times a second
+(`R_mvstore_idle_compaction`): 7.6 % of production's one CPU on a 4 GB log, growing with it. So
+{MVStoreGlobalLogProvider} opens the store with `autoCompactFillRate(0)` and calls
+`MVStore.compact()` once a minute instead, the same 40 % target and write budget, a six-hundredth
+of the walks. Why not compaction off for good: partly dead chunks would never be rewritten, and the
+file, 3.4 GB of chunks for 1.47 GB live, would grow faster than the log. Why not a longer
+`autoCommitDelay`: it widens the window of acknowledged records a crash loses. Why not a
+read/write lock around the timer: `compact()` is a concurrent path H2 already runs beside writers
+(`R_mvstore_compact_concurrency`), and H2's own commits would stay outside our lock anyway; it would
+only let a compaction stall client pushes. The one hazard is shutdown: the timer stops, never
+interrupted, before the store closes.

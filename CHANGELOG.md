@@ -16,6 +16,8 @@ no entries.
 - `SerializedLogRecord` is deprecated: it was only ever `ByteArray`, a `LogRecord`'s bytes, no Java
   serialization, and the alias hid that. `GlobalLogClient` and the proxy messages say `ByteArray`
   now; binaries are unaffected. Migration: replace `SerializedLogRecord` with `ByteArray`.
+- The proxy server no longer burns CPU while idle: MVStore's auto-compaction walked every chunk of the
+  log ten times a second, 7.6 % of a one-CPU box on a 4 GB log. It now compacts once a minute.
 
 ## 0.17 — 2026-11-04
 

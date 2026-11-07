@@ -23,6 +23,7 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 | `CHANGELOG.md` | what each release changes for a user; a `Breaking:` line and its migration | — |
 | `AGENTS.md` (this) | promises, invariants, the module map, conventions, commands | every turn |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |
+| `design/research.md` | what H2 MVStore actually does — `R_` entries, each claim with its provenance | lazy |
 | KDoc | what one symbol does and why it is shaped so | at the symbol |
 
 Every fact lives in exactly one of these; the others link to it. `design/ideas/` holds ideas not
