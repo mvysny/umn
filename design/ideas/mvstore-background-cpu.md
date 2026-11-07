@@ -9,52 +9,41 @@ nothing. No other thread comes close; the GC (`VM Thread`) had 4.8 s. How it was
 Not urgent: it costs CPU, not correctness. But it is a constant 7 % on a 1-CPU box, it would
 move to the Hetzner box with the log, and it may grow with the log.
 
-## The suspect: auto-compaction
+## The cause: an idle store recomputes its fill rate ten times a second
 
-`MVStoreGlobalLogProvider` opens the store with `MVStore.Builder().compress().fileName(…)`: the
-defaults, so `autoCommitDelay` 1000 ms and `autoCompactFillRate` 40. H2 1.4.198's
-`MVStore.writeInBackground()` then, once a second:
+Reproduced 2026-11-07 on the 2026-11-06 backup (3.95 GB unpacked), opened as
+`MVStoreGlobalLogProvider` opens it (`MVStore.Builder().compress().fileName(…)`, so
+`autoCommitDelay` 1000 ms, `autoCompactFillRate` 40), idle, one CPU, `-Xmx512m`, Serial GC:
 
-1. `tryCommit()`: nothing to commit with no clients.
-2. `compact(targetFillRate, autoCommitMemory)`, the target 40 % (13 % if the file was read or
-   written since the last time). `findOldChunks()` computes the store's fill rate, and if it is
-   below the target, walks every chunk, gives each a priority and sorts them all, then rewrites
-   at most `autoCommitMemory` bytes' worth.
+| run, 60 s idle | writer CPU |
+|---|---|
+| production copy, defaults | 5.5 % (4.7 % over 180 s) |
+| production copy, `autoCompactFillRate(0)` | 0.1 % |
+| empty store, defaults | 0.1 % |
 
-A log that only grows, with deleted users' items in it, may sit below 40 % full for good: then
-the walk and the sort happen every second over every chunk, and the rewrite moves little or
-nothing. The CPU would grow with the chunk count, so with the log. Unproven: it is only the most
-plausible reading of the code.
+No bytes written or read during the idle runs. JFR: 99 % of the writer's samples are in
+`MVStore.getCurrentFillRate()`, called from `findOldChunks()`; the sort and the rewrite don't show.
 
-## Reproduce it locally, with no clients
+H2 1.4.198's mechanism: the background thread wakes every `autoCommitDelay / 10` = 100 ms and
+calls `writeInBackground()`, which skips only while `time <= lastCommitTime + autoCommitDelay`.
+`lastCommitTime` moves only in `storeNow()`, i.e. when something is actually stored, so in an idle
+store it stays put and every wake-up goes on to `compact()` → `findOldChunks()` →
+`getCurrentFillRate()`, which walks every chunk: 129 299 of them, 2–6 ms a walk here, ten walks a
+second. At 42 % fill, above the 40 % target, `findOldChunks()` returns right after that walk.
 
-The data: `~/backups/aedict-online/2026-11-05T08-31-01/umn-db/umn_proxy_log.zst`, production's
-log from one stop (705 MB compressed). It holds every user's synced data: unpack it into a
-private directory outside every repo (`chmod 700`), never into the backup's own, and delete it
-afterwards.
+The file: 129 299 chunks, median 5 blocks (20 KB), one per small sync commit; 3.4 GB of chunks,
+1.47 GB live. The cost is linear in the chunk count, so it grows with the log; production's
+writes (24 KB/10 s) are the real traffic resetting `lastCommitTime`, not compaction.
 
-1. `zstd -d` it into a scratch directory; check the free disk first (the unpacked size is unknown,
-   probably 1–2 GB).
-2. `MVStoreTool.info(file)` (H2 1.4.198, the same `h2-mvstore` jar): the chunk count and the fill
-   rate. Below 40 % backs the suspect.
-3. Run `umn-proxy-server` 0.17 on the copy: the image from
-   `~/backups/aedict-online/images-2026-11-05.tar.zst` or Docker Hub under podman, or the build
-   from this repo; a `config.yaml` with its `db:` at the copy and no `secure:`; no port published
-   beyond localhost, no client connected. To mimic the droplet: one CPU (`--cpus 1`,
-   `-XX:ActiveProcessorCount=1`), `-Xmx512m`, Serial GC.
-4. Measure the background writer: per-thread CPU from `/proc/<pid>/task/*/{comm,stat}` over a
-   minute, as on the box. Locally a JDK is at hand, so also `jstack` a few times, or a JFR
-   recording (`-XX:StartFlightRecording`): which methods the thread spends its time in.
-5. The baseline: the same server on an empty `db`. Near zero expected.
+## The fix
 
-Then, depending on what it shows:
-
-- If it is `findOldChunks()`: `MVStore.Builder().autoCompactFillRate(0)` turns auto-compaction off;
-  the file only grows then, which a log that only grows does anyway. Or a higher
-  `autoCommitDelay`. Or a one-off `MVStoreTool.compact()` of the file offline, during a planned
-  stop, if the fill rate is the problem (it keeps every entry, so the log stays as long; still
-  a rewrite of the only copy, so on a copy first, and only with a fresh backup).
-- If not: whatever the stacks show.
+- `autoCompactFillRate(0)` alone: the CPU is gone, but partly dead chunks are never rewritten
+  again; wholly dead ones are still freed and their space reused, so the file grows faster than
+  the live data.
+- `autoCompactFillRate(0)` plus our own `MVStore.compact(40, …)` on a timer (say once a
+  minute): today's file-size control at ~1/600 of the walks. The likely pick.
+- A higher `autoCommitDelay`: rejected, it widens the window of acknowledged records a crash
+  loses.
 
 ## Open questions
 
