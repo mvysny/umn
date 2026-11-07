@@ -56,6 +56,10 @@ keep it short. When you have written an entry, re-read it against the one above 
   `compactCleanUp()` repairs on the next open. **[src]**
 - Nothing is synced to disk: `FileStore.close()` never calls `force()`, so after a power cut a
   renamed-in copy may lack its data. **[src]**
+- H2 1.4.197 reads what 1.4.198 writes, compacted or not: the `umn-proxy-server:0.12` image
+  (1.4.197) and `0.17` (1.4.198), each on production's log and on its compacted copy, report
+  the same 710 users and log sizes, stream six users' whole logs (2 to 279 301 records) with
+  the same bytes, take writes, and log no error. **[verified 2026-11-07, 1.4.197 and 1.4.198]**
 
 ## R_mvstore_compact_concurrency — `compact()` is safe beside concurrent writers
 
