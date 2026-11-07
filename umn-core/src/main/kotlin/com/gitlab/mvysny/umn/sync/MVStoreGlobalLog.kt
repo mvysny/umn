@@ -29,6 +29,7 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
     private val started = AtomicBoolean()
     internal var addCallback: () -> Unit = {}
     internal var receiveCallback: (record: ByteArray?) -> Unit = {}
+    private var userDeletedCallback: () -> Unit = {}
 
     /**
      * We have broadcasted (invoked [receiveCallback]) for log items up to this pointer, including.
@@ -78,6 +79,31 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
         receiveCallback = callback
     }
 
+    /**
+     * Sets the [callback] that [MVStoreGlobalLog.deleteUser] invokes once, after closing this started client: the one
+     * callback fired on a closed client. A proxy server closes the client's connection there.
+     *
+     * The callback runs on the deleting thread, under the [owner]'s lock: it must not block, nor touch the [owner].
+     *
+     * @throws IllegalStateException if the client has already been started
+     */
+    public fun setUserDeletedCallback(callback: () -> Unit) {
+        checkNotStarted()
+        userDeletedCallback = callback
+    }
+
+    /**
+     * Closes this client as [MVStoreGlobalLog.deleteUser] does, then fires the user-deleted callback.
+     */
+    internal fun closeAsDeleted() {
+        close()
+        try {
+            userDeletedCallback()
+        } catch (e: Exception) {
+            logger.warn("$username: the user-deleted callback failed", e)
+        }
+    }
+
     override fun addAsync(record: ByteArray) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
@@ -102,6 +128,11 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
             receiveCallback(record)
             currentLogPointer = key + 1
         }
+    }
+
+    private companion object {
+        @JvmStatic
+        private val logger = LoggerFactory.getLogger(MVStoreGlobalLogClient::class.java)
     }
 }
 
@@ -186,7 +217,7 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     @Synchronized
     public fun deleteUser(username: String) {
         users.remove(username)
-        startedClients.remove(username)?.forEach { it.close() }
+        startedClients.remove(username)?.forEach { it.closeAsDeleted() }
         val log = getLogMap(username)
         // removeMap() alone leaves the pages counted live, and the file never gets them back: R_mvstore_removemap_leaks
         log.clear()

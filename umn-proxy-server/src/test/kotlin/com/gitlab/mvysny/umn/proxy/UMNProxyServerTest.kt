@@ -9,6 +9,7 @@ import com.gitlab.mvysny.umn.sync.tester.WriterReaderTestBattery
 import com.gitlab.mvysny.umn.proxyclient.ProxyClient
 import com.gitlab.mvysny.umn.proxyclient.destroy
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
+import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import com.gitlab.mvysny.umn.sync.tester.addAsync
 import com.gitlab.mvysny.umn.sync.tester.expectAsync
 import com.gitlab.mvysny.umn.sync.tester.GlobalLogClientTestBattery
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test
 import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertFailsWith
 import kotlin.test.expect
 import java.nio.file.Files
 import java.io.File
@@ -76,6 +78,17 @@ class UMNProxyServerTest {
         val client = ProxyClient(httpClient, Request.Builder().url("ws://localhost:51343/some/path"), "user", "example")
         client.start()
         client.close()
+    }
+
+    @Test fun `deleting a user disconnects their devices, which then fail as on a wrong password`() {
+        val client = createSyncClient(httpClient)
+        client.start()
+        lp.mvstorelog.deleteUser("user")
+        expectAsync(false) { client.isStarted }
+        client.close()
+        val reconnect = createSyncClient(httpClient)
+        assertFailsWith<InvalidUsernamePasswordException> { reconnect.start() }
+        reconnect.close()
     }
 
     @Nested inner class SyncWritesLogsIntoTheDatabase {

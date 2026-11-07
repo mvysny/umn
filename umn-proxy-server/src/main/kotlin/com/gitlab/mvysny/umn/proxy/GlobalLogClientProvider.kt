@@ -2,6 +2,7 @@ package com.gitlab.mvysny.umn.proxy
 
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
+import com.gitlab.mvysny.umn.sync.MVStoreGlobalLogClient
 import org.h2.mvstore.MVStore
 import org.slf4j.LoggerFactory
 import java.io.Closeable
@@ -23,8 +24,11 @@ internal interface GlobalLogClientProvider : Closeable {
 
     /**
      * Creates a new [GlobalLogClient] connected with given [username] and [password].
+     *
+     * @param onUserDeleted invoked once when the user is deleted while the client is started, after the client is
+     *   closed. It runs on the deleting thread: it must not block.
      */
-    fun createClient(username: String, password: String): GlobalLogClient
+    fun createClient(username: String, password: String, onUserDeleted: () -> Unit): GlobalLogClient
 }
 
 /**
@@ -37,7 +41,8 @@ internal class MVStoreGlobalLogProvider(
     val dbdir: File,
     compactInterval: Duration = Duration.ofMinutes(1),
 ) : GlobalLogClientProvider {
-    override fun createClient(username: String, password: String): GlobalLogClient = mvstorelog.newClient(username, password)
+    override fun createClient(username: String, password: String, onUserDeleted: () -> Unit): GlobalLogClient =
+        (mvstorelog.newClient(username, password) as MVStoreGlobalLogClient).apply { setUserDeletedCallback(onUserDeleted) }
 
     /**
      * Stops the compaction timer, waiting for a running [compact] to finish, then closes the store.

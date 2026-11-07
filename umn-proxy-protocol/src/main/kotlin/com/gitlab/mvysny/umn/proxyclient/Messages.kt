@@ -26,6 +26,7 @@ import java.io.DataOutputStream
  * `rewind` parameter.
  * 5. When the client's [com.gitlab.mvysny.umn.sync.GlobalLogClient.addAsync] is invoked, the client sends [AddAsync] to which the server responds with [OnAdded].
  * 6. Server then periodically sends [OnLogRecord] to inform all clients of an added log record.
+ * 7. When the user is deleted, the server closes each of the user's connections with [WS_INVALID_USERNAME_PASSWORD].
  *
  * At any time the connection may be closed by the server in case of an error. In such case the client must not repeat, but instead must fail
  * with a non-recoverable exception.

@@ -48,7 +48,11 @@ internal class UMNProxyWebsocketListener(private val session: Session, private v
                 throw InvalidUsernamePasswordException("Missing headers")
             }
             this.username = username
-            val logStorage = globalLogClientProvider.createClient(username, password)
+            // the device then fails as on a wrong password, and its reconnects fail the same way
+            val logStorage = globalLogClientProvider.createClient(username, password) {
+                log.info("$username: user deleted, closing the web socket")
+                session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, "User $username deleted", Callback.NOOP)
+            }
             this.logStorage = logStorage
 
             val rewind = rewindStr.toLong()

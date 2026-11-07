@@ -3,6 +3,7 @@ package com.gitlab.mvysny.umn.sync.tester
 import com.gitlab.mvysny.umn.sync.GlobalLogClient
 import com.gitlab.mvysny.umn.sync.InvalidUsernamePasswordException
 import com.gitlab.mvysny.umn.sync.MVStoreGlobalLog
+import com.gitlab.mvysny.umn.sync.MVStoreGlobalLogClient
 import com.gitlab.mvysny.umn.sync.append
 import org.h2.mvstore.MVStore
 import org.junit.jupiter.api.AfterEach
@@ -99,6 +100,19 @@ class MVStoreGlobalLogTest {
         expect(true) { other.isStarted }
         other.addLogCreated("foo")
         other.close()
+    }
+
+    @Test fun `deleteUser() fires the user-deleted callback of the user's started clients only`() {
+        log.createOrUpdateUser("other", "bar")
+        val fired = mutableListOf<String>()
+        fun client(user: String, start: Boolean) = (log.newClient(user, "bar") as MVStoreGlobalLogClient).apply {
+            setUserDeletedCallback { fired += "$user/started=$start" }
+            if (start) start()
+        }
+        val clients = listOf(client("foo", true), client("foo", false), client("other", true))
+        log.deleteUser("foo")
+        expect(listOf("foo/started=true")) { fired }
+        clients.forEach { it.close() }
     }
 
     @Test fun `a client replaying the log while its user is deleted stops quietly`() {
