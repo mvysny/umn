@@ -89,6 +89,34 @@ class MVStoreGlobalLogTest {
         }
     }
 
+    @Test fun `deleteUser() closes the user's clients, and only theirs`() {
+        log.createOrUpdateUser("other", "bar")
+        val deleted = log.newClient("foo", "bar").apply { start() }
+        val other = log.newClient("other", "bar").apply { start() }
+        log.deleteUser("foo")
+        expect(false) { deleted.isStarted }
+        assertFailsWith<IllegalStateException> { deleted.addLogCreated("foo") }
+        expect(true) { other.isStarted }
+        other.addLogCreated("foo")
+        other.close()
+    }
+
+    @Test fun `a client replaying the log while its user is deleted stops quietly`() {
+        val writer = log.newClient("foo", "bar").apply { start() }
+        repeat(3) { writer.addLogCreated("foo") }
+        writer.close()
+
+        val received = AtomicInteger()
+        val reader = log.newClient("foo", "bar")
+        reader.setReceiverCallback(0L) {
+            received.incrementAndGet()
+            log.deleteUser("foo")  // mid-replay: the next records are gone
+        }
+        reader.start()
+        expect(1) { received.get() }
+        expect(false) { reader.isStarted }
+    }
+
     @Nested inner class InvalidCredentials {
         @Test fun `non-existing user`() {
             val client = log.newClient("foo25", "bar")

@@ -42,7 +42,7 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
      * in the ID sequence, otherwise the client will not update its sync pointer properly and will seek to earlier item next
      * time the client connects.
      */
-    private lateinit var log: MVMap<Long, ByteArray>
+    internal lateinit var log: MVMap<Long, ByteArray>
 
     private fun checkNotClosed() {
         check(!closed.get()) { "Already closed" }
@@ -62,8 +62,6 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
             throw InvalidUsernamePasswordException("Invalid password for $username")
         }
 
-        // open the log before registering: a record added by another client notifies this one right away
-        log = owner.getLogMap(username)
         owner.startClient(this)
         onNewItems()
     }
@@ -97,7 +95,10 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
     @Synchronized
     internal fun onNewItems() {
         log.keyIterator(currentLogPointer).forEach { key ->
-            val record = checkNotNull(log[key])
+            if (closed.get()) return
+            // deleteUser() closes this client before it clears the log, so a missing record is either the user's
+            // deletion, or a hole
+            val record = log[key] ?: if (closed.get()) return else error("$username: no log record at $key")
             receiveCallback(record)
             currentLogPointer = key + 1
         }
@@ -136,7 +137,17 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     public fun newClient(username: String, password: String) : GlobalLogClient =
             MVStoreGlobalLogClient(this, username, password)
 
+    /**
+     * Opens [client]'s log and registers it for notifications; atomic with [deleteUser], so the client either sees
+     * no user or gets closed by the deletion.
+     *
+     * @throws InvalidUsernamePasswordException if the user has been deleted meanwhile.
+     */
+    @Synchronized
     internal fun startClient(client: MVStoreGlobalLogClient) {
+        if (users[client.username] == null) throw InvalidUsernamePasswordException("No such user: ${client.username}")
+        // open the log before registering: a record added by another client notifies this one right away
+        client.log = getLogMap(client.username)
         val clientsForUsername = startedClients.getOrPut(client.username) { LinkedBlockingQueue() }
         clientsForUsername.add(client)
     }
@@ -169,11 +180,13 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     public fun listUsers(): List<String> = users.keyList().filterNotNull()
 
     /**
-     * Deletes the user along with the entire log.
+     * Deletes the user along with the entire log, closing the user's started clients first.
      * @param username the name of the user
      */
+    @Synchronized
     public fun deleteUser(username: String) {
         users.remove(username)
+        startedClients.remove(username)?.forEach { it.close() }
         val log = getLogMap(username)
         // removeMap() alone leaves the pages counted live, and the file never gets them back: R_mvstore_removemap_leaks
         log.clear()

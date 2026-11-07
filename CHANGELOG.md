@@ -18,8 +18,8 @@ no entries.
   now; binaries are unaffected. Migration: replace `SerializedLogRecord` with `ByteArray`.
 - The proxy server no longer burns CPU while idle: MVStore's auto-compaction walked every chunk of the
   log ten times a second, 7.6 % of a one-CPU box on a 4 GB log. It now compacts once a minute.
-- Deleting a user (`MVStoreGlobalLog.deleteUser()`, the admin API's `DELETE`) now frees their log in
-  the file; before, it stayed there for good. Space already lost comes back only from an offline
+- Deleting a user (`MVStoreGlobalLog.deleteUser()`, the admin API's `DELETE`) now closes the user's
+  started clients and frees their log in the file; before, the log stayed there for good. Space already lost comes back only from an offline
   `MVStoreTool.compact()` of the file, on a copy first, during a planned stop.
 
 ## 0.17 — 2026-11-04
