@@ -37,13 +37,25 @@ keep it short. When you have written an entry, re-read it against the one above 
   **[verified 2026-11-07, 1.4.198]**
 - `clear()` is cheap: it swaps in an empty root, then reads only the inner pages, freeing an
   unloaded leaf by its position alone. **[src]**
-- Space already leaked comes back only offline: `MVStoreTool.compact()` writes a new file holding
-  the maps `getMapNames()` lists, so a removed map's pages are left behind. **[src]**
-- It copies each map page by page, the tree's shape kept (`MVMap.copyFrom()`), so the new file
-  holds exactly the reachable pages. **[src]**
-- Production's proxy log: 3 769 MB, 129 299 chunks, 42 % full, of it 1.47 GB counted live →
-  755 MB, 1 181 chunks, in 17 s; the same 711 maps and 2 257 170 entries. So ~0.7 GB counted live
-  was unreachable: the deleted users' logs. **[verified 2026-11-07, 1.4.198]**
+- Space already leaked comes back only offline, from `MVStoreTool.compact()`
+  (`R_mvstoretool_compact`): on production's proxy log, 1.47 GB was counted live but 755 MB
+  reachable, so ~0.7 GB was the deleted users' logs. **[verified 2026-11-07, 1.4.198]**
+
+## R_mvstoretool_compact — `MVStoreTool.compact()`: a byte-exact offline copy
+
+- `compact(source, target, compress)` opens the source read-only and writes a new target file,
+  holding only the maps `getMapNames()` lists: a removed map's pages are left behind. **[src]**
+- The copy is a passthrough: `MVMap.copyFrom()` copies the trees page by page, their shape kept,
+  and `GenericDataType` reads a page's whole remaining buffer as one blob and writes it back
+  verbatim. Nothing is decoded, so any key and value type survives. **[src]**
+- Production's proxy log: 3 769 MB, 129 299 chunks, 42 % full → 755 MB, 1 181 chunks, in
+  17–20 s; every key and value of the 711 maps, 2 257 170 entries and 1 376 MB of records,
+  byte-identical, read back as UMN opens them. **[verified 2026-11-07, 1.4.198]**
+- The two-argument `compact(file, compress)` swaps the copy in with `File.renameTo()`, atomic on
+  Linux; if that fails, it deletes the original before moving the copy in, a window that
+  `compactCleanUp()` repairs on the next open. **[src]**
+- Nothing is synced to disk: `FileStore.close()` never calls `force()`, so after a power cut a
+  renamed-in copy may lack its data. **[src]**
 
 ## R_mvstore_compact_concurrency — `compact()` is safe beside concurrent writers
 
