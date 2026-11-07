@@ -92,3 +92,16 @@ read/write lock around the timer: `compact()` is a concurrent path H2 already ru
 (`R_mvstore_compact_concurrency`), and H2's own commits would stay outside our lock anyway; it would
 only let a compaction stall client pushes. The one hazard is shutdown: the timer stops, never
 interrupted, before the store closes.
+
+## D_compact_on_startup — Why does the proxy server rewrite its log on every start?
+
+Online compaction (`D_own_compaction_timer`) keeps the log only 40 % full, and can't reclaim the
+logs `deleteUser()` leaked before 0.18 (`R_mvstore_removemap_leaks`): production's 3.8 GB held
+755 MB of live data. So {StartupCompaction} copies the closed log with `MVStoreTool.compact()`, a
+byte-exact passthrough, checks the entry counts, forces the copy to disk (H2 syncs nothing) and
+renames it over the log (`R_mvstoretool_compact`). Any failure, or too little disk, starts on the
+log as it was. The cost: a start as long as the copy, 20 s on production's log. Why not only when
+it pays: the fill rate can't see leaked pages, and a heuristic is harder to reason about than a
+constant cost on a rare deploy. Why not an operator command: nobody remembers it. Why not online:
+the copy needs the file closed. A rollback stays possible: the 0.12 server reads the copy, held so
+by `ServerUpgradeTest`. `compactDatabaseOnStartup: false` turns it off.

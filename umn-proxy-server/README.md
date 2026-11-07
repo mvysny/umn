@@ -62,6 +62,19 @@ below), never plain ws.
 file (just a single file, `umn_proxy_log`), created automatically. To create users, please use the
 Admin REST API as described below.
 
+On every start the server first rewrites `umn_proxy_log` into a compact copy, dropping the space
+that deleted records and users left behind, and swaps it in; since 0.18. Expect:
+
+- **A slower start:** as long as copying the live data takes; a 3.8 GB log holding 755 MB of live
+  data took 20 s on a fast disk. The ports open only once it's done.
+- **Free disk the size of the live data** on the `db` volume, for that while: the copy is
+  `umn_proxy_log.compacting` beside the log. With too little, the server logs a warning and starts
+  on the log as it is.
+- **A kill during it is safe:** the log is replaced only once the copy is complete and on disk; the
+  next start deletes a half-written copy.
+
+`compactDatabaseOnStartup: false` under `standalone:` turns it off.
+
 ### Secure WebSockets over SSL/HTTPS
 
 Remote clients connect over wss, with the `wss://somehost:10146` URL in their UMN Proxy client.

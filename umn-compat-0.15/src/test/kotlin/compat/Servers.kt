@@ -7,6 +7,7 @@ import com.gitlab.mvysny.umn.proxy.Standalone
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
+import org.testcontainers.utility.MountableFile
 import java.io.Closeable
 import java.nio.file.Files
 import java.nio.file.Path
@@ -27,11 +28,14 @@ interface ProxyServer {
  * in the image's Jetty.
  *
  * Docker Hub could lose the image as JCenter lost the 0.15 jars: keep a `docker save` of it outside the repo.
+ *
+ * @param log an `umn_proxy_log` file to start on a copy of; null starts on an empty database.
  */
-class ProdServer : ProxyServer {
+class ProdServer(log: Path? = null) : ProxyServer, Closeable {
     private val container = ProxyServerContainer(image)
         .withExposedPorts(10144, 10145)
         .waitingFor(Wait.forHttp("/admin/users").forPort(10145))
+        .apply { if (log != null) withCopyFileToContainer(MountableFile.forHostPath(log, 0b110_110_110), DB) }
         .apply { start() }
 
     override val wsUrl: String = "ws://${container.host}:${container.getMappedPort(10144)}"
@@ -44,11 +48,17 @@ class ProdServer : ProxyServer {
     fun stopInto(dbDir: Path) {
         container.dockerClient.stopContainerCmd(container.containerId).exec()
         Files.createDirectories(dbDir)
-        container.copyFileFromContainer("/var/umn-proxy-server/db/umn_proxy_log", dbDir.resolve("umn_proxy_log").toString())
+        container.copyFileFromContainer(DB, dbDir.resolve("umn_proxy_log").toString())
+        container.stop()
+    }
+
+    override fun close() {
         container.stop()
     }
 
     companion object {
+        private const val DB = "/var/umn-proxy-server/db/umn_proxy_log"
+
         // the 0.12 tag's digest, so a re-pushed tag can't change what the tests run against
         private val image = DockerImageName.parse("mvysny/umn-proxy-server@sha256:5bba1bda3e43fb11007ff082ee87a032f7a5c8601e0cb07844060019d364f99b")
 

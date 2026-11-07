@@ -36,10 +36,13 @@ internal interface GlobalLogClientProvider : Closeable {
  *
  * The store's auto-compaction is off, and a timer calls [compact] every [compactInterval] instead; see
  * `D_own_compaction_timer`.
+ *
+ * @param compactOnStartup first rewrites the file with [StartupCompaction].
  */
 internal class MVStoreGlobalLogProvider(
     val dbdir: File,
     compactInterval: Duration = Duration.ofMinutes(1),
+    compactOnStartup: Boolean = true,
 ) : GlobalLogClientProvider {
     override fun createClient(username: String, password: String, onUserDeleted: () -> Unit): GlobalLogClient =
         (mvstorelog.newClient(username, password) as MVStoreGlobalLogClient).apply { setUserDeletedCallback(onUserDeleted) }
@@ -66,8 +69,9 @@ internal class MVStoreGlobalLogProvider(
         if (!dbdir.exists() || !dbdir.isDirectory) {
             Files.createDirectory(dbdir.toPath())
         }
-        db = MVStore.Builder().compress().autoCompactFillRate(0)
-            .fileName(File(dbdir, "umn_proxy_log").absolutePath).open()
+        val file = File(dbdir, "umn_proxy_log")
+        if (compactOnStartup) StartupCompaction.compact(file)
+        db = MVStore.Builder().compress().autoCompactFillRate(0).fileName(file.absolutePath).open()
         mvstorelog = MVStoreGlobalLog(db)
     }
 

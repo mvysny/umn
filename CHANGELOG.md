@@ -21,7 +21,12 @@ no entries.
 - Deleting a user (`MVStoreGlobalLog.deleteUser()`, the admin API's `DELETE`) now closes the user's
   started clients and frees their log in the file; before, the log stayed there for good. The proxy
   server disconnects the user's devices with close code 4000, so they fail as on a wrong password.
-  `MVStoreGlobalLogClient.setUserDeletedCallback()` is the hook for that. Space already lost comes back only from an offline
+  `MVStoreGlobalLogClient.setUserDeletedCallback()` is the hook for that.
+- The proxy server compacts its log on every start: it rewrites `umn_proxy_log` into a copy holding
+  only live data, which also reclaims the space deleted users leaked before. Production's 3.8 GB log
+  became 755 MB, in 20 s. The start takes that much longer and needs free disk the size of the live
+  data, else it's skipped with a warning; `compactDatabaseOnStartup: false` under `standalone:`
+  turns it off. Mount the `db` directory in Docker, not the file alone. Space already lost comes back only from an offline
   `MVStoreTool.compact()` of the file, on a copy first, during a planned stop.
 
 ## 0.17 — 2026-11-04

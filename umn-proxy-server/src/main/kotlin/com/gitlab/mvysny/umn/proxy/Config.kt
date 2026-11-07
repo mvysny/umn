@@ -61,9 +61,12 @@ public data class Proxy(public var standalone: Standalone? = null) {
  * The `standalone:` stanza: the global log in an MVStore file of this JVM's own.
  * @property db the directory holding the file, `umn_proxy_log`; created if missing, but not its
  *   parent; relative to the working directory.
+ * @property compactDatabaseOnStartup rewrites the file into a compact copy before opening it: the start takes as long
+ *   as copying the live data, and needs that much free disk, else it's skipped. See `D_compact_on_startup`.
  */
-public data class Standalone(public var db: String = "db") {
-    internal fun createLogClientProvider(): GlobalLogClientProvider = MVStoreGlobalLogProvider(File(db).absoluteFile)
+public data class Standalone(public var db: String = "db", public var compactDatabaseOnStartup: Boolean = true) {
+    internal fun createLogClientProvider(): GlobalLogClientProvider =
+        MVStoreGlobalLogProvider(File(db).absoluteFile, compactOnStartup = compactDatabaseOnStartup)
 }
 
 /**

@@ -29,6 +29,12 @@ class ConfigTest {
         expect(Config.newEmpty()) { Config.load() }
         expect("db") { Config.newEmpty().proxy.standalone!!.db }
     }
+    @Test fun `the database is compacted on startup unless switched off`() {
+        expect(true) { Config.newEmpty().proxy.standalone!!.compactDatabaseOnStartup }
+        expect(true) { ConfigTest::class.java.getResourceAsStream("/testconfig.yaml").use { Config.loadFrom(it) }.proxy.standalone!!.compactDatabaseOnStartup }
+        val yaml = "proxy:\n  standalone:\n    db: db\n    compactDatabaseOnStartup: false\n"
+        expect(false) { Config.loadFrom(yaml.byteInputStream()).proxy.standalone!!.compactDatabaseOnStartup }
+    }
     @Test fun `proxy without a log provider fails`() {
         assertFailsWith<IllegalStateException> { Proxy().createLogClientProvider() }
     }
