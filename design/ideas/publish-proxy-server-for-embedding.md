@@ -60,10 +60,15 @@ Embedding wins where Docker can't run (some CI runners, sandboxes) or start-up t
   proxy server installs its own `ServerConnector`, so take that connector's `localPort` if
   Javalin's `port()` doesn't see it. `Main.main()`'s banner prints them instead of the configured
   ones.
+- **`Main` is the embedding API, name kept**: `Main(cfg).use { it.start() … }`. A consumer's own
+  `Main` clashes only in Java (an import alias fixes it); Aedict's is a Kotlin top-level
+  `fun main()`, compiled to `MainKt`. Hardened for its new callers:
+  - one lifecycle, new → started → closed: a second `start()`, or `start()` after `close()`,
+    throws `IllegalStateException`; `close()` is idempotent, and does nothing on an unstarted
+    `Main`; after a `start()` that threw halfway, `close()` releases what did start.
+  - thread-safe per instance: `start()`, `close()` and the port getters are `@Synchronized`, so
+    the lifecycle state is a plain field under that lock, no `AtomicBoolean` needed; a `close()`
+    racing `start()` waits for it, then closes what it started.
+  - the class KDoc speaks to embedders: the lifecycle above, the port getters, `close()` stops
+    everything; `main()` is the Docker image's entry point.
 - **An embedding snippet** in `umn-proxy-server/README.md`, beside the Docker one.
-
-## Open questions
-
-- `Q_main_name`: is `Main(cfg).start()` the embedding API, or does it get a nicer name
-  (`UMNProxyServerApp`?) now that it is public? Renaming breaks the Docker image's `mainClass`
-  only, which ships with the same release.
