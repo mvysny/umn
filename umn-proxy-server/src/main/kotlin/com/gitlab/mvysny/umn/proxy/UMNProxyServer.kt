@@ -20,7 +20,7 @@ import java.time.Duration
 /**
  * One client's web socket connection.
  */
-class UMNProxyWebsocketListener(private val session: Session, private val globalLogClientProvider: GlobalLogClientProvider) {
+internal class UMNProxyWebsocketListener(private val session: Session, private val globalLogClientProvider: GlobalLogClientProvider) {
     private var username: String? = null
     /**
      * Null until the connection's headers have been verified.
@@ -102,7 +102,7 @@ class UMNProxyWebsocketListener(private val session: Session, private val global
  * @param secure also serves wss, beside plain ws.
  * @param globalLogClientProvider [UMNProxyWebsocketListener] uses this guy to delegate the global log calls to.
  */
-class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
+internal class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClientProvider: GlobalLogClientProvider) : Closeable {
     private val javalin = Javalin.create { config ->
         config.startup.showJavalinBanner = false
         // Jetty 9's default, which ProxyClient's ping interval is set against; Jetty 12's is 30 seconds
@@ -129,6 +129,12 @@ class UMNProxyServer(adr: InetSocketAddress, secure: Secure?, val globalLogClien
         javalin.start()
     }
 
+    /**
+     * The port plain ws is bound to, once started.
+     */
+    // Javalin's port() reads the first connector: keep plain ws added before the secure one
+    val port: Int get() = javalin.port()
+
     override fun close() {
         javalin.stop()
         globalLogClientProvider.close()
@@ -153,7 +159,7 @@ private val WsContext.listener: UMNProxyWebsocketListener get() = attribute(LIST
  * Sends [msg], blocking until it's written: a slow client then holds up the log's callbacks rather than piling the
  * records up in Jetty's unbounded send queue.
  */
-fun Session.send(msg: AbstractMessage) {
+internal fun Session.send(msg: AbstractMessage) {
     val bytes = msg.asByteArray()
     check(bytes.isNotEmpty()) { "sending empty message!" }
     Callback.Completable.with { sendBinary(ByteBuffer.wrap(bytes), it) }.get()

@@ -10,7 +10,7 @@ import java.nio.file.Files
 /**
  * Provides [GlobalLogClient] of particular type. Upon closing, it should also close all currently opened clients.
  */
-interface GlobalLogClientProvider : Closeable {
+internal interface GlobalLogClientProvider : Closeable {
     /**
      * An estimate of how many [GlobalLogClient]s are currently active.
      */
@@ -25,7 +25,7 @@ interface GlobalLogClientProvider : Closeable {
 /**
  * Creates [GlobalLogClient]s that connects to a [MVStoreGlobalLog] stored within given [dbdir] file.
  */
-class MVStoreGlobalLogProvider(val dbdir: File) : GlobalLogClientProvider {
+internal class MVStoreGlobalLogProvider(val dbdir: File) : GlobalLogClientProvider {
     override fun createClient(username: String, password: String): GlobalLogClient = mvstorelog.newClient(username, password)
 
     override fun close() {

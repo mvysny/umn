@@ -185,3 +185,36 @@ For every user a separate global log is created.
 ## Using in docker
 
 Please see [UMN Proxy Server Docker Documentation](src/main/docker) for more info.
+
+## Embedding, e.g. in tests
+
+Since 0.18 the server is on Maven Central too, to run inside your own JVM: a test or a dev run
+then needs no Docker.
+
+```kotlin
+dependencies {
+    testImplementation("com.gitlab.mvysny.umn:umn-proxy-server:0.18")
+}
+```
+
+```kotlin
+Main(Config(port = 0, adminPort = 0, proxy = Proxy(Standalone("build/umn-db")))).use { server ->
+    server.start()
+    val wsUrl = "ws://127.0.0.1:${server.port}"               // for ProxyClient
+    val adminUrl = "http://127.0.0.1:${server.adminPort}/admin/"  // for AdminClient
+    // ...
+}
+```
+
+- `port = 0` and `adminPort = 0` bind free ports, so parallel test JVMs never clash; `server.port`
+  and `server.adminPort` read them back once started.
+- A `Main` starts once; `close()` stops it and closes the database, and another run takes a new
+  `Main`.
+- The server brings no SLF4J binding: it logs through your test's own.
+- **Your Jetty may be lifted.** The server runs on Jetty and Javalin, kept off your compile
+  classpath, but one JVM holds one Jetty: Gradle picks the highest version anything asks for, so an
+  app on an older Jetty 12.1.x runs the server's in its tests. Harmless within 12.1. Where it
+  isn't, or where the tests should run the very artifact production runs, start the Docker image
+  through Testcontainers instead: a `GenericContainer` on `mvysny/umn-proxy-server:0.18`, ports
+  10144 and 10145 exposed, waiting on `GET /admin/users` on 10145, the URLs from `getMappedPort`.
+  That costs Docker wherever the tests run, and seconds per start.

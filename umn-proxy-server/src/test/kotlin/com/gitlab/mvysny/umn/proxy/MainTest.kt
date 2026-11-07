@@ -7,8 +7,11 @@ import com.gitlab.mvysny.umn.sync.tester.expectAsync
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.io.File
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -19,6 +22,9 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
+import kotlin.test.assertFails
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.test.expect
 
 class MainTest {
@@ -40,6 +46,70 @@ class MainTest {
             }
         } finally {
             httpClient.destroy()
+        }
+    }
+
+    @Nested inner class Lifecycle {
+        private fun newMain(): Main = Main(Config(port = 0, adminPort = 0, proxy = Proxy(Standalone(File(Files.createTempDirectory("tmp").toFile(), "db").absolutePath))))
+
+        @Test fun `binds ephemeral ports and reads them back`() {
+            val httpClient = OkHttpClient()
+            try {
+                newMain().use { main ->
+                    main.start()
+                    assertTrue(main.port > 0)
+                    assertTrue(main.adminPort > 0)
+                    val put = Request.Builder().url("http://127.0.0.1:${main.adminPort}/admin/users?username=user&password=example").put(ByteArray(0).toRequestBody()).build()
+                    httpClient.newCall(put).execute().use { expect(204) { it.code } }
+                    val client = ProxyClient(httpClient, Request.Builder().url("ws://127.0.0.1:${main.port}"), "user", "example")
+                    client.start()
+                    client.close()
+                }
+            } finally {
+                httpClient.destroy()
+            }
+        }
+        @Test fun `second start fails`() {
+            newMain().use { main ->
+                main.start()
+                assertFailsWith<IllegalStateException> { main.start() }
+                assertTrue(main.port > 0)
+            }
+        }
+        @Test fun `start after close fails`() {
+            val main = newMain()
+            main.start()
+            main.close()
+            assertFailsWith<IllegalStateException> { main.start() }
+            assertFailsWith<IllegalStateException> { main.port }
+        }
+        @Test fun `close is idempotent`() {
+            val main = newMain()
+            main.start()
+            main.close()
+            main.close()
+        }
+        @Test fun `close on an unstarted Main does nothing, and ends it`() {
+            val main = newMain()
+            main.close()
+            assertFailsWith<IllegalStateException> { main.start() }
+        }
+        @Test fun `ports fail before start`() {
+            newMain().use { main ->
+                assertFailsWith<IllegalStateException> { main.port }
+                assertFailsWith<IllegalStateException> { main.adminPort }
+            }
+        }
+        @Test fun `a start that fails halfway leaves a Main that closes`() {
+            val dbDir = File(Files.createTempDirectory("tmp").toFile(), "db")
+            ServerSocket(0, 50, InetAddress.getLoopbackAddress()).use { taken ->
+                val main = Main(Config(port = taken.localPort, adminPort = 0, proxy = Proxy(Standalone(dbDir.absolutePath))))
+                assertFails { main.start() }
+                assertFailsWith<IllegalStateException> { main.start() }
+                main.close()
+            }
+            // the global log was released: another Main opens the same file
+            Main(Config(port = 0, adminPort = 0, proxy = Proxy(Standalone(dbDir.absolutePath)))).use { it.start() }
         }
     }
 

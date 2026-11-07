@@ -17,8 +17,8 @@ To release the library to Maven Central:
 1. Run `./gradlew clean build` with Docker running and Caddy installed, and check that no compat
    test or `CaddyTest` was skipped.
 2. Edit `build.gradle.kts` and remove `-SNAPSHOT` from the `version =` stanza, e.g. "0.16"
-3. Bump the version in the install snippets of `README.md`, `umn-proxy-client/README.md` and
-   `umn-proxy-server-adminclient/README.md` to match the release, and the
+3. Bump the version in the install snippets of `README.md`, `umn-proxy-client/README.md`,
+   `umn-proxy-server/README.md` and `umn-proxy-server-adminclient/README.md` to match the release, and the
    `mvysny/umn-proxy-server:` image tag in `README.md`,
    `umn-proxy-server/src/main/docker/README.md` and `docker-compose.yml` beside it; replace "unreleased" in
    `CHANGELOG.md`'s heading with the release date

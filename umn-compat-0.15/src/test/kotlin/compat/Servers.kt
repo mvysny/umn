@@ -8,7 +8,6 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
 import java.io.Closeable
-import java.net.ServerSocket
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -63,12 +62,11 @@ private class ProxyServerContainer(image: DockerImageName) : GenericContainer<Pr
  * HEAD's proxy server, in this JVM, on the database in [dbDir]: what Aedict-Online's server becomes once upgraded.
  */
 class HeadServer(dbDir: Path) : ProxyServer, Closeable {
-    private val ports: List<Int> = List(2) { ServerSocket(0) }.map { it.use { socket -> socket.localPort } }
-    private val main = Main(Config(port = ports[0], host = "127.0.0.1", adminPort = ports[1], proxy = Proxy(Standalone(dbDir.toString()))))
+    private val main = Main(Config(port = 0, host = "127.0.0.1", adminPort = 0, proxy = Proxy(Standalone(dbDir.toString()))))
         .apply { start() }
 
-    override val wsUrl: String = "ws://127.0.0.1:${ports[0]}"
-    override val adminUrl: String = "http://127.0.0.1:${ports[1]}"
+    override val wsUrl: String = "ws://127.0.0.1:${main.port}"
+    override val adminUrl: String = "http://127.0.0.1:${main.adminPort}"
 
     override fun close() {
         main.close()

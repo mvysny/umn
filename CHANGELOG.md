@@ -4,6 +4,13 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the disk and wire formats never break (`D_frozen_0_15_formats`). Releases before 0.16 have
 no entries.
 
+## 0.18 — unreleased
+
+- `umn-proxy-server` is published to Maven Central, to embed the server in a test or a dev run
+  with no Docker: `Main(config).use { it.start() … }`. `port = 0` and `adminPort = 0` bind free
+  ports, which `Main.port` and `Main.adminPort` read back; see its README. It lifts the app's own
+  Jetty to its 12.1.x, one JVM holding one Jetty.
+
 ## 0.17 — 2026-11-04
 
 - **Breaking:** okhttp 4.12.0 in `umn-proxy-client` (0.16: 3.12.2), an `api` dependency; Gradle

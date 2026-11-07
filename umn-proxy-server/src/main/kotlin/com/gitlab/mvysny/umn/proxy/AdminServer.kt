@@ -16,7 +16,7 @@ import java.net.InetSocketAddress
 /**
  * Serves the REST admin API on [adr], over [globalLog]'s users and logs.
  */
-class AdminServer(adr: InetSocketAddress, private val globalLog: MVStoreGlobalLog) : Closeable {
+internal class AdminServer(adr: InetSocketAddress, private val globalLog: MVStoreGlobalLog) : Closeable {
     private val javalin: Javalin = Javalin.create { config ->
         config.startup.showJavalinBanner = false
         config.jsonMapper(JavalinGson())
@@ -79,6 +79,8 @@ class AdminServer(adr: InetSocketAddress, private val globalLog: MVStoreGlobalLo
     private class Credentials(val username: String? = null, val password: String? = null)
 
     private class InvalidBodyException(message: String) : RuntimeException(message)
+
+    val port: Int get() = javalin.port()
 
     override fun close() {
         javalin.stop()

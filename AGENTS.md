@@ -42,7 +42,7 @@ moved to the files above first.
 - `umn-core` — the `UMN` interface, MVStore and in-memory stores, indexing, full-text, the sync engine.
 - `umn-sync-tester` — shared test batteries every `GlobalLogClient` implementation runs; unpublished, for backends built in this repo, e.g. a future `umn-proxy-hazelcast`.
 - `umn-proxy-client` — websocket `GlobalLogClient` for Android, okhttp only.
-- `umn-proxy-server` — standalone websocket proxy server with an MVStore global log and REST admin; Docker image.
+- `umn-proxy-server` — standalone websocket proxy server with an MVStore global log and REST admin; Docker image, and a library to embed (`Main`).
 - `umn-proxy-server-adminclient` — Kotlin client for the proxy server's REST admin API.
 - `umn-compat-0.15` — guards `D_frozen_0_15_formats`: forked UMN 0.15 nodes and HEAD sync through the production proxy-server image (Testcontainers, skipped without Docker) and through HEAD's, in-process; unpublished.
 
@@ -51,7 +51,7 @@ moved to the files above first.
 - **Kotlin targeting Java 17, Gradle 9 Kotlin DSL.** `kotlin("stdlib")`, never `-jdk8`, in anything Android loads.
 - **Library modules use `explicitApi()`**; every public declaration states its visibility.
 - **Tests: JUnit 6 Jupiter with `kotlin.test` assertions**; a reusable battery is an abstract class, run as a `@Nested inner class` subclass; every `GlobalLogClient` via the `umn-sync-tester` batteries.
-- **Logging through slf4j-api**; `slf4j-simple` only in the proxy server and tests.
+- **Logging through slf4j-api**; `slf4j-simple` only in the proxy server's distribution and in tests.
 - **Dependencies live in `gradle/libs.versions.toml`**; an Android-forced pin carries its reason as a comment there.
 - **A user-visible change adds a `CHANGELOG.md` line in the same commit.** An API break stays, as a `Breaking:` line with its migration step.
 - **Release: Maven Central** through the root build's `publish(artifactId, description)`; a module without the call stays unpublished. The steps are in `CONTRIBUTING.md`.
