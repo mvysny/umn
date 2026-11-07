@@ -10,6 +10,9 @@ no entries.
   with no Docker: `Main(config).use { it.start() … }`. `port = 0` and `adminPort = 0` bind free
   ports, which `Main.port` and `Main.adminPort` read back; see its README. It lifts the app's own
   Jetty to its 12.1.x, one JVM holding one Jetty.
+- The proxy wire messages (`AbstractMessage`) move from `umn-proxy-client` to the new
+  `umn-proxy-protocol` artifact, in the same package. `umn-proxy-client` depends on it, so apps
+  change nothing; the proxy server depends on it instead of the client, and brings no okhttp.
 
 ## 0.17 — 2026-11-04
 

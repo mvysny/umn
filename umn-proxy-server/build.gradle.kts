@@ -9,7 +9,8 @@ configurations.runtimeClasspath { extendsFrom(distributionRuntimeOnly.get()) }
 
 dependencies {
     // the public API (Main, Config) exposes none of these: Jetty and Javalin are ours to swap
-    implementation(project(":umn-proxy-client"))
+    implementation(project(":umn-core"))
+    implementation(project(":umn-proxy-protocol"))
     implementation(libs.slf4j.api)
     // a consumer's second binding would make SLF4J warn and pick one
     "distributionRuntimeOnly"(libs.slf4j.simple)
@@ -27,6 +28,7 @@ dependencies {
     implementation(libs.snakeyaml)
 
     testImplementation(project(":umn-sync-tester"))
+    testImplementation(project(":umn-proxy-client"))
 }
 
 application {

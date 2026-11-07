@@ -1,5 +1,6 @@
 dependencies {
     api(project(":umn-core"))
+    api(project(":umn-proxy-protocol"))  // WebSocket.send(AbstractMessage) is public
     implementation(libs.slf4j.api)
     api(libs.okhttp)
     testImplementation(project(":umn-sync-tester"))

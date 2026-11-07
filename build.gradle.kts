@@ -22,6 +22,7 @@ tasks.check { dependsOn(verifyDesignTripwires) }
 dependencies {
     kover(project(":umn-core"))
     kover(project(":umn-sync-tester"))  // its tests exercise umn-core's MVStoreGlobalLog
+    kover(project(":umn-proxy-protocol"))
     kover(project(":umn-proxy-client"))
     kover(project(":umn-proxy-server"))
     kover(project(":umn-proxy-server-adminclient"))
