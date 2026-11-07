@@ -12,22 +12,46 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 Literally meaning "One Word", the database is designed to quickly propagate changes across all participants,
 ensuring the "One" "truth" across all devices.
 
-UMN stores binary blobs rather than JSON. That's because UMN is required to run on Android phones
-where performance is critical. You can use standard Java Serialization for experimenting;
-however in order to ensure that the binary data can be read back you should use one of the
-following libraries:
-
-* [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)
-* [Google Protobuf](https://github.com/google/protobuf)
-* [Kryo](https://github.com/EsotericSoftware/kryo)
-* Others. I'll eventually update this list and introduce one recommended way which is simple,
-  fast and guarantees backward/forward binary storage compatibility.
-
 UMN currently does not have:
 
 * Support for transactions
 * Support for JSON out-of-the-box - it's way faster to store java objects into binary form
   than to JSON.
+
+## Storing objects
+
+UMN stores binary blobs rather than JSON. That's because UMN is required to run on Android phones
+where performance is critical. You can use standard Java Serialization for experimenting, but it
+breaks as soon as a class changes, so don't use it for real data.
+
+**Recommended: kotlinx.serialization with the ProtoBuf format.**
+
+A synced blob must stay readable both ways: a newer app reads what an older one wrote, and an
+older app reads what a newer one wrote, since nodes of different versions sync with each other.
+The recommended way to get that is
+[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization) with its
+[ProtoBuf format](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/formats.md#protobuf-experimental):
+
+* The serializers are generated at compile time by the Kotlin serialization plugin: no
+  reflection, which suits Android.
+* Protobuf's evolution rules are well documented, and an older reader skips fields it doesn't
+  know.
+* Give every property an explicit `@ProtoNumber`, never reuse or renumber one, and give every
+  property added later a default value, so that blobs written before it existed still decode.
+  Remove only a property that has a default value in every released version, or older apps
+  can't decode the newer blobs.
+
+The ProtoBuf format is still marked `@ExperimentalSerializationApi`. If you'd rather have blobs
+that describe themselves without a schema, kotlinx.serialization's
+[CBOR format](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/formats.md#cbor-experimental)
+works too, with two differences: build it with `Cbor { ignoreUnknownKeys = true }`, since by
+default an older reader rejects fields it doesn't know, and never rename a property, since CBOR
+keys fields by name. [Google Protobuf](https://github.com/protocolbuffers/protobuf) itself
+works too, at the cost of `.proto` files and generated Java classes.
+
+Avoid [Kryo](https://github.com/EsotericSoftware/kryo) for stored or synced data: its default
+`FieldSerializer` can't read data written before a class's fields changed. Only its
+`TaggedFieldSerializer` and `CompatibleFieldSerializer` are safe there.
 
 ## Project Status
 
