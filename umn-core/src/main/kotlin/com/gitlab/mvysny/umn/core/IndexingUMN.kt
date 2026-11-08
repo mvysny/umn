@@ -372,8 +372,9 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
         /**
          * Private since the sequence reflects modifications.
          */
-        private fun getDescSequenceOfAllDocIDs(maxKey: K? = indexStore.getLargestKey()): Sequence<UUID> =
+        private fun getDescSequenceOfAllDocIDs(maxKey: K? = indexStore.getLargestKey(), minKey: K? = null): Sequence<UUID> =
             generateSequence(maxKey) { id -> indexStore.lowerKey(id) }
+                .takeWhile { key -> minKey == null || key >= minKey }
                 .mapNotNull { key -> indexStore.find(key) }
                 .flatMap { it.asSequence() }
 
@@ -386,7 +387,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
                 is For.All -> getDescSequenceOfAllDocIDs()
                 is For.Key -> indexStore.find(forKeys.key)?.asSequence() ?: emptySequence()
                 is For.KeySet -> forKeys.set.sorted().asReversed().asSequence().mapNotNull { key -> indexStore.find(key) } .flatMap { it.asSequence() }
-                is For.KeyRange -> getDescSequenceOfAllDocIDs(forKeys.range.endInclusive)
+                is For.KeyRange -> getDescSequenceOfAllDocIDs(forKeys.range.endInclusive, forKeys.range.start)
             }
         }
 

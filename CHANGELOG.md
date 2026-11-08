@@ -6,6 +6,9 @@ no entries.
 
 ## 0.18 — unreleased
 
+- `findLastDoc` and `findLastID` given a `For.KeyRange` no longer return a document whose key lies
+  below the range: when the range held no key, they returned the document under the next lower
+  key, e.g. the last item of a neighbouring category.
 - `InMemoryUMN` is deprecated in favour of `MvstoreUMN.inMemory(serializer, typeToClassResolver)`,
   an MVStore held in memory. `InMemoryUMN` kept live objects, so a document or an index key that
   doesn't serialize passed its tests and failed in production, and its utility maps returned keys

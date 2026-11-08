@@ -243,6 +243,14 @@ abstract class IndexingUmnTestBattery {
                 val id2 = umn.create("zzz")
                 expect(id2 to "zzz") { umn.getIndex(idxIdentity).findLastDoc(For.KeyRange("a".."zzzzz")) }
             }
+
+            @Test fun `ignores keys below the range`() {
+                val umn = IndexingUMN(newStorage(), indices)
+                umn.create("kvak")
+                expect(null) { umn.getIndex(idxIdentity).findLastDoc(For.KeyRange("m".."z")) }
+                val id = umn.create("p")
+                expect(id to "p") { umn.getIndex(idxIdentity).findLastDoc(For.KeyRange("m".."z")) }
+            }
         }
     }
 
