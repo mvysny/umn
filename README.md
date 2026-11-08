@@ -210,7 +210,8 @@ However, keep in mind:
 * Provide the same set of indices every time you open the UMN database.
   * A new index is built over the existing documents when `IndexingUMN` is constructed: the
     constructor walks and deserializes every document once, so that one open takes as long as
-    reading the whole database.
+    reading the whole database. On Android, open it off the main thread: a dictionary-sized
+    database takes seconds, close to the 5-second ANR limit.
   * An index is built once and never rebuilt. To change its indexing function or key type, give it
     a new name; the old name, no longer passed, gets its entries cleared.
   * A document whose indexing function throws during the build is logged and left out of the index.
