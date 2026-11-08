@@ -24,13 +24,13 @@ class SyncingUMNTest {
         log.log.map { LogRecord.fromByteArray(it, JavaDocumentSerializer, AutoTypeResolver)!!.id }.toSet()
 
     @Nested inner class GenericOverInMemoryGlobalLog : GenericUmnTestBattery() {
-        override fun newUmn(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ log.newClient() }, JavaDocumentSerializer, true)
+        override fun newUmn(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer, true)
     }
 
     @Nested inner class TestsWithSyncSendingDelayedAcks {
         private lateinit var umn: SyncingUMN
         @BeforeEach fun createUmn() {
-            umn = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing(
+            umn = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing(
                 { log.newClient().withDelayedAck() },
                 JavaDocumentSerializer,
                 true
@@ -53,7 +53,7 @@ class SyncingUMNTest {
         @Volatile private var client: GlobalLogClient? = null
         private lateinit var umn: SyncingUMN
         @BeforeEach fun createUmn() {
-            umn = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ newClient().also { client = it } }, JavaDocumentSerializer)
+            umn = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ newClient().also { client = it } }, JavaDocumentSerializer)
         }
         @AfterEach fun closeUmn() { umn.close() }
 
@@ -123,7 +123,7 @@ class SyncingUMNTest {
         @Volatile private var startFailure: Exception? = null
         private lateinit var umn: SyncingUMN
         private fun createUmn(backoff: Backoff) {
-            umn = Syncer(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), JavaDocumentSerializer,
+            umn = Syncer(MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver), JavaDocumentSerializer,
                 { FailingClient(log.newClient(), startFailure).also { clients.add(it) } }, false, backoff).syncingUMN
         }
         @BeforeEach fun createUmn() { createUmn(Backoff(10, 50)) }
@@ -183,7 +183,7 @@ class SyncingUMNTest {
         private val statuses = CopyOnWriteArrayList<SyncerStatus>()
         private lateinit var umn: SyncingUMN
         @BeforeEach fun createUmn() {
-            umn = Syncer(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), JavaDocumentSerializer,
+            umn = Syncer(MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver), JavaDocumentSerializer,
                 { FailingClient(log.newClient(), startFailure).also { clients.add(it) } }, false, Backoff(10, 50)).syncingUMN
             umn.syncer.setStatusListener { statuses.add(it) }
         }
@@ -258,11 +258,11 @@ class SyncingUMNTest {
         private lateinit var node: SyncingUMN
         private lateinit var other: SyncingUMN
         @BeforeEach fun createUmns() {
-            node = Syncer(IndexingUMN(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), setOf(idx)), JavaDocumentSerializer,
+            node = Syncer(IndexingUMN(MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver), setOf(idx)), JavaDocumentSerializer,
                 { log.newClient() }, false, Backoff(10, 50)).syncingUMN
             node.syncer.setStatusListener { statuses.add(it) }
             node.syncer.start()
-            other = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ log.newClient() }, JavaDocumentSerializer, true)
+            other = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer, true)
         }
         @AfterEach fun closeUmns() {
             other.close()

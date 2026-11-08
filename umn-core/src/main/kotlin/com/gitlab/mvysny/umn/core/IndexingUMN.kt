@@ -37,7 +37,7 @@ import kotlin.reflect.KClass
  * Not atomic across a crash: the document and its index entries are separate writes, so a process dying between them leaves
  * the document unindexed, for good, since nothing reindexes (`D_three_op_log`).
  *
- * @property delegate delegate all calls to the underlying UMN storage. Typically either one of [InMemoryUMN] or [MvstoreUMN].
+ * @property delegate delegate all calls to the underlying UMN storage. Typically an [MvstoreUMN].
  * @param indices the indices definition. WARNING: the same set of indices must be provided upon every UMN open! New indices not yet present
  * in the database will not reindex existing documents to build the index and searches will not find those documents. Changing the indexing
  * function will not reindex existing documents. Removing an index will not clear the associated index map.

@@ -9,7 +9,7 @@ import kotlin.test.expect
 
 class MutationLogTest {
     @Nested inner class InMemory : MutationLogTestBattery() {
-        override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        override fun newStorage(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
     }
     @Nested inner class OnMvstore : MutationLogTestBattery() {
         override fun newStorage(): UMN = createMvstoreUMN()

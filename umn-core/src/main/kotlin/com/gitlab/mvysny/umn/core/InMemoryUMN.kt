@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.gitlab.mvysny.umn.core
 
 import com.github.mvysny.vokdataloader.intersection
@@ -8,10 +10,17 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 /**
- * A very simple in-memory storage of objects. Ideal for writing tests. Thread-safe.
+ * A very simple in-memory storage of objects. Thread-safe.
  *
- * Since it's in-memory only, it supports all key types: any class classes can act as a key.
+ * Deprecated: it behaves unlike [MvstoreUMN] where tests most need it to match. It stores the live
+ * objects, so a document or an index key that doesn't serialize passes here and fails in production,
+ * and a document changed after [create] changes the stored one; [InMemoryUtilityMap.keyIterator]
+ * returns the keys unordered when given no range. [MvstoreUMN.inMemory] has none of that.
  */
+@Deprecated(
+    "Behaves unlike MvstoreUMN: no serialization, unordered keys. Use MvstoreUMN.inMemory().",
+    ReplaceWith("MvstoreUMN.inMemory(serializer, typeToClassResolver)")
+)
 public class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
                   private val serializer: DocumentSerializer) : UMN {
     override val delegate: UMN?
@@ -66,6 +75,7 @@ public class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
 /**
  * Thread-safe.
  */
+@Deprecated("InMemoryUMN's utility map; use MvstoreUMN.inMemory(), whose utility maps order their keys.")
 public class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
     override fun keyCount(): Int = map.size
 

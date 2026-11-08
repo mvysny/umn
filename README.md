@@ -290,7 +290,7 @@ The `PageFetchingList` will only cache three pages so this solution works even w
 need to read this stuff.
 
 The UMN database does not offer all of the functionality in one layer. You start by the actual storage, which
-is either `MvstoreUMN` or `InMemoryUMN` and implements the `UMN` interface.
+is `MvstoreUMN` (file-backed, or `MvstoreUMN.inMemory()` for tests) and implements the `UMN` interface.
 
 To add support for indices, you wrap existing `UMN` with an `IndexingUMN`. IndexingUMN delegates all calls
 to the underlying UMN storage (so that the documents are actually stored) but also updates indices

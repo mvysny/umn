@@ -150,7 +150,7 @@ abstract class AckFifoBufferTestBattery {
 
 class AckFIFOBufferTest {
     @Nested inner class InMemoryTests : AckFifoBufferTestBattery() {
-        override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        override fun newStorage(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
     }
 
     @Nested inner class MvstoreTests : AckFifoBufferTestBattery() {

@@ -6,6 +6,11 @@ no entries.
 
 ## 0.18 — unreleased
 
+- `InMemoryUMN` is deprecated in favour of `MvstoreUMN.inMemory(serializer, typeToClassResolver)`,
+  an MVStore held in memory. `InMemoryUMN` kept live objects, so a document or an index key that
+  doesn't serialize passed its tests and failed in production, and its utility maps returned keys
+  unordered. Migration: replace `InMemoryUMN(resolver, serializer)` with
+  `MvstoreUMN.inMemory(serializer, resolver)`; the IDE's quick-fix does it.
 - `IndexingUMN` runs every index's `keyGetter` before it writes the document, so one that throws
   fails the `create`, `update` or `delete` and writes nothing. Before, the document was written and
   left unindexed for good. `valueIdGetter` still runs after the write: keep it from throwing.

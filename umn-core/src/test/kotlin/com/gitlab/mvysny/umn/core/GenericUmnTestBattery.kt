@@ -13,7 +13,7 @@ import kotlin.test.expect
  *
  * ```
  * @Nested inner class InMemory : GenericUmnTestBattery() {
- *     override fun newUmn(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+ *     override fun newUmn(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
  * }
  * ```
  *

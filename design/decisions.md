@@ -49,7 +49,8 @@ fails to open — loudly: Aedict hit it with `IdxCategoryOrdinal` and pinned the
 `ByteArray` marshaler per index keeps H2 out of the API, but H2 orders a `byte[]` by its
 unsigned bytes, not by `compareTo`, so the encoding must preserve order (sign bits, `UUID`'s
 signed halves, terminated strings); a naive one, protobuf say, returns wrong ranges and pages
-silently. A `DataType` per index puts `org.h2` into the API. Either helps new indices only
+silently. A `DataType` per index is `openUtilityMap`'s `keyType`, already in the API, but
+`IndexDef` would have to carry one. Either helps new indices only
 (`D_frozen_0_15_formats`; moving one needs the reindex `D_three_op_log` lacks). So Java
 serialization stays: its failures are loud. `K` is a bare `Comparable`, as in 0.15; a
 non-serializable key fails on its first write, a bound would only add an API break.

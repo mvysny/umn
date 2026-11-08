@@ -69,7 +69,7 @@ class AnnouncingUMNTest {
     // doesn't test the indexing capabilities per se; it tests whether the IndexingUMN still behaves as a proper UMN storage.
     @Nested inner class BasicTests {
         @Nested inner class InMemory : GenericUmnTestBattery() {
-            override fun newUmn(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).mutationLog(JavaDocumentSerializer).first
+            override fun newUmn(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).mutationLog(JavaDocumentSerializer).first
         }
         @Nested inner class OnMvstore : GenericUmnTestBattery() {
             override fun newUmn(): UMN = createMvstoreUMN().mutationLog(JavaDocumentSerializer).first
@@ -78,7 +78,7 @@ class AnnouncingUMNTest {
 
     @Nested inner class ReplayLogSpecificTests {
         @Nested inner class InMemory : AnnouncingTestBattery() {
-            override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+            override fun newStorage(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
         }
         @Nested inner class OnMvstore : AnnouncingTestBattery() {
             override fun newStorage(): UMN = createMvstoreUMN()
@@ -86,7 +86,7 @@ class AnnouncingUMNTest {
     }
 
     @Test fun `findSerialized delegates`() {
-        val storage = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        val storage = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
         val umn = AnnouncingUMN(storage, object : AnnouncingUMN.Listener {
             override fun onRecord(logRecord: LogRecord) {}
         })
@@ -96,7 +96,7 @@ class AnnouncingUMNTest {
 
     @Nested inner class LogRecords {
         private val stringType = AutoTypeResolver.toType(String::class)
-        private val umn = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        private val umn = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
         private fun LogRecord.roundTrip(): LogRecord? =
             LogRecord.fromByteArray(toByteArray(JavaDocumentSerializer), JavaDocumentSerializer, AutoTypeResolver)
 

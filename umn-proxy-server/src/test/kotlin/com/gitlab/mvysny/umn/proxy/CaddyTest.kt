@@ -1,7 +1,7 @@
 package com.gitlab.mvysny.umn.proxy
 
 import com.gitlab.mvysny.umn.core.AutoTypeResolver
-import com.gitlab.mvysny.umn.core.InMemoryUMN
+import com.gitlab.mvysny.umn.core.MvstoreUMN
 import com.gitlab.mvysny.umn.core.JavaDocumentSerializer
 import com.gitlab.mvysny.umn.proxyclient.ProxyClient
 import com.gitlab.mvysny.umn.proxyclient.destroy
@@ -116,7 +116,7 @@ class CaddyTest {
     class Node(caddy: Caddy, user: String) : Closeable {
         private val http = caddy.httpClient()
         val statuses = CopyOnWriteArrayList<SyncerStatus>()
-        val umn: SyncingUMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        val umn: SyncingUMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
             .syncing({ ProxyClient(http, Request.Builder().url("wss://localhost:${caddy.port}"), user, "example") }, JavaDocumentSerializer)
 
         init {

@@ -166,6 +166,16 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
         store.compactRewriteFully()
         store.compactMoveChunks()
     }
+
+    public companion object {
+        /**
+         * An MVStore held in memory only, gone once closed: for tests, and for anything that needs no file. It
+         * serializes documents and keys and orders keys exactly as a file-backed store does, so a document or an
+         * index key that doesn't serialize fails here, not first in production.
+         */
+        public fun inMemory(serializer: DocumentSerializer, typeToClassResolver: TypeToClassResolver): MvstoreUMN =
+            MvstoreUMN(MVStore.open(null), serializer, typeToClassResolver)
+    }
 }
 
 /**

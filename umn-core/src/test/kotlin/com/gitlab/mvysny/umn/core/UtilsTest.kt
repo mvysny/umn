@@ -91,16 +91,16 @@ class UtilsTest {
     }
 
     @Nested inner class Facet {
-        private val storage = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+        private val storage = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
         private val umn: UMN = IndexingUMN(storage, setOf())
 
         @Test fun `finds the UMN in the chain`() {
             assertSame(umn, umn.facet<IndexingUMN>())
-            assertSame(storage, umn.facet<InMemoryUMN>())
+            assertSame(storage, umn.facet<MvstoreUMN>())
         }
 
         @Test fun `fails when the chain has no such UMN`() {
-            assertFailsWith<IllegalArgumentException> { umn.facet<MvstoreUMN>() }
+            assertFailsWith<IllegalArgumentException> { umn.facet<AnnouncingUMN>() }
         }
     }
 }

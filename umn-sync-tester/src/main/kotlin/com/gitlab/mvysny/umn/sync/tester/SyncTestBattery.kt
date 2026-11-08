@@ -17,7 +17,7 @@ import kotlin.test.expect
  *
  * ```
  * @Nested inner class OnInMemory : WriterReaderTestBattery(3) {
- *     override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+ *     override fun newStorage(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
  *     override fun newClient(): GlobalLogClient = log.newClient()
  * }
  * ```
@@ -32,7 +32,7 @@ abstract class WriterReaderTestBattery(private val readerCount: Int) {
     }
 
     /**
-     * A basic root storage, [com.gitlab.mvysny.umn.core.InMemoryUMN] or [com.gitlab.mvysny.umn.core.MvstoreUMN].
+     * A basic root storage, [com.gitlab.mvysny.umn.core.MvstoreUMN], e.g. its `inMemory()`.
      */
     abstract fun newStorage(): UMN
 
@@ -168,7 +168,7 @@ abstract class SyncTestBattery(private val nodeCount: Int, private val awaitSync
     }
 
     /**
-     * A basic root storage, [com.gitlab.mvysny.umn.core.InMemoryUMN] or [com.gitlab.mvysny.umn.core.MvstoreUMN].
+     * A basic root storage, [com.gitlab.mvysny.umn.core.MvstoreUMN], e.g. its `inMemory()`.
      */
     abstract fun newStorage(): UMN
 

@@ -688,7 +688,7 @@ class IndexingUMNTest {
         @Nested inner class InMemory : GenericUmnTestBattery() {
             override fun newUmn(): UMN {
                 val indices = setOf(IndexingUMN.IndexDef.simple("identityHashCode", { doc -> setOf(System.identityHashCode(doc)) }, Any::class))
-                return IndexingUMN(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), indices)
+                return IndexingUMN(MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver), indices)
             }
         }
         @Nested inner class OnMvstore : GenericUmnTestBattery() {
@@ -703,7 +703,7 @@ class IndexingUMNTest {
     // tests the indexing capabilities of the IndexingUMN
     @Nested inner class IndexTests {
         @Nested inner class InMemory : IndexingUmnTestBattery() {
-            override fun newStorage(): UMN = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer)
+            override fun newStorage(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
         }
         @Nested inner class OnMvstore : IndexingUmnTestBattery() {
             override fun newStorage(): UMN = createMvstoreUMN()
