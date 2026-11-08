@@ -93,3 +93,13 @@ keep it short. When you have written an entry, re-read it against the one above 
   **[verified 2026-11-08, 1.4.198]**
 - `ObjectDataType`'s one field caches the last type seen; each type re-checks `instanceof` and
   falls back, so a race on it costs a lookup, never a wrong answer. **[src]**
+
+## R_mvstore_store_per_map — a stored version is consistent per map, not across maps
+
+- `storeNow()` takes each open map's root in turn (`setWriteVersion()`) while other threads keep
+  writing, so a stored chunk may hold a later write to one map without an earlier write to
+  another. **[src]**
+- A map's root is a copy-on-write snapshot: within one map, a stored write implies every earlier
+  write to it. **[src]**
+- `commit()` stores, under `storeLock`, every write made before the call; a later chunk holds them
+  too. A no-op on an in-memory store; throws on a read-only one only with unsaved writes. **[src]**

@@ -689,6 +689,84 @@ abstract class IndexingUmnTestBattery {
         }
     }
 
+    @Nested inner class BuildOnOpen {
+        private val storage = newStorage()
+        private val indexState: UtilityMap<String, Boolean> get() = storage.openUtilityMap("INDEX_STATE")
+        private fun indexStore(name: String): UtilityMap<String, Array<UUID>> =
+            storage.openUtilityMap("INDEX2_$name", CompositeKeyDataType())
+
+        private fun IndexingUMN.ids(index: IndexingUMN.IndexDef<String, String, String>, key: String): Set<UUID> =
+            getIndex(index).findAllIDs(For.Key(key))
+
+        @Test fun `a new index fills from the stored documents`() {
+            val ids = IndexingUMN(storage, setOf(idxIdentity)).run { listOf(create("a"), create("bb")) }
+            val umn = IndexingUMN(storage, setOf(idxIdentity, idxLength))
+            expect(setOf(ids[0])) { umn.getIndex(idxLength).findAllIDs(For.Key(1)) }
+            expect(setOf(ids[1])) { umn.getIndex(idxLength).findAllIDs(For.Key(2)) }
+            expect(true) { indexState.find("length") }
+        }
+
+        @Test fun `a built index isn't walked again`() {
+            var calls = 0
+            val idxCounting = IndexingUMN.IndexDef.simple<String, String>("counting", { calls++; setOf(it) }, String::class)
+            IndexingUMN(storage, setOf(idxIdentity)).create("a")
+            IndexingUMN(storage, setOf(idxCounting))
+            expect(1) { calls }
+            IndexingUMN(storage, setOf(idxCounting))
+            expect(1) { calls }
+        }
+
+        @Test fun `an index from before the build state is adopted when non-empty, filled when empty`() {
+            val id = IndexingUMN(storage, setOf(idxIdentity)).create("a")
+            val unindexed = storage.create("bb")
+            indexState.clear()
+            val umn = IndexingUMN(storage, setOf(idxIdentity, idxLength))
+            expect(setOf(id)) { umn.ids(idxIdentity, "a") }
+            expect(setOf()) { umn.ids(idxIdentity, "bb") }
+            expect(setOf(unindexed)) { umn.getIndex(idxLength).findAllIDs(For.Key(2)) }
+            expect(true) { indexState.find("identity") }
+        }
+
+        @Test fun `a build cut short is redone from scratch`() {
+            val id = IndexingUMN(storage, setOf(idxIdentity)).create("a")
+            indexState.put("identity", false)
+            indexStore("identity").put("stale", arrayOf(UUID.randomUUID()))
+            val umn = IndexingUMN(storage, setOf(idxIdentity))
+            expect(setOf(id)) { umn.ids(idxIdentity, "a") }
+            expect(setOf()) { umn.ids(idxIdentity, "stale") }
+            expect(true) { indexState.find("identity") }
+        }
+
+        @Test fun `a document whose keys fail is skipped`() {
+            val idxThrowing = IndexingUMN.IndexDef.simple<String, String>("throwing",
+                { doc -> if (doc.startsWith("bad")) throw RuntimeException("simulated") else setOf(doc) }, String::class)
+            val good = IndexingUMN(storage, setOf(idxIdentity)).run { create("bad"); create("good") }
+            val umn = IndexingUMN(storage, setOf(idxIdentity, idxThrowing))
+            expect(listOf(good)) { umn.getIndex(idxThrowing).getSequenceOfIDs(For.all()).toList() }
+            expect(true) { indexState.find("throwing") }
+        }
+
+        @Test fun `a dropped index is cleared, and built anew once passed again`() {
+            val a = IndexingUMN(storage, setOf(idxIdentity, idxLength)).create("a")
+            val bb = IndexingUMN(storage, setOf(idxIdentity)).create("bb")
+            expect(true) { storage.openUtilityMap<Int, Array<UUID>>("INDEX2_length", CompositeKeyDataType()).isEmpty() }
+            expect(null) { indexState.find("length") }
+            val umn = IndexingUMN(storage, setOf(idxIdentity, idxLength))
+            expect(setOf(a)) { umn.getIndex(idxLength).findAllIDs(For.Key(1)) }
+            expect(setOf(bb)) { umn.getIndex(idxLength).findAllIDs(For.Key(2)) }
+        }
+
+        @Test fun `fills an index keyed to another document`() {
+            data class Parent(val name: String) : Serializable
+            data class Child(val name: String, val parentId: UUID) : Serializable
+            val idxParent = IndexingUMN.IndexDef<String, Child, Parent>("quick_parent_lookup",
+                { doc -> setOf(doc.name) }, Child::class, Parent::class, { _, doc -> doc.parentId })
+            val parent = IndexingUMN(storage, setOf()).run { create(Parent("p")).also { create(Child("c", it)) } }
+            val umn = IndexingUMN(storage, setOf(idxParent))
+            expect(parent to Parent("p")) { umn.getIndex(idxParent).findFirstDoc(For.Key("c")) }
+        }
+    }
+
     @Nested inner class ComplexIndex {
         @Test fun `fast parent retrieval`() {
             // in this example we're going to store the parent IDs instead of IDs of the children, to allow fast parent retrieval.

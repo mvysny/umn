@@ -91,6 +91,13 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
     private val map: MVMap<UUID, SerializedDocument> = store.openMap("ROOT2", MVMap.Builder<UUID, SerializedDocument>())
 
     /**
+     * Stores every write so far; see [MVStore.commit].
+     */
+    internal fun commit() {
+        store.commit()
+    }
+
+    /**
      * Migrates v1 database to v2. Only needs to be run once. Warning: thread-unsafe! Needs to be run after this class
      * is constructed, but before it is accessed by other parties.
      *

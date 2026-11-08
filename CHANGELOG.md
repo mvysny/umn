@@ -14,6 +14,12 @@ no entries.
   Migration: replace `PageFetchingList(index.keyLoader(), pageSize, marker)` with
   `index.keyPagedList(pageSize, dataMissingMarker = marker)`; code that used vok-dataloader for
   anything else declares it itself.
+- `IndexingUMN` builds a new index over the documents already stored, when it's constructed: that
+  one open walks the whole database, blocking. An index is built once and never rebuilt, so a
+  changed `keyGetter` or key type takes a new index name; an index no longer passed has its entries
+  cleared. A document whose keys throw during the build is logged and left out. Before, a new index
+  started empty and stayed blind to every existing document. Indices from earlier releases are
+  taken as built, holes included, unless still empty.
 - `CompositeKey`: an index key of several parts, ordered part by part, e.g.
   `CompositeKey.of(categoryId, ordinal)`; `For.prefix(CompositeKey.of(categoryId))` finds one
   category's documents in order. MVStore stores it natively, with no class name in the file, so

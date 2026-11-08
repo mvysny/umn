@@ -3,6 +3,7 @@ package com.gitlab.mvysny.umn.core
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
 import org.h2.mvstore.type.DataType
+import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -19,10 +20,9 @@ import kotlin.reflect.KClass
  * supported. For example you can have a key with two parts: the `key` itself which is used to range-select the values, and the `ordering`
  * part which is then used to order the paged results.
  *
- * The indices are never re-generated on function change; it is imperative that the [IndexDef.keyGetter] function is stable and always returns
- * the same set for given document. It is currently not possible to update an index for all documents; any changes to the [IndexDef.keyGetter]
- * function will be applied to newly inserted or updated documents only. You can not currently create a new index over a database with
- * existing documents.
+ * The constructor builds every index not built yet over the stored documents: one walk over all of them, blocking, so the first
+ * open after adding an index reads the whole database. An index once built is never rebuilt: to change its [IndexDef.keyGetter]
+ * or key type, give it a new name. `D_build_index_on_open`.
  *
  * ### Implementation
  * Intercepts all calls and passes them to underlying map, but updates the indices on the fly.
@@ -31,19 +31,87 @@ import kotlin.reflect.KClass
  * collisions, use TODO.
  *
  * Not atomic across a crash: the document and its index entries are separate writes, so a process dying between them leaves
- * the document unindexed, for good, since nothing reindexes (`D_three_op_log`).
+ * the document unindexed, for good, since a built index is never rebuilt.
  *
  * @property delegate delegate all calls to the underlying UMN storage. Typically an [MvstoreUMN].
- * @param indices the indices definition. WARNING: the same set of indices must be provided upon every UMN open! New indices not yet present
- * in the database will not reindex existing documents to build the index and searches will not find those documents. Changing the indexing
- * function will not reindex existing documents. Removing an index will not clear the associated index map.
+ * @param indices pass the same set on every open: an index left out has its entries cleared, and is built anew once passed again.
  */
 public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *, *>>) : UMN {
+
+    /**
+     * Prevents multiple threads from updating indices of a particular document at the same time.
+     *
+     * Pozor! Nestaci zamknut lock iba v [IndexImpl.registerUnregisterIndices]: ak naraz updatuje jeden dokument viacero threadov,
+     * operacie zapisu mozu bezat v inom poradi ako update indexov! Preto treba zamknut komplet cele metody.
+     */
+    private val indexUpdaterGlobalLock = ReentrantLock()
 
     /**
      * Maps index name to the index implementor.
      */
     private val indexMap: Map<String, IndexImpl<*, *, *>> = indices.associate { it.name to it.toImpl(this) }
+
+    /**
+     * Each index's build state, by name: `true` built, `false` a build begun, maybe cut short by a crash; no state for an index from
+     * before this map existed.
+     */
+    private val indexState: UtilityMap<String, Boolean> = delegate.openUtilityMap("INDEX_STATE")
+
+    init {
+        indexUpdaterGlobalLock.withLock {
+            clearDroppedIndices()
+            // an index from before INDEX_STATE: adopted, never rebuilt, for migrateV1V2(); D_build_index_on_open
+            indexMap.values.filter { indexState.find(it.def.name) == null && !it.isEmpty() }
+                .forEach { indexState.put(it.def.name, true) }
+            build(indexMap.values.filter { indexState.find(it.def.name) != true })
+        }
+    }
+
+    private fun clearDroppedIndices() {
+        val dropped = indexState.keyIterator().filter { it !in indexMap }.toList()
+        if (dropped.isEmpty()) return
+        dropped.forEach { name -> delegate.openUtilityMap<String, Any>(indexMapName(name), CompositeKeyDataType()).clear() }
+        // else a re-added index could find its old entries with no state, and adopt them
+        commit()
+        dropped.forEach { name -> indexState.put(name, null) }
+        log.info("Cleared the entries of indices no longer passed: $dropped")
+    }
+
+    /**
+     * Fills [indices] from every stored document; a document that fails to load, or whose keys fail, is logged and skipped.
+     */
+    private fun build(indices: List<IndexImpl<*, *, *>>) {
+        if (indices.isEmpty()) return
+        val start = System.currentTimeMillis()
+        val names = indices.map { it.def.name }
+        names.forEach { indexState.put(it, false) }
+        // before the first entry: entries with no state would be adopted as built
+        commit()
+        indices.forEach { it.clear() }
+        var count = 0
+        for (id in delegate.getSequenceOfIDs()) {
+            val document = try {
+                delegate.find(id, Any::class)
+            } catch (e: Exception) {
+                log.error("Building indices $names: skipping document $id, which fails to load", e)
+                null
+            } ?: continue
+            indices.forEach { it.indexStored(id, document) }
+            count++
+        }
+        // a stored `true` must imply every entry above
+        commit()
+        names.forEach { indexState.put(it, true) }
+        log.info("Built indices $names over $count documents in ${System.currentTimeMillis() - start} ms")
+    }
+
+    /**
+     * Stores every write so far, before any later one. MVStore alone may store a later write to one map before an earlier write to
+     * another (`R_mvstore_store_per_map`).
+     */
+    private fun commit() {
+        generateSequence(delegate) { it.delegate }.filterIsInstance<MvstoreUMN>().firstOrNull()?.commit()
+    }
 
     override fun create(document: Any, id: UUID): Boolean {
         return indexUpdaterGlobalLock.withLock {
@@ -141,14 +209,6 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
     }
 
     /**
-     * Prevents multiple threads from updating indices of a particular document at the same time.
-     *
-     * Pozor! Nestaci zamknut lock iba v [IndexImpl.registerUnregisterIndices]: ak naraz updatuje jeden dokument viacero threadov,
-     * operacie zapisu mozu bezat v inom poradi ako update indexov! Preto treba zamknut komplet cele metody.
-     */
-    private val indexUpdaterGlobalLock = ReentrantLock()
-
-    /**
      * @property K the type of keys (objects acting as index)
      * @property D the type of documents indexed by this index.
      * @property V the type of documents referenced by the keys.
@@ -159,7 +219,22 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
          * Maps key to a set of documents IDs (the [V] documents). Don't use Set since that's serialized using Java serialization; use Arrays
          * since that's serialized more effectively; see [ObjectDataType#TYPE_ARRAY] for more info.
          */
-        private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap("INDEX2_${def.name}", CompositeKeyDataType())
+        private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap(indexMapName(def.name), CompositeKeyDataType())
+
+        internal fun clear() {
+            indexStore.clear()
+        }
+
+        /**
+         * Indexes [document], already stored; logs and skips it if its keys or value ID fail.
+         */
+        internal fun indexStored(id: UUID, document: Any) {
+            try {
+                prepareUpdate(document, null)(id)
+            } catch (e: Exception) {
+                log.error("Building index ${def.name}: skipping document $id, whose keys fail", e)
+            }
+        }
 
         private fun registerUnregisterIndices(id: UUID, register: Set<K>, unregister: Set<K>) {
             check(indexUpdaterGlobalLock.isHeldByCurrentThread) { "lock not held!" }
@@ -493,6 +568,13 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
     override fun getSequenceOfIDs(): Sequence<UUID> = delegate.getSequenceOfIDs()
 
     // @todo implement unique index
+
+    private companion object {
+        @JvmStatic
+        private val log = LoggerFactory.getLogger(IndexingUMN::class.java)
+
+        private fun indexMapName(indexName: String): String = "INDEX2_$indexName"
+    }
 }
 
 /**

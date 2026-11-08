@@ -205,12 +205,15 @@ Now you need to tell UMN to use this index. That's easy:
 umn = IndexingUMN(umn, setOf(index))
 ```
 
-However, keep in mind there are currently critical restrictions:
+However, keep in mind:
 
-* You always have to provide the same set of indices upon opening of the UMN database.
-  * If you add new indices, existing documents are not reindexed automatically (as of now, I can add support for this later on).
-  * If you change the indexing function, existing documents will not be reindexed and they will remain stored under old keys.
-  * If you remove an index, it will stay around in the database.
+* Provide the same set of indices every time you open the UMN database.
+  * A new index is built over the existing documents when `IndexingUMN` is constructed: the
+    constructor walks and deserializes every document once, so that one open takes as long as
+    reading the whole database.
+  * An index is built once and never rebuilt. To change its indexing function or key type, give it
+    a new name; the old name, no longer passed, gets its entries cleared.
+  * A document whose indexing function throws during the build is logged and left out of the index.
 * The indexing function should work fast, without side effects and must be consistent in providing same results for particular document.
   
 > Note: The index occupies space in the MVStore database, however it's a transient utility space which is not

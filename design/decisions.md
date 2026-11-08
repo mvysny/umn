@@ -24,7 +24,7 @@ replay in global order — that is the whole sync design, and it is why backends
 in node-local utility maps. Why not SQL or sqlite: 10-100× slower than MVStore, and a query
 language has no replayable shape. Why not JSON documents: binary serialization is faster on a
 phone, so the format is the caller's {DocumentSerializer}. The cost we carry: no transactions,
-no query planner, and an index definition change does not reindex existing documents.
+no query planner, and a changed index definition takes a new index name (`D_build_index_on_open`).
 
 ## D_frozen_0_15_formats — Why freeze the 0.15 disk and wire formats rather than migrate them?
 
@@ -50,7 +50,7 @@ Aedict hit it with `IdxCategoryOrdinal` and pinned the UID. `ObjectDataType` als
 `ByteArray` codec must instead preserve order byte by byte (sign bits, `UUID`'s signed halves,
 terminated strings); a naive one, protobuf say, returns wrong ranges silently. A `DataType` per
 index would put H2 into `IndexDef`. Java-serialized keys stay allowed: files already hold them,
-and moving an index to `CompositeKey` needs the reindex `D_three_op_log` lacks. `K` stays a bare
+and moving an index to `CompositeKey` takes a new index name (`D_build_index_on_open`). `K` stays a bare
 `Comparable`; a non-serializable key fails on its first write.
 
 ## D_reconnect_in_syncer — Why does the Syncer reconnect rather than the GlobalLogClient?
@@ -104,3 +104,17 @@ it pays: the fill rate can't see leaked pages, and a heuristic is harder to reas
 constant cost on a rare deploy. Why not an operator command: nobody remembers it. Why not online:
 the copy needs the file closed. A rollback stays possible: the 0.12 server reads the copy, held so
 by `ServerUpgradeTest`. `compactDatabaseOnStartup: false` turns it off.
+
+## D_build_index_on_open — Why does IndexingUMN build a new index when constructed rather than in the background?
+
+A new index starts empty, and `update()` of an unchanged document registers no key, so only a walk
+over every document fills it. {IndexingUMN}'s constructor walks once for every index not yet built:
+no other thread holds the instance yet, so no write races the walk and no query sees a half-built
+index. The cost: the first open after adding an index blocks for the walk, paid once. The state lives in the node-local `INDEX_STATE`: `false` before the
+walk, `true` after, each behind a commit (`R_mvstore_store_per_map`), so a crash redoes the walk.
+An index from before `INDEX_STATE` is adopted when non-empty, not rebuilt: Aedict's `migrateV1V2()`,
+run after the constructor, types V1 documents by their old index entries. A document whose keys
+throw is logged and skipped: failing the open would lock the app out of its data. An index once
+built is never rebuilt, so a changed `keyGetter` or key type takes a new name; a name no longer
+passed is cleared. Accepted: an older app version doesn't maintain an index it doesn't know, so
+after a downgrade and upgrade that index misses the documents created meanwhile.
