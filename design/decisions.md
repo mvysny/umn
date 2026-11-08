@@ -39,21 +39,19 @@ REST paths and JSON. A new capability may add a node-local map, which 0.15 ignor
 record or message type: 0.15 throws on an unknown type byte, and its sync stops for good. The API may change freely: adapting the app is easy, while a sync
 or storage mismatch shows up as silently diverging data. `umn-compat-0.15`'s tests hold HEAD to it.
 
-## D_index_key_codec — Why do custom index keys go through Java serialization rather than a codec of their own?
+## D_index_key_codec — Why is a composite index key a `CompositeKey` rather than the app's own class or a codec?
 
-An index map (`__INDEX2_*`) is opened without a key type, so MVStore's `ObjectDataType` writes
-the keys: `String`, the boxed primitives, `UUID` and a few more natively, any other class with
-Java serialization, ordered by deserializing it and calling `compareTo`. Those bytes carry the
-class's full name and `serialVersionUID`; rename, move or obfuscate the class and the store
-fails to open — loudly: Aedict hit it with `IdxCategoryOrdinal` and pinned the UID. A key →
-`ByteArray` marshaler per index keeps H2 out of the API, but H2 orders a `byte[]` by its
-unsigned bytes, not by `compareTo`, so the encoding must preserve order (sign bits, `UUID`'s
-signed halves, terminated strings); a naive one, protobuf say, returns wrong ranges and pages
-silently. A `DataType` per index is `openUtilityMap`'s `keyType`, already in the API, but
-`IndexDef` would have to carry one. Either helps new indices only
-(`D_frozen_0_15_formats`; moving one needs the reindex `D_three_op_log` lacks). So Java
-serialization stays: its failures are loud. `K` is a bare `Comparable`, as in 0.15; a
-non-serializable key fails on its first write, a bound would only add an API break.
+An index map (`__INDEX2_*`) keeps MVStore's `ObjectDataType` keys: `String`, the boxed primitives
+and `UUID` natively, any other class with Java serialization, whose bytes carry the class's full
+name and `serialVersionUID`. Rename, move or obfuscate the class and the store fails to open:
+Aedict hit it with `IdxCategoryOrdinal` and pinned the UID. `ObjectDataType` also stores an
+`Object[]` of native parts natively, ordered part by part (`R_mvstore_object_array_keys`), so
+{CompositeKey} is that array: no class name in the file, and bytes 0.15 reads. A key →
+`ByteArray` codec must instead preserve order byte by byte (sign bits, `UUID`'s signed halves,
+terminated strings); a naive one, protobuf say, returns wrong ranges silently. A `DataType` per
+index would put H2 into `IndexDef`. Java-serialized keys stay allowed: files already hold them,
+and moving an index to `CompositeKey` needs the reindex `D_three_op_log` lacks. `K` stays a bare
+`Comparable`; a non-serializable key fails on its first write.
 
 ## D_reconnect_in_syncer — Why does the Syncer reconnect rather than the GlobalLogClient?
 

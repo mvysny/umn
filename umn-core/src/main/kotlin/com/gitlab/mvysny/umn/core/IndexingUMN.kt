@@ -86,11 +86,11 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
      * This would save you the time which would be otherwise wasted by loading of the document, retrieving its parent ID from the document,
      * and loading the parent.
      *
-     * WARNING: [MvstoreUMN] stores a key of any other type than [String], the boxed primitives, [java.math.BigInteger],
-     * [java.math.BigDecimal], [UUID] and [Date] with Java serialization, which writes the key class's full name and `serialVersionUID`
-     * into the file. Renaming, moving or obfuscating the class, or letting its `serialVersionUID` change, then makes the index
-     * unreadable, and the UMN fails to open. Build keys from those types where possible; a custom key class must be `Serializable`, pin
-     * its `serialVersionUID` and never move. See `D_index_key_codec`.
+     * Key a document by [String], a boxed primitive, [UUID], or a [CompositeKey] of those for a key of several parts: [MvstoreUMN]
+     * stores them natively. It stores any other key class with Java serialization, which writes the class's full name and
+     * `serialVersionUID` into the file: renaming, moving or obfuscating the class, or letting its `serialVersionUID` change, then makes
+     * the index unreadable, and the UMN fails to open. Such a class must be `Serializable`, pin its `serialVersionUID` and never move.
+     * See `D_index_key_codec`.
      *
      * @property K the type of keys. The type must properly implement [Any.equals] and [Any.hashCode]. Often the key is just a String,
      * but sometimes it's more complex comparable so that we can select a range of keys and have the values sorted.
@@ -163,7 +163,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
          * Maps key to a set of documents IDs (the [V] documents). Don't use Set since that's serialized using Java serialization; use Arrays
          * since that's serialized more effectively; see [ObjectDataType#TYPE_ARRAY] for more info.
          */
-        private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap("INDEX2_${def.name}")
+        private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap("INDEX2_${def.name}", CompositeKeyDataType())
 
         private fun registerUnregisterIndices(id: UUID, register: Set<K>, unregister: Set<K>) {
             check(indexUpdaterGlobalLock.isHeldByCurrentThread) { "lock not held!" }
@@ -496,6 +496,12 @@ public sealed class For<K: Comparable<K>> {
 
     public companion object {
         public fun <K: Comparable<K>> all(): For<K> = All()
+
+        /**
+         * Every key that starts with [prefix]'s parts, [prefix] included:
+         * `For.prefix(CompositeKey.of(categoryId))` matches `(categoryId, 1f)`, `(categoryId, 2.5f)` and so on.
+         */
+        public fun prefix(prefix: CompositeKey): For<CompositeKey> = KeyRange(prefix.prefixRange())
     }
 
     public class All<K: Comparable<K>>: For<K>() {

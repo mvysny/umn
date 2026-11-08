@@ -6,6 +6,11 @@ no entries.
 
 ## 0.18 — unreleased
 
+- `CompositeKey`: an index key of several parts, ordered part by part, e.g.
+  `CompositeKey.of(categoryId, ordinal)`; `For.prefix(CompositeKey.of(categoryId))` finds one
+  category's documents in order. MVStore stores it natively, with no class name in the file, so
+  prefer it to a custom `Serializable` key class, which breaks the database once renamed, moved or
+  obfuscated. Custom key classes keep working.
 - `findLastDoc` and `findLastID` given a `For.KeyRange` no longer return a document whose key lies
   below the range: when the range held no key, they returned the document under the next lower
   key, e.g. the last item of a neighbouring category.

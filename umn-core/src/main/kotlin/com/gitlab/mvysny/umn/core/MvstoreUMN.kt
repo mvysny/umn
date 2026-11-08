@@ -3,8 +3,11 @@ package com.gitlab.mvysny.umn.core
 import com.github.mvysny.vokdataloader.length
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
+import org.h2.mvstore.WriteBuffer
 import org.h2.mvstore.type.DataType
+import org.h2.mvstore.type.ObjectDataType
 import java.io.*
+import java.nio.ByteBuffer
 import java.util.*
 import kotlin.reflect.KClass
 
@@ -205,6 +208,8 @@ public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String
     private val map: MVMap<K, V> = store.openMap("__$name", MVMap.Builder<K, V>().keyType(keyType).valueType(valueType))
     override fun find(key: K): V? = map[key]
     override fun put(key: K, value: V?) {
+        // here, not at serialization: MVStore serializes later, on its background writer thread
+        require(key !is CompositeKey || !key.isRangeBound) { "$key is a range bound, not a key" }
         map.putOrRemove(key, value)
     }
     override fun getSmallestKey(): K? = map.firstKey()
@@ -219,4 +224,38 @@ public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String
     override fun isEmpty(): Boolean = map.isEmpty()
 
     override fun lowerKey(key: K): K? = map.lowerKey(key)
+}
+
+/**
+ * An index map's key type: [ObjectDataType], which also stores a [CompositeKey] as its `Object[]` of parts. Writes the same
+ * bytes as a plain [ObjectDataType], which MVStore 1.4 doesn't record in the file (`R_mvstore_object_array_keys`), so
+ * indices written before, and by 0.15, read unchanged.
+ *
+ * Only index maps: code reading a utility map with a raw `MVStore.openMap()`, such as `umn-compat-0.15`'s for the sync
+ * maps, opens it with a plain [ObjectDataType], and one open map takes one key type.
+ */
+internal class CompositeKeyDataType : DataType {
+    private val delegate = ObjectDataType()
+
+    private fun toStorage(obj: Any?): Any? = if (obj is CompositeKey) obj.toStorage() else obj
+
+    override fun compare(a: Any?, b: Any?): Int =
+        if (a is CompositeKey && b is CompositeKey) a.compareTo(b) else delegate.compare(toStorage(a), toStorage(b))
+
+    override fun getMemory(obj: Any?): Int = delegate.getMemory(toStorage(obj))
+
+    override fun write(buff: WriteBuffer, obj: Any?) {
+        delegate.write(buff, toStorage(obj))
+    }
+
+    override fun write(buff: WriteBuffer, obj: Array<out Any?>, len: Int, key: Boolean) {
+        for (i in 0 until len) write(buff, obj[i])
+    }
+
+    // K is Comparable, so an array read back can only be a CompositeKey's parts
+    override fun read(buff: ByteBuffer): Any? = delegate.read(buff).let { if (it is Array<*>) CompositeKey.fromStorage(it) else it }
+
+    override fun read(buff: ByteBuffer, obj: Array<Any?>, len: Int, key: Boolean) {
+        for (i in 0 until len) obj[i] = read(buff)
+    }
 }

@@ -203,7 +203,11 @@ umn.facet<IndexingUMN>().getIndex(index).findAllDocs(For.KeyRange("A".."F"))
 Beware: Java `Comparable` is used; the above range lookup will not find "Fredu" because the Java String
 "F" is less than the String "Fredu" in Java `Comparable` comparison.
 
-You can use any Java object as a key, as long as it is `Serializable` and implements `Comparable`.
+A key is a `String`, a boxed primitive, a `UUID`, a `Date`, a `BigInteger` or a `BigDecimal`, or
+a `CompositeKey` of several of them (below). MVStore stores these natively. Any other `Comparable`
+class works too, but goes through Java serialization, which writes the class's name and
+`serialVersionUID` into the file. Rename or move that class, let R8 obfuscate it, or let its
+`serialVersionUID` change, and the database no longer opens. Prefer `CompositeKey`.
 
 ### Ordering
 
@@ -211,24 +215,15 @@ The keys in the index are ordered. All lookup functions will preserve this order
 documents in this order. We can use this to our advantage: say that we want to look up people by
 surname, and keep them sorted first by surname, then by first name.
 
-Let's define a key class for that:
+A `CompositeKey` orders by its first part, then by its second, and so on:
 
 ```kotlin
-data class KeySurnameFirstname(val surname: String, val firstname: String) : Serializable, Comparable<KeySurnameFirstname> {
-    override fun compareTo(other: KeySurnameFirstname): Int = compareValuesBy(this, other, { it.surname }, { it.firstname })
-    companion object {
-        fun allWithSurname(surname: String) = For.KeyRange(
-                KeySurnameFirstname(surname, "")..KeySurnameFirstname(surname, "\uffff"))
-    }
-}
+val idxSurnameFirstname = IndexingUMN.IndexDef.simple<CompositeKey, Person>("person_surname_firstname",
+    { doc -> setOf(CompositeKey.of(doc.surname, doc.name)) }, Person::class)
 ```
 
-Now we can define another index to key the documents:
-
-```kotlin
-val idxSurnameFirstname = IndexingUMN.IndexDef.simple<KeySurnameFirstname, Person>("person_surname_firstname", 
-    { doc -> setOf(KeySurnameFirstname(doc.surname, doc.name)) }, Person::class)
-```
+Keep one type per position: parts of different types sort by type, not by value, so an `Int` 5
+sorts before a `Long` 3.
 
 We need to register the index to the `IndexingUMN` wrapper:
 
@@ -236,10 +231,12 @@ We need to register the index to the `IndexingUMN` wrapper:
 umn = IndexingUMN(umn, setOf(index, idxSurnameFirstname))
 ```
 
-Now we can look up all "Vysny" guys:
+Now we can look up all "Vysny" guys, sorted by first name. `For.prefix` matches every key that
+starts with the given parts:
 
 ```kotlin
-val personnel = umn.facet<IndexingUMN>().getIndex(idxSurnameFirstname).findAllDocs(KeySurnameFirstname.allWithSurname("Vysny"))
+val vysny = For.prefix(CompositeKey.of("Vysny"))
+val personnel = umn.facet<IndexingUMN>().getIndex(idxSurnameFirstname).findAllDocs(vysny)
 ```
 
 However that would take up lots of memory if there were lots of matching persons. We can use an
@@ -247,7 +244,7 @@ iterator which will lazily fetch the guys for us from the database:
 
 ```kotlin
 val personnel: Sequence<Pair<UUID, Person>> =
-    umn.facet<IndexingUMN>().getIndex(idxSurnameFirstname).getSequenceOfDocs(KeySurnameFirstname.allWithSurname("Vysny"))
+    umn.facet<IndexingUMN>().getIndex(idxSurnameFirstname).getSequenceOfDocs(vysny)
 personnel.forEach { (_, person) -> println(person) }
 ```
 

@@ -75,3 +75,21 @@ keep it short. When you have written an entry, re-read it against the one above 
 - The file is `nio:` by default, a `RandomAccessFile`'s `FileChannel`: interrupting a thread inside
   its I/O closes the channel for every thread (`ClosedByInterruptException`), and the store is
   dead until reopened. **[src]**, **[docs]** (`InterruptibleChannel`)
+
+## R_mvstore_object_array_keys — an `Object[]` key is native, ordered part by part
+
+- `ObjectDataType` writes an `Object[]` as `TYPE_ARRAY`, its component class's index in
+  `COMMON_CLASSES` (`Object` is 8), the length, then each element under its own type tag; only a
+  component class outside `COMMON_CLASSES` is written by name. Read back, it is an `Object[]`.
+  **[src]**, **[verified 2026-11-08, 1.4.198]**
+- Two arrays compare element by element through `ObjectDataType`, then the shorter first.
+  Elements of different types order by type id (`Integer` 4 before `Long` 5), not by value. **[src]**
+- A map's metadata holds only `name`, `createVersion` and `type` (`MVMap.asString()`); its key and
+  value `DataType`s live only in the code that opens it. A `DataType` that writes the same bytes
+  reads the same file. **[src]**
+- Within one open store, a map takes the `DataType` of whoever opens it first. A later `openMap()`
+  with another `DataType` class gets that map, and trips an `assert` under `-ea`
+  (`MVStore.openMap()`): a test reading a UMN map raw then breaks the UMN. **[src]**,
+  **[verified 2026-11-08, 1.4.198]**
+- `ObjectDataType`'s one field caches the last type seen; each type re-checks `instanceof` and
+  falls back, so a race on it costs a lookup, never a wrong answer. **[src]**

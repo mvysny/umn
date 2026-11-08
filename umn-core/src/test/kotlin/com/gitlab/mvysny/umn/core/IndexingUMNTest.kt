@@ -254,6 +254,48 @@ abstract class IndexingUmnTestBattery {
         }
     }
 
+    @Nested inner class ForPrefix {
+        // a document's category is its first letter, its position its length
+        private val idxCategory = IndexingUMN.IndexDef.simple<CompositeKey, String>("category",
+            { doc -> setOf(CompositeKey.of(doc.take(1), doc.length)) }, String::class)
+        private val umn = IndexingUMN(newStorage(), setOf(idxCategory))
+        private val index get() = umn.getIndex(idxCategory)
+        private fun category(c: String) = For.prefix(CompositeKey.of(c))
+
+        init {
+            listOf("ccc", "a", "aaa", "c", "aa").forEach { umn.create(it) }
+        }
+
+        @Test fun `finds a category's documents in order`() {
+            expect(listOf("a", "aa", "aaa")) { index.findAllDocs(category("a")).values.toList() }
+            expect(listOf("c", "ccc")) { index.getSequenceOfDocs(category("c")).map { it.second }.toList() }
+            expect(listOf("aa", "aaa")) { index.findAllDocsPaged(category("a"), 1..5).values.toList() }
+        }
+
+        @Test fun `finds the first and the last of a category`() {
+            expect("a") { index.findFirstDoc(category("a"))?.second }
+            expect("aaa") { index.findLastDoc(category("a"))?.second }
+            expect("ccc") { index.findLastDoc(category("c"))?.second }
+        }
+
+        @Test fun `finds nothing in an empty category, nor in its neighbours`() {
+            expect(null) { index.findFirstDoc(category("b")) }
+            expect(null) { index.findLastDoc(category("b")) }
+            expect(null) { index.findLastDoc(category("0")) }
+            expect(null) { index.findFirstDoc(category("d")) }
+            expect(0) { index.getCount(category("b")) }
+        }
+
+        @Test fun `counts and lists the keys`() {
+            expect(3) { index.getCount(category("a")) }
+            expect(listOf(CompositeKey.of("c", 1), CompositeKey.of("c", 3))) { index.keySequence(category("c")).toList() }
+        }
+
+        @Test fun `a full key is a prefix of itself`() {
+            expect(listOf("aa")) { index.findAllDocs(For.prefix(CompositeKey.of("a", 2))).values.toList() }
+        }
+    }
+
     @Nested inner class FindAllByKey {
         @Test fun `returns empty list on empty map`() {
             val umn = IndexingUMN(newStorage(), indices)
