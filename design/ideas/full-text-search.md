@@ -71,6 +71,17 @@ full-text as an `IndexDef` plus a join query. One wrapper, one lock, one reindex
 same fix also helps any other many-documents-per-key index. The other direction is a standalone
 wrapper again, fixed as listed above.
 
+## Scope as first sketched (issue #7, 2019)
+
+- **Queries:** AND on words first, OR later; never wildcards, fuzzy matching, fields or phrases.
+  Inspiration: [Lucene's query syntax](https://lucene.apache.org/core/2_9_4/queryparsersyntax.html);
+  on multi-word queries over an inverted index:
+  [this StackOverflow answer](https://stackoverflow.com/questions/6032469/use-of-indexes-for-multi-word-queries-in-full-text-search-e-g-web-search).
+- **A pluggable `Analyzer` interface:** splits text into words, drops stop words, normalizes
+  (lowercase, stemming). The default: JDK `BreakIterator.getWordInstance()`, Lucene's English
+  stop words, `String.lowercase()`, a Porter stemmer. The experiment hardwired that default; an
+  interface is what lets Japanese plug in its own (`Q_fulltext_use_case`).
+
 ## Open questions
 
 - `Q_fulltext_use_case`: what uses it first? If it is Aedict's notepad, which text is searched:
