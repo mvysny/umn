@@ -23,7 +23,6 @@ jetty-ee10-bom = "org.eclipse.jetty.ee10:jetty-ee10-bom:12.1.14"
 # 1.4.198+ requires Android 19 or higher, under minSdk 22: https://gitlab.com/mvysny/umn/issues/6
 # Never 2.x, and a 1.4.x bump keeps file format 1 and the ObjectDataType tags: D_frozen_0_15_formats
 h2-mvstore = "com.h2database:h2-mvstore:1.4.198"
-vok-dataloader = "com.github.mvysny.vokdataloader:vok-dataloader:0.9.1"
 
 testcontainers = "org.testcontainers:testcontainers:2.0.5"
 testcontainers-junit-jupiter = "org.testcontainers:testcontainers-junit-jupiter:2.0.5"

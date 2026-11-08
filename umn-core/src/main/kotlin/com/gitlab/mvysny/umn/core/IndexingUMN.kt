@@ -1,9 +1,5 @@
 package com.gitlab.mvysny.umn.core
 
-import com.github.mvysny.vokdataloader.DataLoader
-import com.github.mvysny.vokdataloader.Filter
-import com.github.mvysny.vokdataloader.SortClause
-import com.github.mvysny.vokdataloader.intRange
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef
 import com.gitlab.mvysny.umn.core.IndexingUMN.IndexDef.Companion.simple
 import org.h2.mvstore.type.DataType
@@ -411,9 +407,41 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
         public fun containsValueDocument(id: UUID): Boolean = getSequenceOfIDs(For.all()).contains(id)
 
         /**
-         * Returns a paged data loader which loads keys of this index.
+         * The number of distinct keys, O(1); [getSize] counts the documents instead.
          */
-        public fun keyLoader(): DataLoader<K> = KeyLoader(indexStore)
+        public fun keyCount(): Int = indexStore.keyCount()
+
+        /**
+         * The keys at positions [indices] in key order, O(log n + page size); position 0 is the smallest key, or the largest
+         * when [descending]. A range past the last key returns what there is.
+         * @throws IllegalArgumentException if [indices] holds a negative position.
+         */
+        public fun keyPage(indices: IntRange, descending: Boolean = false): List<K> {
+            if (!descending) return indexStore.keyPage(indices)
+            if (indices.isEmpty()) return listOf()
+            require(indices.first >= 0) { "$indices contains negative indices" }
+            val last = indexStore.keyCount() - 1
+            return indexStore.keyPage((last - indices.last).coerceAtLeast(0)..last - indices.first).asReversed()
+        }
+
+        /**
+         * A read-only list of this index's keys that loads them a page at a time, as it is read: walking it is fast, even
+         * over a big index. Made for a UI list:
+         *
+         * ```
+         * listView.adapter = ArrayAdapter(ctx, android.R.layout.simple_list_item_1,
+         *     index.keyPagedList(30, descending = true, dataMissingMarker = "Please refresh"))
+         * ```
+         *
+         * Its size is fixed when it is created, so an adapter never sees it change unannounced: once the index changes, create
+         * a new list and notify the adapter. Until then, a page loaded after the change shows the keys at their new positions,
+         * and a position past the current last key reads as [dataMissingMarker].
+         *
+         * @param pageSize the keys loaded at once; for a UI, about as many as fit the screen. Keeps three pages around.
+         * @param dataMissingMarker null: a position past the current last key throws [IndexOutOfBoundsException].
+         */
+        public fun keyPagedList(pageSize: Int, descending: Boolean = false, dataMissingMarker: K? = null): List<K> =
+            PagedList(keyCount(), pageSize, dataMissingMarker) { keyPage(it, descending) }
     }
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = delegate.find(id, clazz)
@@ -507,19 +535,5 @@ public sealed class For<K: Comparable<K>> {
     public class All<K: Comparable<K>>: For<K>() {
         override val isEmpty: Boolean
             get() = false
-    }
-}
-
-public class KeyLoader<K : Comparable<K>>(private val map: UtilityMap<K, *>) : DataLoader<K> {
-    override fun fetch(filter: Filter<K>?, sortBy: List<SortClause>, range: LongRange): List<K> {
-        require(filter == null) { "filtering is unsupported: $filter" }
-        require(sortBy.isEmpty()) { "sorting is unsupported: $sortBy" }
-        require(range.isEmpty() || range.first >= 0) { "range $range contains negative indices" }
-        return map.keyPage(range.intRange)
-    }
-
-    override fun getCount(filter: Filter<K>?): Long {
-        require(filter == null) { "filtering is unsupported: $filter" }
-        return map.keyCount().toLong()
     }
 }

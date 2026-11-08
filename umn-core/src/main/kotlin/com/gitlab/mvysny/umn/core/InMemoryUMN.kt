@@ -2,8 +2,6 @@
 
 package com.gitlab.mvysny.umn.core
 
-import com.github.mvysny.vokdataloader.intersection
-import com.github.mvysny.vokdataloader.subList
 import org.h2.mvstore.type.DataType
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -83,7 +81,7 @@ public class InMemoryUtilityMap<K : Comparable<K>, V> : UtilityMap<K, V> {
         if (indexRange.isEmpty()) return listOf()
         require(indexRange.start >= 0) { "$indexRange contains negative indices" }
         val allKeys = map.keys.toList().sorted()
-        return allKeys.subList(indexRange.intersection(allKeys.indices))
+        return allKeys.slice(indexRange.first..minOf(indexRange.last, allKeys.lastIndex))
     }
 
     override fun containsKey(key: K): Boolean = map.containsKey(key)

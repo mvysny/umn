@@ -1,6 +1,5 @@
 package com.gitlab.mvysny.umn.core
 
-import com.github.mvysny.vokdataloader.length
 import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
 import org.h2.mvstore.WriteBuffer
@@ -193,7 +192,8 @@ public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String
         if (indexRange.isEmpty()) return listOf()
         require(indexRange.start >= 0) { "$indexRange contains negative indices" }
         val startingKey = map.getKey(indexRange.first.toLong()) ?: return listOf()
-        return map.keyIterator(startingKey).asSequence().take(indexRange.length).toList()
+        val length = minOf(indexRange.last.toLong() - indexRange.first + 1, Int.MAX_VALUE.toLong()).toInt()
+        return map.keyIterator(startingKey).asSequence().take(length).toList()
     }
 
     override fun containsKey(key: K): Boolean = map.containsKey(key)

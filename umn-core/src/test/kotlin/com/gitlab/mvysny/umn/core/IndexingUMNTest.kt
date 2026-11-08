@@ -1,6 +1,5 @@
 package com.gitlab.mvysny.umn.core
 
-import com.github.mvysny.vokdataloader.SortClause
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.io.Serializable
@@ -574,15 +573,52 @@ abstract class IndexingUmnTestBattery {
         expect(2) { umn.getIndex(idxToLong).findAllIDsPaged(For.KeyRange(50L..55L), 4..10).size }
     }
 
-    @Test fun `keyLoader pages through the keys`() {
-        val umn = IndexingUMN(newStorage(), setOf(idxToLong))
-        (0..9).shuffled().forEach { umn.create(it.toString()) }
-        val loader = umn.getIndex(idxToLong).keyLoader()
-        expect(10L) { loader.getCount(null) }
-        expect(listOf(2L, 3L, 4L)) { loader.fetch(null, listOf(), 2L..4L) }
-        expect(listOf()) { loader.fetch(null, listOf(), LongRange.EMPTY) }
-        assertFailsWith<IllegalArgumentException> { loader.fetch(null, listOf(SortClause("key", false)), 0L..1L) }
-        assertFailsWith<IllegalArgumentException> { loader.fetch(null, listOf(), -1L..1L) }
+    @Nested inner class KeyPaging {
+        private val umn = IndexingUMN(newStorage(), setOf(idxToLong, idxLength))
+        private val index get() = umn.getIndex(idxToLong)
+
+        init {
+            (0L..9L).shuffled().forEach { umn.create(it.toString()) }
+        }
+
+        @Test fun `keyCount counts distinct keys`() {
+            expect(10) { index.keyCount() }
+            umn.create("100")
+            umn.create("200")
+            expect(2) { umn.getIndex(idxLength).keyCount() }
+        }
+
+        @Test fun `keyPage pages ascending`() {
+            expect(listOf(2L, 3L, 4L)) { index.keyPage(2..4) }
+            expect(listOf(8L, 9L)) { index.keyPage(8..20) }
+            expect(listOf()) { index.keyPage(10..20) }
+            expect(listOf()) { index.keyPage(IntRange.EMPTY) }
+            assertFailsWith<IllegalArgumentException> { index.keyPage(-1..1) }
+        }
+
+        @Test fun `keyPage pages descending`() {
+            expect(listOf(9L, 8L, 7L)) { index.keyPage(0..2, descending = true) }
+            expect(listOf(7L, 6L, 5L)) { index.keyPage(2..4, descending = true) }
+            expect(listOf(1L, 0L)) { index.keyPage(8..20, descending = true) }
+            expect(listOf()) { index.keyPage(10..20, descending = true) }
+            expect(listOf()) { index.keyPage(IntRange.EMPTY, descending = true) }
+            assertFailsWith<IllegalArgumentException> { index.keyPage(-1..1, descending = true) }
+        }
+
+        @Test fun `keyPagedList lists every key, either way`() {
+            expect((0L..9L).toList()) { index.keyPagedList(3).toList() }
+            expect((9L downTo 0L).toList()) { index.keyPagedList(3, descending = true).toList() }
+            expect((0L..9L).toList()) { index.keyPagedList(100).toList() }
+            expect(listOf()) { IndexingUMN(newStorage(), setOf(idxToLong)).getIndex(idxToLong).keyPagedList(3) }
+        }
+
+        @Test fun `keyPagedList keeps its size, a key gone since reads as the marker`() {
+            val list = index.keyPagedList(4, dataMissingMarker = -1L)
+            index.findAllIDs(For.KeyRange(5L..9L)).forEach { umn.delete(it) }
+            expect(10) { list.size }
+            expect((0L..4L).toList() + List(5) { -1L }) { list.toList() }
+            assertFailsWith<IndexOutOfBoundsException> { index.keyPagedList(4).also { umn.delete(index.findFirstID(For.Key(0L))!!) }[4] }
+        }
     }
 
     @Test fun `getIndex by name`() {

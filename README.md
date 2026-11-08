@@ -260,26 +260,24 @@ them up by using appropriate indices.
 
 In your UI, you often you need to show a list of documents, such as articles. In the UI, only a few fields of a document will appear
 (e.g. the Title of an Article). Loading all documents into memory, deserializing them and reading the title in order to populate the UI
-would be quite an overkill. Instead, what you can do
-is that you can create a (String) index that extracts that information from the documents as they are created or updated.
-You can then load a paged lazy view of all index keys and display them in your UI. This is very fast since the strings are
-read directly from a NoSQL table. You can even use keys of different type than String: you can use any Serializable
-Java/Kotlin object you wish, it only needs a proper `equals()/hashCode()`.
+would be quite an overkill. Instead, create an index whose key is what the UI shows, a `String` or a `CompositeKey`, and list
+the index's keys: they're read straight from the index, without loading a single document.
 
 For example, imagine that you have an index that extracts titles from your Articles, and you want to display that in Android's
-`ListView`. Just do:
+`ListView`, newest first:
 
 ```kotlin
 val articleTitleIdxDef: IndexingUMN.IndexDef<String, Article, Article> = IndexingUMN.IndexDef.simple("article_title",
-        { doc -> setOf(doc.title) }, Article::class)
+        { doc -> setOf("${doc.created.isoFormat()}: ${doc.title}") }, Article::class)  // an ISO date sorts as text
 val index = indexingUMN.getIndex(articleTitleIdxDef)
-val dataLoader: DataLoader<String> = index.keyLoader()
-val pagedList: List<T> = PageFetchingList(dataLoader, 30, "Please refresh")
-listView.adapter = ArrayAdapter(ctx, android.R.layout.simple_list_item_1, Collections.unmodifiableList(pagedList))
+val titles: List<String> = index.keyPagedList(30, descending = true, dataMissingMarker = "Please refresh")
+listView.adapter = ArrayAdapter(ctx, android.R.layout.simple_list_item_1, titles)
 ```
 
-The adapter will use `PageFetchingList` to lazily fetch pages of keys via the `keyLoader()` as the user scrolls the `ListView`.
-The `PageFetchingList` will only cache three pages so this solution works even with large amount of documents.
+`keyPagedList()` loads 30 keys at a time as the user scrolls, and keeps only three pages, so this works for any number of
+articles. Its size is fixed when it's created, so the `ListView` never sees it change unannounced: after the index
+changes, create a new list and notify the adapter. Until then, a key deleted since reads as `"Please refresh"`.
+To page by hand, `index.keyCount()` and `index.keyPage(0..29, descending = true)`.
 
 ## Facet / Layouts
 

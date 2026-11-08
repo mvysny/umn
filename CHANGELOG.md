@@ -6,6 +6,14 @@ no entries.
 
 ## 0.18 — unreleased
 
+- **Breaking:** `IndexImpl.keyLoader()` and `KeyLoader` are gone, and with them the vok-dataloader
+  dependency. In their place, `IndexImpl.keyPagedList(pageSize, descending, dataMissingMarker)`, a
+  `List` that loads an index's keys a page at a time, and in either order, for a UI list; and
+  `keyCount()` and `keyPage(indices, descending)` to page by hand. Unlike `PageFetchingList`, the
+  list's size is fixed when it's created, so an Android adapter never sees it change unannounced.
+  Migration: replace `PageFetchingList(index.keyLoader(), pageSize, marker)` with
+  `index.keyPagedList(pageSize, dataMissingMarker = marker)`; code that used vok-dataloader for
+  anything else declares it itself.
 - `CompositeKey`: an index key of several parts, ordered part by part, e.g.
   `CompositeKey.of(categoryId, ordinal)`; `For.prefix(CompositeKey.of(categoryId))` finds one
   category's documents in order. MVStore stores it natively, with no class name in the file, so
