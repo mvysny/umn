@@ -47,6 +47,7 @@ moved to the files above first.
 - `umn-proxy-server` — standalone websocket proxy server with an MVStore global log and REST admin; Docker image, and a library to embed (`Main`).
 - `umn-proxy-server-adminclient` — Kotlin client for the proxy server's REST admin API.
 - `umn-compat-0.15` — guards `D_frozen_0_15_formats`: forked UMN 0.15 nodes and HEAD sync through the production proxy-server image (Testcontainers, skipped without Docker) and through HEAD's, in-process; unpublished.
+- `umn-kotlinx-test` — proves the README's kotlinx.serialization `DocumentSerializer` example; unpublished, so the serialization compiler plugin never runs on `umn-core`.
 
 ## Conventions
 

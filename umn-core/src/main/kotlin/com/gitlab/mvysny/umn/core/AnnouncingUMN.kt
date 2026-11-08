@@ -96,8 +96,6 @@ public sealed class LogRecord(public open val id: UUID) {
             dout.writeLong(id.leastSignificantBits)
             dout.writeLong(id.mostSignificantBits)
             dout.writeShort(type.toInt())
-            // @todo write payload size so that we can analyze log items server-side without reading the actual document
-            // this will allow us to purge the server-side log by removing of the deleted documents
             serializer.serialize(document, dout)
         }
 

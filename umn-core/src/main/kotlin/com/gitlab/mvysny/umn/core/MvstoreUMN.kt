@@ -15,6 +15,10 @@ import kotlin.reflect.KClass
  * * The standard Java Serialization (by the means of [JavaDocumentSerializer])
  * * You can store the documents as JSON (say by using `Gson`)
  * * You can provide a completely custom serialization solution
+ *
+ * The document is always the last item of the stream, with no length in front of it, both in the store and in a
+ * [LogRecord], whose bytes are frozen (`D_frozen_0_15_formats`). A format that doesn't mark its own end, ProtoBuf say,
+ * reads the stream to its end; the README has a kotlinx.serialization example.
  */
 public interface DocumentSerializer {
     /**

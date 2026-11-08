@@ -41,6 +41,35 @@ The recommended way to get that is
   Remove only a property that has a default value in every released version, or older apps
   can't decode the newer blobs.
 
+UMN ships no kotlinx.serialization adapter. This `DocumentSerializer` is all it takes (it's
+`umn-kotlinx-test`'s `KotlinxDocumentSerializerTest`, so it is known to work):
+
+```kotlin
+@OptIn(ExperimentalSerializationApi::class)
+object ProtoBufDocumentSerializer : DocumentSerializer {
+    override fun serialize(document: Any, dout: DataOutputStream) {
+        dout.write(ProtoBuf.encodeToByteArray(serializer(document.javaClass), document))
+    }
+
+    override fun <T : Any> deserialize(clazz: KClass<T>, din: DataInputStream): T {
+        // the document is the stream's last item, with no length in front: read it to the end
+        val document = ProtoBuf.decodeFromByteArray(serializer(clazz.java), din.readBytes())
+        return clazz.java.cast(document)
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class Note(@ProtoNumber(1) val title: String, @ProtoNumber(2) val stars: Int = 0)
+```
+
+Read to the end of `din`: UMN writes no length in front of a document, and ProtoBuf doesn't mark
+where it ends.
+
+kotlinx.serialization is for documents, never for index keys. An index orders its keys, and
+serialized bytes don't sort the way the values do. Key an index by a `String`, a boxed
+primitive, a `UUID`, or a `CompositeKey` of them (see [Index](#index)).
+
 The ProtoBuf format is still marked `@ExperimentalSerializationApi`. If you'd rather have blobs
 that describe themselves without a schema, kotlinx.serialization's
 [CBOR format](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/formats.md#cbor-experimental)
