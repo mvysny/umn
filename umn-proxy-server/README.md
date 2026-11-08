@@ -117,7 +117,7 @@ only Caddy reaches it.
   0.17; give an older one an `OkHttpClient` with a `pingInterval`.
 - **A config reload drops every websocket**, unless the Caddyfile sets `stream_close_delay`. The
   nodes' syncers reconnect by themselves.
-- The server sees every client as `127.0.0.1`: it ignores Caddy's `X-Forwarded-For`.
+- The server sees every client as `127.0.0.1`: it neither uses nor logs Caddy's `X-Forwarded-For`.
 
 nginx or HAProxy work the same way, but they don't get certificates by themselves: they need
 certbot and a reload hook, as `secure:` does.

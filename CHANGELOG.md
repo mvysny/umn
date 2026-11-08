@@ -28,6 +28,9 @@ no entries.
   data, else it's skipped with a warning; `compactDatabaseOnStartup: false` under `standalone:`
   turns it off. Mount the `db` directory in Docker, not the file alone. Space already lost comes back only from an offline
   `MVStoreTool.compact()` of the file, on a copy first, during a planned stop.
+- The proxy server logs a connection's `username`, `rewind`, `User-Agent` and `Host` headers, no
+  longer all of them but `password`: behind a reverse proxy, `X-Forwarded-For` put each client's IP
+  address beside its user ID in the log.
 
 ## 0.17 — 2026-11-04
 

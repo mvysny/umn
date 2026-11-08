@@ -38,12 +38,13 @@ internal class UMNProxyWebsocketListener(private val session: Session, private v
 
     fun onWebSocketConnect() {
         try {
-            log.info("Got connection; headers=${session.upgradeRequest.headers.filterKeys { !it.equals("password", ignoreCase = true) }}")
-
             // Jetty's lookup ignores the header name's case, Javalin's WsContext.header() doesn't
-            val username: String? = session.upgradeRequest.getHeader("username")
-            val password: String? = session.upgradeRequest.getHeader("password")
-            val rewindStr: String? = session.upgradeRequest.getHeader("rewind")
+            val request = session.upgradeRequest
+            val username: String? = request.getHeader("username")
+            val password: String? = request.getHeader("password")
+            val rewindStr: String? = request.getHeader("rewind")
+            // Named headers only, never all of them: behind a reverse proxy the rest carry the client's IP address.
+            log.info("$username: Got connection; rewind=$rewindStr, User-Agent=${request.getHeader("User-Agent")}, Host=${request.getHeader("Host")}")
             if (username == null || password == null || rewindStr == null) {
                 throw InvalidUsernamePasswordException("Missing headers")
             }
@@ -64,10 +65,10 @@ internal class UMNProxyWebsocketListener(private val session: Session, private v
             }
             logStorage.start()
             session.send(AbstractMessage.Started)
-            log.info("Connection successful, sent handshake AbstractMessage.Started")
+            log.info("$username: Connection successful, sent handshake AbstractMessage.Started")
         } catch (e: InvalidUsernamePasswordException) {
             logStorage?.closeQuietly()
-            log.warn("Invalid username/password", e)
+            log.warn("$username: Invalid username/password", e)
             session.close(AbstractMessage.WS_INVALID_USERNAME_PASSWORD, e.message, Callback.NOOP)
         } catch (e: Throwable) {
             logStorage?.closeQuietly()
