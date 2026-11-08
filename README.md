@@ -375,13 +375,20 @@ It hears the current status first, then every change, on the syncer's own thread
 syncingUMN.syncer.setStatusListener { status ->
     when (status) {
         SyncerStatus.Stopped, SyncerStatus.Connecting, SyncerStatus.Connected -> {}
-        is SyncerStatus.Offline -> {}  // reconnects in status.retryInMillis
+        is SyncerStatus.Offline -> when (status.cause) {
+            is LogRecordNotAppliedException -> {}  // stuck: e.g. "update the app to keep syncing"
+            else -> {}                             // reconnects in status.retryInMillis
+        }
         is SyncerStatus.Failed -> {}   // wrong username or password
     }
 }
 ```
 
 `syncingUMN.syncer.status` is the current status, and `setStatusListener(null)` removes the listener.
+
+A record from another node that this node can't apply stops syncing at that record, both ways,
+until it applies. Typically an older app version has received a document class added by a newer
+one. Show that `LogRecordNotAppliedException` cause to the user: an app update unblocks the sync.
 
 ### Syncing Limitations
 

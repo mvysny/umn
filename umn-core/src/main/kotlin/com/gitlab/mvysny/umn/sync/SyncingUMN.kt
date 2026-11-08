@@ -48,11 +48,11 @@ private class GlobalLogPusher(
     }
 
     /**
-     * Pushes the buffer to the started client; returns once the client is no longer started.
+     * Pushes the buffer to the started client; returns once the client is no longer started, or [keepGoing] turns false.
      * @throws IOException when the connection fails while sending.
      */
-    fun push() {
-        while (!closed && globalLogClient.isStarted) {
+    fun push(keepGoing: () -> Boolean) {
+        while (!closed && globalLogClient.isStarted && keepGoing()) {
             val item = buffer.poll()
             if (item == null) {
                 Thread.sleep(100)
@@ -96,7 +96,8 @@ internal class Backoff(val initialMillis: Long = 1000L, val maxMillis: Long = 60
  * same effect.
  *
  * Once [close] returns, records are ignored: a late one from a closed client would move the log
- * pointer under the next puller.
+ * pointer under the next puller. So are the records after one that fails to apply, its [failure]:
+ * the log pointer stays on it, and the next puller retries it.
  *
  * @param globalLogClient not closed by this class
  */
@@ -106,6 +107,9 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
                               forceRestartSync: Boolean) : Closeable {
     private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
     private var closed: Boolean = false
+    @Volatile
+    var failure: LogRecordNotAppliedException? = null
+        private set
 
     init {
         if (forceRestartSync) {
@@ -118,12 +122,16 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
 
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
             synchronized(this) {
-                if (!closed) {
-                    if (serializedItem != null) {
-                        val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
-                        item.applyTo(umn)
+                if (!closed && failure == null) {
+                    try {
+                        if (serializedItem != null) {
+                            val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
+                            item.applyTo(umn)
+                        }
+                        currentLogPointer.put(false, ++currentPtr)
+                    } catch (e: Exception) {
+                        failure = LogRecordNotAppliedException(currentPtr, e)
                     }
-                    currentLogPointer.put(false, ++currentPtr)
                 }
             }
         }
@@ -306,11 +314,17 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
          * Failed connections in a row.
          */
         private var failures = 0
+        /**
+         * Connections in a row that ended on a [LogRecordNotAppliedException]. Each one connected first, resetting
+         * [failures], so this is what grows the back-off while a record keeps failing.
+         */
+        private var stalls = 0
         private val thread = thread(isDaemon = true, name = "UMN Sync") { run() }
 
         private fun run() {
             while (!isClosed) {
                 var cause: Throwable? = null
+                var stalled = false
                 try {
                     connectAndPush()
                     if (!isClosed) {
@@ -320,14 +334,21 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                     log.error("Invalid username or password, syncing stops", e)
                     post(SyncerStatus.Failed(e))
                     return
+                } catch (e: LogRecordNotAppliedException) {
+                    cause = e
+                    stalled = true
+                    if (!isClosed) {
+                        log.error("Syncing stalls on a record it can't apply, retrying it", e)
+                    }
                 } catch (t: Throwable) {
                     cause = t
                     if (!isClosed) {
                         log.warn("Failed to sync with the global log, reconnecting", t)
                     }
                 }
+                stalls = if (stalled) stalls + 1 else 0
                 failures++
-                val delayMillis = backoff.delayMillis(failures)
+                val delayMillis = backoff.delayMillis(maxOf(failures, stalls))
                 post(SyncerStatus.Offline(cause, delayMillis))
                 closed.await(delayMillis, TimeUnit.MILLISECONDS)
             }
@@ -356,12 +377,13 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
             post(SyncerStatus.Connecting)
             val client = clientProvider()
             val pusher: GlobalLogPusher
+            val puller: GlobalLogPuller
             synchronized(this) {
                 if (isClosed) {
                     client.closeQuietly()
                     return
                 }
-                val puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSync)
+                puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSync)
                 forceRestartSync = false
                 pusher = GlobalLogPusher(client, mutationLog.fifolog)
                 connection = listOf(pusher, puller, client)
@@ -370,7 +392,8 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                 client.start()
                 failures = 0
                 post(SyncerStatus.Connected)
-                pusher.push()
+                pusher.push { puller.failure == null }
+                puller.failure?.let { throw it }
             } finally {
                 closeConnection()
             }

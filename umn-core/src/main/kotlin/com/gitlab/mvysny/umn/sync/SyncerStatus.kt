@@ -27,7 +27,8 @@ public sealed class SyncerStatus {
 
     /**
      * The connection failed; the syncer reconnects in [retryInMillis].
-     * @property cause null when the connection closed without an exception, e.g. the server closed it.
+     * @property cause null when the connection closed without an exception, e.g. the server closed it; a
+     * [LogRecordNotAppliedException] when a record from another node didn't apply here.
      */
     public data class Offline(val cause: Throwable?, val retryInMillis: Long) : SyncerStatus()
 
@@ -37,6 +38,17 @@ public sealed class SyncerStatus {
      */
     public data class Failed(val cause: InvalidUsernamePasswordException) : SyncerStatus()
 }
+
+/**
+ * A record from the global log failed to apply to this node: say an older app version got a document class it can't
+ * deserialize, or an index's key getter threw. Syncing stalls at the record rather than skip it, so this node never
+ * diverges: the [Syncer] drops the connection, reports [SyncerStatus.Offline] with this as the cause, and retries the
+ * record after a back-off, until an app update makes it apply.
+ *
+ * @property logIndex the record's position in the global log.
+ */
+public class LogRecordNotAppliedException(public val logIndex: Long, cause: Exception) :
+    Exception("Failed to apply global log record #$logIndex; syncing stalls until it applies", cause)
 
 /**
  * Hears every [SyncerStatus] change of a [Syncer]; see [Syncer.setStatusListener].

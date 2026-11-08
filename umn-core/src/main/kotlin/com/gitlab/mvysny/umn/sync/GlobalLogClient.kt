@@ -61,10 +61,7 @@ public interface GlobalLogClient : Closeable {
      * or greater than given [rewind] parameter, for every new [LogRecord] available.
      * The log items must be announced in the same order as they were introduced.
      *
-     * The internal item index is increased and next log item is retrieved to the listener
-     * regardless of whether the listener succeeded or failed.
-     *
-     * The [callback] must be called by at most one thread at once.
+     * The [callback] never throws, and must be called by at most one thread at once.
      * @param rewind start announcing new messages from the log with this message. Must be 0 or
      * greater.
      * @param callback invoked for every new item. Note that the record may be null in case when the Global Log

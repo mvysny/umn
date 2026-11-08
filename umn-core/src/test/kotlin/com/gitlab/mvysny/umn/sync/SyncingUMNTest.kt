@@ -247,6 +247,45 @@ class SyncingUMNTest {
         }
     }
 
+    @Nested inner class RecordNotApplied {
+        /**
+         * While true, indexing "poison" throws: [node] can't apply that record.
+         */
+        @Volatile private var broken = true
+        private val idx = IndexingUMN.IndexDef.simple<String, String>("identity",
+            { doc -> if (broken && doc == "poison") throw RuntimeException("simulated") else setOf(doc) }, String::class)
+        private val statuses = CopyOnWriteArrayList<SyncerStatus>()
+        private lateinit var node: SyncingUMN
+        private lateinit var other: SyncingUMN
+        @BeforeEach fun createUmns() {
+            node = Syncer(IndexingUMN(InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer), setOf(idx)), JavaDocumentSerializer,
+                { log.newClient() }, false, Backoff(10, 50)).syncingUMN
+            node.syncer.setStatusListener { statuses.add(it) }
+            node.syncer.start()
+            other = InMemoryUMN(AutoTypeResolver, JavaDocumentSerializer).syncing({ log.newClient() }, JavaDocumentSerializer, true)
+        }
+        @AfterEach fun closeUmns() {
+            other.close()
+            node.close()
+        }
+
+        private fun stalls(): List<Offline> = statuses.filterIsInstance<Offline>().filter { it.cause is LogRecordNotAppliedException }
+
+        @Test fun `syncing stalls on the record, backing off, and applies it once fixed`() {
+            val poison = other.create("poison")
+            val after = other.create("after")
+            expectAsync(true) { stalls().size >= 3 }
+            expect(listOf(10L, 20L, 40L)) { stalls().take(3).map { it.retryInMillis } }
+            expect(0L) { (stalls().first().cause as LogRecordNotAppliedException).logIndex }
+            expect(false) { node.exists(poison) }
+            expect(false) { node.exists(after) }
+
+            broken = false
+            expectAsync(true) { node.exists(poison) && node.exists(after) }
+            expect(poison to "poison") { node.facet<IndexingUMN>().getIndex(idx).findFirstDoc(For.Key("poison")) }
+        }
+    }
+
     @Test fun `back-off doubles up to the max`() {
         val backoff = Backoff(1000, 60_000)
         expect(listOf(1000L, 2000L, 4000L, 8000L, 16000L, 32000L, 60000L, 60000L)) { (1..8).map { backoff.delayMillis(it) } }

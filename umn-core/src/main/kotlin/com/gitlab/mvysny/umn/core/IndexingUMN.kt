@@ -34,6 +34,9 @@ import kotlin.reflect.KClass
  * Optimized for unique indices or indices with low number of collisions. If the index is expected to have high number of
  * collisions, use TODO.
  *
+ * Not atomic across a crash: the document and its index entries are separate writes, so a process dying between them leaves
+ * the document unindexed, for good, since nothing reindexes (`D_three_op_log`).
+ *
  * @property delegate delegate all calls to the underlying UMN storage. Typically either one of [InMemoryUMN] or [MvstoreUMN].
  * @param indices the indices definition. WARNING: the same set of indices must be provided upon every UMN open! New indices not yet present
  * in the database will not reindex existing documents to build the index and searches will not find those documents. Changing the indexing
@@ -48,9 +51,10 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
 
     override fun create(document: Any, id: UUID): Boolean {
         return indexUpdaterGlobalLock.withLock {
+            val indexUpdates = prepareIndexUpdates(document, null)
             val created = delegate.create(document, id)
             if (created) {
-                indexMap.values.forEach { it.onCreated(id, document) }
+                indexUpdates.forEach { it(id) }
             }
             created
         }
@@ -58,11 +62,19 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
 
     override fun create(document: Any): UUID {
         return indexUpdaterGlobalLock.withLock {
+            val indexUpdates = prepareIndexUpdates(document, null)
             val id = delegate.create(document)
-            indexMap.values.forEach { it.onCreated(id, document) }
+            indexUpdates.forEach { it(id) }
             id
         }
     }
+
+    /**
+     * Runs every index's [IndexDef.keyGetter] now, before the caller writes the document; the returned updates write the index
+     * entries, given the document ID.
+     */
+    private fun prepareIndexUpdates(newDoc: Any?, oldDoc: Any?): List<(UUID) -> Unit> =
+        indexMap.values.map { it.prepareUpdate(newDoc, oldDoc) }
 
     /**
      * An index definition. Index provides very quick lookup of a document for given key.
@@ -90,11 +102,12 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
      * @property keyGetter computes keys for given document. If no indices are required for this document or if the document is not indexed
      * by this index, just return an empty set.
      * The function must run quick, must be pure and must be consistent in computing the same set of keys for a particular document.
+     * It runs before the document is written: if it throws, the mutation throws and nothing is written.
      * @property documentType the type of documents indexed by this index. The [keyGetter] will only be called for documents of this type -
      * all other document types will be ignored and will not be indexed by this index.
      * @property valueType the type of documents associated with the keys. Typically equal to [documentType] for simple indices.
      * @property valueIdGetter which ID to actually associate with the key. Receives the document ID and the document itself. By default simply
-     * returns the ID
+     * returns the ID. Runs after the document is written, so it must not throw: the document would stay unindexed.
      */
     public class IndexDef<K : Comparable<K>, D : Any, V : Any>(
             public val name: String,
@@ -265,51 +278,24 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
 
         public fun getSize(): Int = getCount(For.all())
 
-        internal fun onCreated(id: UUID, document: Any) {
+        /**
+         * Computes the keys of [newDoc] and [oldDoc] now; the returned function moves the document's index entries from the old
+         * keys to the new ones. A create passes no [oldDoc], a delete no [newDoc].
+         */
+        internal fun prepareUpdate(newDoc: Any?, oldDoc: Any?): (id: UUID) -> Unit {
             val docType = def.documentType.java
-            if (!docType.isInstance(document)) return
-            val doc = docType.cast(document)
-            val valueId = def.valueIdGetter(id, doc)
-            registerUnregisterIndices(valueId, def.keyGetter(doc), setOf())
-        }
-
-        internal fun onDeleted(id: UUID, document: Any) {
-            val docType = def.documentType.java
-            if (!docType.isInstance(document)) return
-            val doc = docType.cast(document)
-            val unregisterIndices: Set<K> = def.keyGetter(doc)
-            val valueId = def.valueIdGetter(id, doc)
-            registerUnregisterIndices(valueId, setOf(), unregisterIndices)
-        }
-
-        internal fun onUpdate(id: UUID, newDoc: Any, oldDoc: Any) {
-            val docType = def.documentType.java
-            val newDocOfCorrectType = docType.isInstance(newDoc)
-            val oldDocOfCorrectType = docType.isInstance(oldDoc)
-            if (!newDocOfCorrectType && !oldDocOfCorrectType) {
-                // do nothing
-            } else if (newDocOfCorrectType && !oldDocOfCorrectType) {
-                val doc = docType.cast(newDoc)
-                val registerIndices = def.keyGetter(doc)
-                val valueId = def.valueIdGetter(id, doc)
-                registerUnregisterIndices(valueId, registerIndices, setOf())
-            } else if (!newDocOfCorrectType && oldDocOfCorrectType) {
-                val doc = docType.cast(oldDoc)
-                val unregisterIndices = def.keyGetter(doc)
-                val valueId = def.valueIdGetter(id, doc)
-                registerUnregisterIndices(valueId, setOf(), unregisterIndices)
-            } else {
-                val oldDocD = docType.cast(oldDoc)
-                val newDocD = docType.cast(newDoc)
-                val oldValueId = def.valueIdGetter(id, oldDocD)
-                val newValueId = def.valueIdGetter(id, newDocD)
-                val unregisterIndices = def.keyGetter(oldDocD)
-                val registerIndices = def.keyGetter(newDocD)
-                if (oldValueId == newValueId) {
-                    registerUnregisterIndices(newValueId, registerIndices, unregisterIndices)
+            val newD: D? = if (docType.isInstance(newDoc)) docType.cast(newDoc) else null
+            val oldD: D? = if (docType.isInstance(oldDoc)) docType.cast(oldDoc) else null
+            val newKeys: Set<K> = newD?.let(def.keyGetter) ?: setOf()
+            val oldKeys: Set<K> = oldD?.let(def.keyGetter) ?: setOf()
+            return { id ->
+                val newValueId = newD?.let { def.valueIdGetter(id, it) }
+                val oldValueId = oldD?.let { def.valueIdGetter(id, it) }
+                if (newValueId != null && newValueId == oldValueId) {
+                    registerUnregisterIndices(newValueId, newKeys, oldKeys)
                 } else {
-                    registerUnregisterIndices(oldValueId, setOf(), unregisterIndices)
-                    registerUnregisterIndices(newValueId, registerIndices, setOf())
+                    if (oldValueId != null) registerUnregisterIndices(oldValueId, setOf(), oldKeys)
+                    if (newValueId != null) registerUnregisterIndices(newValueId, newKeys, setOf())
                 }
             }
         }
@@ -436,16 +422,18 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
     override fun delete(id: UUID) {
         indexUpdaterGlobalLock.withLock {
             val document: Any = find(id, Any::class) ?: return
+            val indexUpdates = prepareIndexUpdates(null, document)
             delegate.delete(id)
-            indexMap.values.forEach { it.onDeleted(id, document) }
+            indexUpdates.forEach { it(id) }
         }
     }
 
     override fun update(id: UUID, document: Any) {
         indexUpdaterGlobalLock.withLock {
             val oldDoc: Any = get(id, Any::class)
+            val indexUpdates = prepareIndexUpdates(document, oldDoc)
             delegate.update(id, document)
-            indexMap.values.forEach { it.onUpdate(id, document, oldDoc) }
+            indexUpdates.forEach { it(id) }
         }
     }
 

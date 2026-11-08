@@ -6,6 +6,17 @@ no entries.
 
 ## 0.18 — unreleased
 
+- `IndexingUMN` runs every index's `keyGetter` before it writes the document, so one that throws
+  fails the `create`, `update` or `delete` and writes nothing. Before, the document was written and
+  left unindexed for good. `valueIdGetter` still runs after the write: keep it from throwing.
+- A record from another node that fails to apply, e.g. a document class an older app version can't
+  deserialize, stalls syncing instead of being skipped. The `Syncer` reports
+  `SyncerStatus.Offline` with a `LogRecordNotAppliedException` as the cause and retries the record
+  with a growing back-off; once an app update makes it apply, syncing catches up in order. Before,
+  the in-process clients skipped the record for good, and `umn-proxy-client` reconnected every
+  second with no cause. Changes from this node barely go out during a stall either: show the
+  cause, e.g. as "update the app to keep syncing".
+
 - `umn-proxy-server` is published to Maven Central, to embed the server in a test or a dev run
   with no Docker: `Main(config).use { it.start() … }`. `port = 0` and `adminPort = 0` bind free
   ports, which `Main.port` and `Main.adminPort` read back; see its README. It lifts the app's own

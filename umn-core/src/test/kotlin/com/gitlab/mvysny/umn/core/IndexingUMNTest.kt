@@ -572,6 +572,37 @@ abstract class IndexingUmnTestBattery {
         }
     }
 
+    @Nested inner class ThrowingKeyGetter {
+        private val idxThrowing = IndexingUMN.IndexDef.simple<String, String>("throwing",
+            { doc -> if (doc.startsWith("bad")) throw RuntimeException("simulated") else setOf(doc) }, String::class)
+        private val storage = newStorage()
+        private val umn = IndexingUMN(storage, setOf(idxIdentity, idxThrowing))
+
+        @Test fun `create() writes nothing`() {
+            assertFailsWith<RuntimeException> { umn.create("bad") }
+            val id = UUID.randomUUID()
+            assertFailsWith<RuntimeException> { umn.create("bad", id) }
+            expect(true) { storage.isEmpty() }
+            expect(true) { umn.getIndex(idxIdentity).isEmpty() }
+        }
+
+        @Test fun `update() writes nothing`() {
+            val id = umn.create("good")
+            assertFailsWith<RuntimeException> { umn.update(id, "bad") }
+            expect("good") { storage.get(id, String::class) }
+            expect(id to "good") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("good")) }
+            expect(null) { umn.getIndex(idxIdentity).findFirstDoc(For.Key("bad")) }
+        }
+
+        @Test fun `delete() writes nothing`() {
+            val id = UUID.randomUUID()
+            IndexingUMN(storage, setOf(idxIdentity)).create("bad", id)
+            assertFailsWith<RuntimeException> { umn.delete(id) }
+            expect("bad") { storage.get(id, String::class) }
+            expect(id to "bad") { umn.getIndex(idxIdentity).findFirstDoc(For.Key("bad")) }
+        }
+    }
+
     @Nested inner class ComplexIndex {
         @Test fun `fast parent retrieval`() {
             // in this example we're going to store the parent IDs instead of IDs of the children, to allow fast parent retrieval.
