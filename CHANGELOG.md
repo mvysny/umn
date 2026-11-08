@@ -4,7 +4,7 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the disk and wire formats never break (`D_frozen_0_15_formats`). Releases before 0.16 have
 no entries.
 
-## 0.18 — unreleased
+## 0.18 — 2026-11-08
 
 - **Breaking:** `IndexImpl.keyLoader()` and `KeyLoader` are gone, and with them the vok-dataloader
   dependency. In their place, `IndexImpl.keyPagedList(pageSize, descending, dataMissingMarker)`, a

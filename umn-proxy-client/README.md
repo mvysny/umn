@@ -15,7 +15,7 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("com.gitlab.mvysny.umn:umn-proxy-client:0.17")
+    implementation("com.gitlab.mvysny.umn:umn-proxy-client:0.18")
 }
 ```
 

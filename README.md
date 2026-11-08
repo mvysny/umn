@@ -115,7 +115,7 @@ Then you can add the following dependency:
 
 ```
 dependencies {
-    implementation("com.gitlab.mvysny.umn:umn-core:0.17")
+    implementation("com.gitlab.mvysny.umn:umn-core:0.18")
 }
 ```
 
@@ -356,7 +356,7 @@ The easiest way to sync is to launch the UMN Proxy Server in Standalone mode. Pl
 docker:
 
 ```bash
-$ docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.17
+$ docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.18
 ```
 
 This will launch the proxy server which will listen on two ports: 10144 is a websocket endpoint for data syncing, 10145 is the admin interface.

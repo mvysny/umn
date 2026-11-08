@@ -9,7 +9,7 @@ for amd64 and, since 0.17, arm64 too (a Raspberry Pi, an ARM VPS). Only version 
 To run the UMN Proxy Server, simply issue the following command in your terminal:
 
 ```
-docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.17
+docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.18
 ```
 
 Inside the container the server listens on all interfaces, since the host can't reach the

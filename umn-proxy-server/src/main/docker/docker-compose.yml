@@ -1,7 +1,7 @@
 version: '2'
 services:
   umn-proxy-server:
-    image: mvysny/umn-proxy-server:0.17
+    image: mvysny/umn-proxy-server:0.18
     ports:
       - "127.0.0.1:10144:10144"
       - "127.0.0.1:10145:10145"

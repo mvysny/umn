@@ -34,7 +34,7 @@ kover.reports.filters.excludes {
 
 allprojects {
     group = "com.gitlab.mvysny.umn"
-    version = "0.18-SNAPSHOT"
+    version = "0.18"
     repositories {
         mavenCentral()
     }
