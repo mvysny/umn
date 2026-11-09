@@ -4,6 +4,16 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the disk and wire formats never break (`D_frozen_0_15_formats`). Releases before 0.16 have
 no entries.
 
+## 0.19 — unreleased
+
+- `IndexingUMN` clears an index no longer passed without reading its keys, so the old index's key
+  class may now be deleted, renamed or obfuscated once the index has a new name. In 0.18, the
+  open threw `ClassNotFoundException` once the class was gone, and the app couldn't open its
+  database. A clear that fails is now logged and retried on the next open, not fatal.
+- **Breaking:** `UMN.dropUtilityMap(name)` frees a utility map's entries and forgets the map,
+  reading none of its keys or values. Migration: a `UMN` implemented outside this library, such as
+  a wrapper, implements it, typically as `delegate.dropUtilityMap(name)`.
+
 ## 0.18 — 2026-11-08
 
 - **Breaking:** `IndexImpl.keyLoader()` and `KeyLoader` are gone, and with them the vok-dataloader

@@ -58,6 +58,10 @@ public class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
     override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> =
         utilityMaps.getOrPut(name) { InMemoryUtilityMap<K, V>() } as UtilityMap<K, V>
 
+    override fun dropUtilityMap(name: String) {
+        utilityMaps.remove(name)
+    }
+
     override fun findSerialized(id: UUID): SerializedDocument? {
         val doc = find(id, Any::class) ?: return null
         val type = typeToClassResolver.toType(doc.javaClass.kotlin)

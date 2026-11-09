@@ -86,6 +86,14 @@ public interface UMN : Closeable {
     public fun <K: Comparable<K>, V> openUtilityMap(name: String, keyType: DataType? = null, valueType: DataType? = null): UtilityMap<K, V>
 
     /**
+     * Frees a utility map's entries and forgets the map: the next [openUtilityMap] of [name] starts empty. Deserializes none
+     * of its keys or values, so it works when a class they name is gone. Does nothing when there is no such map.
+     *
+     * A [UtilityMap] opened on it before must not be used after.
+     */
+    public fun dropUtilityMap(name: String)
+
+    /**
      * INTERNAL USE ONLY. Puts a [document] with given [id] to the database.
      * Does nothing if there already is a document with given ID.
      *

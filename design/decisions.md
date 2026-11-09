@@ -116,5 +116,7 @@ An index from before `INDEX_STATE` is adopted when non-empty, not rebuilt: Aedic
 run after the constructor, types V1 documents by their old index entries. A document whose keys
 throw is logged and skipped: failing the open would lock the app out of its data. An index once
 built is never rebuilt, so a changed `keyGetter` or key type takes a new name; a name no longer
-passed is cleared. Accepted: an older app version doesn't maintain an index it doesn't know, so
+passed is cleared, through `UMN.dropUtilityMap()`, which decodes no key, so the old key class may
+then be deleted (`R_mvstore_clear_reads_no_key`). A clear that fails is logged and retried on the
+next open, for the same reason. Accepted: an older app version doesn't maintain an index it doesn't know, so
 after a downgrade and upgrade that index misses the documents created meanwhile.

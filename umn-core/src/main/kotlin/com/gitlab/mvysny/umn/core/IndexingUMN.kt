@@ -70,11 +70,21 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
     private fun clearDroppedIndices() {
         val dropped = indexState.keyIterator().filter { it !in indexMap }.toList()
         if (dropped.isEmpty()) return
-        dropped.forEach { name -> delegate.openUtilityMap<String, Any>(indexMapName(name), CompositeKeyDataType()).clear() }
+        val cleared = dropped.filter { name ->
+            try {
+                delegate.dropUtilityMap(indexMapName(name))
+                true
+            } catch (e: Exception) {
+                // its state kept, so the next open retries: failing the open would lock the app out of its data
+                log.error("Failed to clear index $name, no longer passed; retrying on the next open", e)
+                false
+            }
+        }
+        if (cleared.isEmpty()) return
         // else a re-added index could find its old entries with no state, and adopt them
         commit()
-        dropped.forEach { name -> indexState.put(name, null) }
-        log.info("Cleared the entries of indices no longer passed: $dropped")
+        cleared.forEach { name -> indexState.put(name, null) }
+        log.info("Cleared the entries of indices no longer passed: $cleared")
     }
 
     /**
@@ -542,6 +552,10 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
     }
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType, valueType)
+
+    override fun dropUtilityMap(name: String) {
+        delegate.dropUtilityMap(name)
+    }
 
     override fun close() {
         delegate.close()

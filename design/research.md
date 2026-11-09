@@ -94,6 +94,19 @@ keep it short. When you have written an entry, re-read it against the one above 
 - `ObjectDataType`'s one field caches the last type seen; each type re-checks `instanceof` and
   falls back, so a race on it costs a lookup, never a wrong answer. **[src]**
 
+## R_mvstore_clear_reads_no_key — `clear()` frees a map whose keys no longer deserialize
+
+- An inner page holds its header, the child positions and counts, then the keys, last; values
+  only on leaves (`Page.read()`, `Page.write()`). `clear()` needs only the positions, so a key
+  type that swallows the rest of the page as one blob, `MVStoreTool.GenericDataType` say, frees
+  the whole tree. **[src]**, **[verified 2026-11-09, 1.4.198]**
+- `openMap()` reads the root page eagerly, keys and values, leaf or not: an unloadable class
+  throws there, before `clear()` runs. **[src]**, **[verified 2026-11-09, 1.4.198]**
+- `clear()` swaps in an empty root, then `removeAllRecursive()`: no search, no `compare()`. **[src]**
+- `removeMap(map)` closes the map but keeps it registered until its version ages out, so the next
+  commit may store its empty root, never freed after. `removeMap(name)` unregisters it at once.
+  A map's id is `meta["name.<name>"]`, hex; `getMap(id)` returns it if open. **[src]**
+
 ## R_mvstore_store_per_map — a stored version is consistent per map, not across maps
 
 - `storeNow()` takes each open map's root in turn (`setWriteVersion()`) while other threads keep

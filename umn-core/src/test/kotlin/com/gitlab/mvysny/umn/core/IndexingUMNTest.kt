@@ -756,6 +756,19 @@ abstract class IndexingUmnTestBattery {
             expect(setOf(bb)) { umn.getIndex(idxLength).findAllIDs(For.Key(2)) }
         }
 
+        @Test fun `a dropped index that fails to clear is kept, and retried on the next open`() {
+            IndexingUMN(storage, setOf(idxIdentity)).create("a")
+            val failing = object : UMN by storage {
+                override fun dropUtilityMap(name: String): Unit = throw RuntimeException("simulated")
+            }
+            IndexingUMN(failing, setOf())
+            expect(true) { indexState.find("identity") }
+            expect(false) { indexStore("identity").isEmpty() }
+            IndexingUMN(storage, setOf())
+            expect(null) { indexState.find("identity") }
+            expect(true) { indexStore("identity").isEmpty() }
+        }
+
         @Test fun `fills an index keyed to another document`() {
             data class Parent(val name: String) : Serializable
             data class Child(val name: String, val parentId: UUID) : Serializable

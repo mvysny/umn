@@ -213,7 +213,8 @@ However, keep in mind:
     reading the whole database. On Android, open it off the main thread: a dictionary-sized
     database takes seconds, close to the 5-second ANR limit.
   * An index is built once and never rebuilt. To change its indexing function or key type, give it
-    a new name; the old name, no longer passed, gets its entries cleared.
+    a new name; the old name, no longer passed, gets its entries cleared. Its key class may then
+    be deleted: clearing reads no key.
   * A document whose indexing function throws during the build is logged and left out of the index.
 * The indexing function should work fast, without side effects and must be consistent in providing same results for particular document.
   

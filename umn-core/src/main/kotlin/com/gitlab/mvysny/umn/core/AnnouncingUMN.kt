@@ -54,6 +54,10 @@ public class AnnouncingUMN(override val delegate: UMN, public val listener: List
 
     override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> = delegate.openUtilityMap(name, keyType, valueType)
 
+    override fun dropUtilityMap(name: String) {
+        delegate.dropUtilityMap(name)
+    }
+
     override fun close() {
         delegate.close()
     }

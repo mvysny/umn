@@ -166,6 +166,28 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
     @Synchronized
     override fun <K : Comparable<K>, V> openUtilityMap(name: String, keyType: DataType?, valueType: DataType?): UtilityMap<K, V> = MvstoreUtilityMap(store, name, keyType, valueType)
 
+    /**
+     * Synchronized with [openUtilityMap].
+     *
+     * ## Implementation notes
+     *
+     * `clear()`, then `removeMap()`: `removeMap()` alone leaves the pages counted live for good
+     * (`R_mvstore_removemap_leaks`). A map not open yet is opened with [OpaqueDataType]
+     * (`R_mvstore_clear_reads_no_key`); an open one is cleared as it is, since `openMap()` would return it, asserting the
+     * types match (`R_mvstore_object_array_keys`). `removeMap(name)`, not `removeMap(map)`, so the empty root is never
+     * stored.
+     */
+    @Synchronized
+    override fun dropUtilityMap(name: String) {
+        val mapName = "__$name"
+        // MVStore's own lookup, private there
+        val id = store.metaMap["name.$mapName"]?.toInt(16) ?: return
+        val map: MVMap<Any, Any> = store.getMap(id)
+            ?: store.openMap(mapName, MVMap.Builder<Any, Any>().keyType(OpaqueDataType).valueType(OpaqueDataType))
+        map.clear()
+        store.removeMap(mapName)
+    }
+
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
 
     override fun findSerialized(id: UUID): SerializedDocument? = map[id]
@@ -235,6 +257,31 @@ public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String
     override fun isEmpty(): Boolean = map.isEmpty()
 
     override fun lowerKey(key: K): K? = map.lowerKey(key)
+}
+
+/**
+ * Reads a page's keys, or a leaf's values, as one opaque blob: the rest of the page. For [MvstoreUMN.dropUtilityMap] only,
+ * whose `clear()` needs an inner page's child positions alone, which come before its keys (`R_mvstore_clear_reads_no_key`).
+ * Never writes, never compares.
+ *
+ * A copy of 1.4.198's `MVStoreTool.GenericDataType`, package-private there.
+ */
+private object OpaqueDataType : DataType {
+    override fun compare(a: Any?, b: Any?): Int = throw UnsupportedOperationException("opaque, can't compare")
+
+    override fun getMemory(obj: Any?): Int = (obj as ByteArray?)?.size ?: 0
+
+    override fun write(buff: WriteBuffer, obj: Any?): Unit = throw UnsupportedOperationException("opaque, read-only")
+
+    override fun write(buff: WriteBuffer, obj: Array<out Any?>, len: Int, key: Boolean): Unit =
+        throw UnsupportedOperationException("opaque, read-only")
+
+    override fun read(buff: ByteBuffer): Any? =
+        if (buff.hasRemaining()) ByteArray(buff.remaining()).also { buff.get(it) } else null
+
+    override fun read(buff: ByteBuffer, obj: Array<Any?>, len: Int, key: Boolean) {
+        for (i in 0 until len) obj[i] = read(buff)
+    }
 }
 
 /**

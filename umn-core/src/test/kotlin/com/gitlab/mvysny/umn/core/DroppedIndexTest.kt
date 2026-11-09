@@ -4,7 +4,6 @@ import org.h2.mvstore.MVMap
 import org.h2.mvstore.MVStore
 import org.h2.mvstore.WriteBuffer
 import org.h2.mvstore.type.DataType
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -57,9 +56,8 @@ private object GoneKeyWriter : DataType {
 }
 
 /**
- * [IndexingUMN] clearing a dropped index whose key class is gone; `design/ideas/drop-an-index-whose-key-class-is-gone.md`.
+ * [IndexingUMN] clearing a dropped index whose key class is gone, through [MvstoreUMN.dropUtilityMap].
  */
-@Disabled("red until the fix: design/ideas/drop-an-index-whose-key-class-is-gone.md")
 class DroppedIndexTest {
     private val file: String = File.createTempFile("dropped-index", ".mv").absolutePath
 
@@ -90,7 +88,7 @@ class DroppedIndexTest {
         }
     }
 
-    private fun expectDroppedAndFreed() {
+    private fun expectDroppedAndFreed(entries: Int) {
         val store = MVStore.Builder().fileName(file).autoCommitDisabled().open()
         // else every chunk counts as young, wholly live
         store.retentionTime = 0
@@ -98,8 +96,9 @@ class DroppedIndexTest {
         MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver).use { storage ->
             IndexingUMN(storage, setOf())
             expect(null) { storage.openUtilityMap<String, Boolean>("INDEX_STATE").find("gone") }
-            expect(0) { storage.openUtilityMap<String, Any>("INDEX2_gone", CompositeKeyDataType()).keyCount() }
             val after = store.currentFillRate
+            expect(false) { store.hasMap("__INDEX2_gone") }
+            expect(entries) { store.openMap<String, Array<UUID>>("kept").size }
             println("fill rate before $before %, after $after %")
             assertTrue(before > 90, "fill rate before the drop: $before %")
             assertTrue(after < 70, "fill rate after the drop: $after %, the dropped index's pages still counted live")
@@ -110,12 +109,12 @@ class DroppedIndexTest {
         // 48 keys a page
         expect(3) { writeDroppedIndex(5_000) }
         expectKeysUnloadable()
-        expectDroppedAndFreed()
+        expectDroppedAndFreed(5_000)
     }
 
     @Test fun `a dropped index of a single leaf is cleared and freed, its key class gone`() {
         expect(1) { writeDroppedIndex(10) }
         expectKeysUnloadable()
-        expectDroppedAndFreed()
+        expectDroppedAndFreed(10)
     }
 }
