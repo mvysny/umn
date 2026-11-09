@@ -65,10 +65,7 @@ class AdminClient(val client: OkHttpClient, val baseUrl: String) {
 
     fun getLogSizes(): Map<String, Long> {
         val request: Request = Request.Builder().get().url("$baseUrl/stats/logsizes").build()
-        return client.exec(request) {
-            @Suppress("UNCHECKED_CAST")
-            it.jsonMap(java.lang.Long::class.java) as Map<String, Long>
-        }
+        return client.exec(request) { it.jsonMap(Long::class.javaObjectType) }
     }
 }
 val okHttpClient = OkHttpClient()

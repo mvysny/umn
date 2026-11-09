@@ -6,6 +6,9 @@ no entries.
 
 ## 0.19 — unreleased
 
+- `UMN.get(id, Long::class)` and `find()` accept a Kotlin primitive class, and an `IndexDef`'s
+  document type may be one. In 0.18, `get`/`find` threw `ClassCastException` and the index ignored
+  every document; only `java.lang.Long::class` worked.
 - `IndexingUMN` clears an index no longer passed without reading its keys, so the old index's key
   class may now be deleted, renamed or obfuscated once the index has a new name. In 0.18, the
   open threw `ClassNotFoundException` once the class was gone, and the app couldn't open its

@@ -55,6 +55,11 @@ abstract class GenericUmnTestBattery {
         val id = umn.create("testing document")
         expect("testing document") { umn.find(id, String::class)!! }
     }
+    @Test fun `a boxed document reads back through its Kotlin primitive class`() {
+        val id = umn.create(25L)
+        expect(25L) { umn.get(id, Long::class) }
+        expect(25L) { umn.find(id, Long::class) }
+    }
     @Nested inner class Update {
         @Test fun `created document should be updatable`() {
             val id = umn.create("testing document")

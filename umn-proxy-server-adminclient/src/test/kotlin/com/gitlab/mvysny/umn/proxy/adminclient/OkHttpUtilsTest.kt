@@ -17,7 +17,7 @@ class OkHttpUtilsTest {
 
     @Test fun `parse JSON strings`() {
         expect(listOf("a", "b")) { Gson().fromJsonArray("""["a", "b"]""", String::class.java) }
-        expect(mapOf("a" to 1L)) { Gson().fromJsonMap("""{"a": 1}""", java.lang.Long::class.java).mapValues { it.value.toLong() } }
+        expect(mapOf("a" to 1L)) { Gson().fromJsonMap("""{"a": 1}""", Long::class.javaObjectType) }
     }
 
     @Test fun `destroy shuts the client down`() {

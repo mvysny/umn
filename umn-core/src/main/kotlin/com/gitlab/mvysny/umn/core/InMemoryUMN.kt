@@ -42,7 +42,7 @@ public class InMemoryUMN(override val typeToClassResolver: TypeToClassResolver,
         return id
     }
 
-    override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = clazz.java.cast(map[id])
+    override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? = clazz.javaObjectType.cast(map[id])
 
     override fun exists(id: UUID): Boolean = map.containsKey(id)
 

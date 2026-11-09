@@ -26,7 +26,7 @@ object ProtoBufDocumentSerializer : DocumentSerializer {
     override fun <T : Any> deserialize(clazz: KClass<T>, din: DataInputStream): T {
         // the document is the stream's last item, with no length in front: read it to the end
         val document = ProtoBuf.decodeFromByteArray(serializer(clazz.java), din.readBytes())
-        return clazz.java.cast(document)
+        return clazz.javaObjectType.cast(document)
     }
 }
 

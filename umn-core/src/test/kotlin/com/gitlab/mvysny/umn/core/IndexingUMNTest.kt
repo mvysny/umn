@@ -523,10 +523,10 @@ abstract class IndexingUmnTestBattery {
         // all indices expect Strings. Let's feed them Long, they should ignore it.
         val umn = IndexingUMN(newStorage(), indices)
         val id = umn.create(25L)
-        umn.update(id, 45L as java.lang.Long)
-        expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
+        umn.update(id, 45L)
+        expect(45L) { umn.get(id, Long::class) }
         umn.delete(id)
-        expect(null) { umn.find(id, java.lang.Long::class) }
+        expect(null) { umn.find(id, Long::class) }
     }
 
     @Test fun `update re-indexes a document whose type changes`() {
@@ -831,10 +831,10 @@ abstract class IndexingUmnTestBattery {
             // all indices expect Child. Let's feed them Long, they should ignore it.
             val umn = IndexingUMN(newStorage(), indices)
             val id = umn.create(25L)
-            umn.update(id, 45L as java.lang.Long)
-            expect(45L as java.lang.Long) { umn.get(id, java.lang.Long::class) }
+            umn.update(id, 45L)
+            expect(45L) { umn.get(id, Long::class) }
             umn.delete(id)
-            expect(null) { umn.find(id, java.lang.Long::class) }
+            expect(null) { umn.find(id, Long::class) }
         }
     }
 }

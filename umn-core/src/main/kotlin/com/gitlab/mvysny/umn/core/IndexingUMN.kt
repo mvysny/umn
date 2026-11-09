@@ -364,7 +364,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
          * keys to the new ones. A create passes no [oldDoc], a delete no [newDoc].
          */
         internal fun prepareUpdate(newDoc: Any?, oldDoc: Any?): (id: UUID) -> Unit {
-            val docType = def.documentType.java
+            val docType = def.documentType.javaObjectType
             val newD: D? = if (docType.isInstance(newDoc)) docType.cast(newDoc) else null
             val oldD: D? = if (docType.isInstance(oldDoc)) docType.cast(oldDoc) else null
             val newKeys: Set<K> = newD?.let(def.keyGetter) ?: setOf()

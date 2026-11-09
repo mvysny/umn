@@ -54,7 +54,7 @@ public object JavaDocumentSerializer : DocumentSerializer {
     override fun serialize(document: Any, dout: DataOutputStream) {
         ObjectOutputStream(dout).writeObject(document)
     }
-    override fun <T : Any> deserialize(clazz: KClass<T>, din: DataInputStream): T = clazz.java.cast(ObjectInputStream(din).readObject())
+    override fun <T : Any> deserialize(clazz: KClass<T>, din: DataInputStream): T = clazz.javaObjectType.cast(ObjectInputStream(din).readObject())
 }
 
 /**
@@ -146,7 +146,7 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
 
     override fun <V : Any> find(id: UUID, clazz: KClass<V>): V? {
         val bytes = map[id]
-        return if (bytes == null) null else clazz.java.cast(deserialize(bytes).first)
+        return if (bytes == null) null else clazz.javaObjectType.cast(deserialize(bytes).first)
     }
 
     override fun exists(id: UUID): Boolean = map.containsKey(id)
