@@ -2,7 +2,8 @@
 
 Filed from Aedict (the owner, 2026-11-09), found while planning Aedict's move of two notepad indices
 off custom `Serializable` key classes onto `CompositeKey`: `../aedict/design/ideas/upgrade-umn-to-0.18.md`,
-`Q_clear_needs_key_class`. Worked out from H2 1.4.198's source; not yet reproduced.
+`Q_clear_needs_key_class`. Worked out from H2 1.4.198's source; reproduced by `DroppedIndexTest`
+(2026-11-09), red until the fix lands.
 
 ## The problem
 
@@ -16,11 +17,11 @@ database:
 - Opening a map reads its root page eagerly: `MVMap.setRootPos()` → `readOrCreateRootPage()` →
   `readPage()`. Reading a page reads every key on it: `CompositeKeyDataType.read()` →
   `ObjectDataType` → `SerializedObjectType`, which Java-deserializes the key.
-- So with the class deleted, renamed, moved or obfuscated, the open throws `ClassNotFoundException`
-  (or `InvalidClassException`) inside `IndexingUMN`'s constructor, and the app can't open its
-  database at all. `clear()` itself would have been fine: per `R_mvstore_removemap_leaks`, it frees
-  unread leaves by position and reads only the inner pages. But it never gets that far. The inner
-  pages hold keys too.
+- So with the class deleted, renamed, moved or obfuscated, the open throws
+  `IllegalArgumentException("Could not deserialize …")`, caused by `ClassNotFoundException` (or
+  `InvalidClassException`), inside `IndexingUMN`'s constructor, and the app can't open its
+  database at all. `clear()` itself reads only the inner pages (`R_mvstore_removemap_leaks`), but
+  it never gets that far, and the inner pages hold keys too.
 
 This is exactly the trap `CompositeKey` exists to get apps out of (`D_index_key_codec`). The way out
 still walks through it once.
@@ -33,43 +34,72 @@ still walks through it once.
 - The old index's pages should actually be freed. `MVStore.removeMap(name)` reads no page, but
   `R_mvstore_removemap_leaks` shows it leaves the pages counted live for good, and only an offline
   `MVStoreTool.compact()` gets them back. On a phone that never happens. So `removeMap()` alone is
-  out.
+  out, and so is reclaiming later: compaction skips a removed map's pages.
 - `D_frozen_0_15_formats`: the file format stays as is; an older UMN must still open the file.
 - No crash on open, whatever the old map holds. A drop that fails should be logged and retried on
   the next open, not fatal (compare `D_build_index_on_open`'s "failing the open would lock the app
   out of its data").
 
-## Directions
+## The fix: clear the dropped map through a key type that never decodes
 
-### A. Open the dropped map with a key type that doesn't deserialize
+`clear()` needs only the child positions of the inner pages, and a page's layout puts those
+before the keys. H2 1.4.198, `Page.read()` / `Page.write()` **[src]**:
 
-A `DataType` for dropping only, which reads every key as opaque bytes. For a
-`TYPE_SERIALIZED_OBJECT` key, `ObjectDataType`'s format looks like a tag, a varint length and the
-bytes, so the bytes can be skipped without loading any class. Other tags delegate to
-`ObjectDataType` as usual. Then `clear()` frees everything as today. To verify: the exact on-disk
-layout per tag, and whether `compare()` gets called while clearing (it shouldn't: no search,
-no insert).
+- **An inner page** is header, child positions and counts, then the keys, and nothing after them:
+  values live on leaves only. So a key type that swallows the rest of the buffer as one blob
+  loses nothing `clear()` uses.
+- **A leaf** is header, keys, values. `NonLeafPage.removeAllRecursive()` frees an unloaded leaf by
+  its position alone (`map.removePage(c, mem)`), never reading it. The one leaf that does get read
+  is a root leaf, at open, so the value type must swallow too, or it would read the key bytes as
+  values. Both types opaque: a root leaf reads as one blob, then nothing.
+- **`MVMap.clear()`** swaps in an empty root and calls `removeAllRecursive()`. No search, no
+  insert, so no `compare()`.
 
-### B. Free the pages by position, without reading keys
+H2 already has this type: `MVStoreTool.GenericDataType` reads the remaining buffer as one
+`byte[]`, and its `compare()` throws, a tripwire should `clear()` ever compare. It is
+package-private: copy its ~30 lines, as an internal `OpaqueDataType` in `umn-core`. Then:
 
-Walk the page tree from the root position and free every page, the way `removeAllRecursive()`
-frees an unread leaf. Inner pages have to be read for their child positions, though, and reading
-one reads its keys. So this ends up as A anyway, or as a page parser of our own. Probably A.
+```kotlin
+delegate.openUtilityMap<String, Any>(indexMapName(name), OpaqueDataType, OpaqueDataType).clear()
+```
 
-### C. `removeMap()` now, reclaim later
+As far as the source shows, 1.4.198 keeps no key or value type in a map's metadata, so opening
+with other types changes nothing on disk. The test confirms it.
 
-Accept the leak at drop time, and let an online compaction reclaim it. But the research says
-compaction skips a removed map's pages. Out unless that turns out wrong.
+And apart from the type: each drop gets its own `try/catch`, which logs and keeps that index's
+`INDEX_STATE` entry, so the next open retries it. That covers a corrupt page and anything else no
+one thought of.
+
+### Rejected
+
+- **A page parser of our own**, freeing the tree by position: the opaque type gets the same with
+  H2's own `removeAllRecursive()`.
+- **An opaque type that skips `ObjectDataType`'s tags one by one** (the first draft of this
+  idea): the keys sit last on an inner page, so their layout never matters, nested arrays and
+  all.
+
+## The test
+
+`umn-core`'s `DroppedIndexTest`, on a file store, since an in-memory store never reads a page
+back. Both cases fail today exactly as above: `IndexingUMN.<init>` → `clearDroppedIndices()` →
+`MVStore.openMap()` → `readOrCreateRootPage()` → `CompositeKeyDataType.read()` →
+`ClassNotFoundException`. The fill-rate checks after it haven't run yet, so their thresholds
+(over 90 % before, under 70 % after) are untested.
+
+- Write `__INDEX2_gone` straight through MVStore, keyed by a `Serializable` test class whose
+  serialized bytes name a class that doesn't exist (same-length name, patched in), with
+  `INDEX_STATE` saying `gone` is built. A precondition reads the map back with
+  `CompositeKeyDataType` and expects the deserialize failure, so the fixture really is unloadable.
+- Two cases: enough entries for three levels (48 keys a page: 5 000 entries), so
+  `removeAllRecursive()` reads inner pages below the root; and a single root leaf.
+- Then open an `IndexingUMN` without `gone`: it opens, `INDEX_STATE` forgets `gone`, and the
+  pages are freed. Measure that as `R_mvstore_removemap_leaks` did, with `getCurrentFillRate()` at
+  `retentionTime` 0, and another map's pages interleaved in the same chunks, or a wholly dead
+  chunk would be dropped from the count and lift the rate back up.
 
 ## Open questions
 
-- `Q_reproduce`: a test that writes an index with a custom `Serializable` key class, then drops the
-  index while the class can't be loaded (a separate class loader, or bytes naming a class that
-  doesn't exist). Does it really fail at open, as the source reading says?
-- `Q_opaque_layout`: does every `ObjectDataType` tag have a length you can skip without the class?
-  Arrays of serialized objects (a `CompositeKey`'s parts never are, but an old custom key class
-  could hold anything), nested types?
 - `Q_also_values`: an index map's values are `Array<UUID>`, native, fine. Can any other node-local
-  map UMN drops or rewrites hold app classes?
+  map UMN drops or rewrites hold app classes? The same opaque type would cover it.
 - `Q_changelog`: until it's fixed, the 0.18 README and CHANGELOG should warn not to delete the old
   key class after renaming the index.
