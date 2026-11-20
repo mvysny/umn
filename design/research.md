@@ -27,6 +27,21 @@ keep it short. When you have written an entry, re-read it against the one above 
 - On 1.4.198 an idle store walked on every wake-up: production's 129 299-chunk log took 5.5 % of a
   CPU idle, 7.6 % on the droplet's; with `autoCompactFillRate(0)`, 0.1 %. **[verified 2026-11-07, 1.4.198]**
 
+## R_mvstore_store_growth — how far a node's store outgrows its live data
+
+- Steady phone-paced edits: 1.4–2.4× the live data on 1.4.200, 3.0–4.9× on 1.4.198. Ten
+  production users' logs, 20 000 edits each through Aedict's own stack and sync, MVStore's timers
+  and the pauses scaled 100×. **[verified 2026-11-20, 1.4.198 and 1.4.200]**
+- A burst outgrows that by what `retentionTime`'s 45 s of writes hold: the same ten whole logs
+  pulled at desktop speed, as a first sync, wrote 6.1 GB for 78 MB live. Two idle minutes later,
+  1.4.200 was at 860 MB, 8 stores at 3.4–5.6× and still shrinking, 2 stuck at 480–650×; 1.4.198
+  at 3.3 GB. **[verified 2026-11-20, 1.4.198 and 1.4.200]**
+- Idle, a store under 90 % full is never rewritten: the writer only moves chunks into free space,
+  `autoCommitMemory × 90 / fillRate` bytes a wake-up, and never a chunk larger than that
+  (`findChunksToMove()`). **[src]** Production's 67 web replicas over 1 MB, 1 067 MB for 213 MB
+  live: 621 MB after two idle minutes on 1.4.200, all or nothing per store, the stores under
+  ~22 % full collapsing to their live size; 1 021 MB on 1.4.198. **[verified 2026-11-20, 1.4.200]**
+
 ## R_mvstore_removemap_leaks — 1.4.198's `removeMap()` left the map's pages counted live
 
 - 1.4.198's `removeMap()` dropped the map's metadata and closed it, never marking its pages
