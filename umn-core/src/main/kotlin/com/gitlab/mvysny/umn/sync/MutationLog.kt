@@ -29,14 +29,20 @@ private object FailingSerializer : DocumentSerializer {
  * @param bufferName to which [UtilityMap] the mutation log will be stored.
  * @param serializer used to serialize documents to the log.
  * @param forceRepopulate if true, the [fifolog] will be destroyed and repopulated from the database. Use this when moving
- * sync to another sync server.
+ * sync to another sync server. Stored by the time the constructor returns; a kill before then may forget it.
+ * @param onPopulate runs on every population, before the commit storing it: what it writes into [umn] is stored before the
+ * buffer counts as populated, and a kill mid-population runs it again on the next open (`D_refill_rewinds`).
  */
-public class MutationLog(
+public class MutationLog internal constructor(
         public val umn: UMN,
         bufferName: String,
         public val serializer: DocumentSerializer,
-        public val forceRepopulate: Boolean
+        public val forceRepopulate: Boolean,
+        onPopulate: () -> Unit
 ) : AnnouncingUMN.Listener {
+    public constructor(umn: UMN, bufferName: String, serializer: DocumentSerializer, forceRepopulate: Boolean) :
+        this(umn, bufferName, serializer, forceRepopulate, {})
+
     public val fifolog: AckFIFOBuffer<ByteArray>
 
     /**
@@ -70,9 +76,12 @@ public class MutationLog(
                 fifolog.append(LogRecord.DocumentCreated2(it.second, it.first).toByteArray(FailingSerializer))
                 count++
             }
+            onPopulate()
             // a stored marker must imply every record above; a kill before it repopulates on the next open
             umn.commit()
             initialPopulationMarker.put("isPopulated", true)
+            // else a kill within the auto-commit's second repopulates, pushing every document again
+            umn.commit()
             log.info("log history faked, FIFOBuffer should now have $count records")
         }
     }

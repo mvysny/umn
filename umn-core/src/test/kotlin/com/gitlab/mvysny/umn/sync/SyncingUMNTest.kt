@@ -350,6 +350,56 @@ class SyncingUMNTest {
         }
     }
 
+    /**
+     * The node synced 100 documents with the old server, which left its log pointer at 1. The new server's log holds another
+     * node's documents [a] and [b]: pulled from that pointer, the node skips [a].
+     */
+    @Nested inner class KillMidSwitch {
+        @TempDir lateinit var dir: File
+        private val file: File get() = File(dir, "node")
+        private val a = UUID.randomUUID()
+        private val b = UUID.randomUUID()
+
+        @BeforeEach fun syncWithTheOldServer() {
+            createMvstoreUMN(file.path).use { node ->
+                repeat(100) { node.create("doc $it") }
+                MutationLog(node, "OUTGOING_BUFFER", JavaDocumentSerializer, false).drain()
+                node.openUtilityMap<Boolean, Long>("CURRENT_LOG_PTR").put(false, 1L)
+            }
+            listOf(a, b).forEach {
+                log.log.add(LogRecord.DocumentCreated("other", AutoTypeResolver.toType(String::class), it).toByteArray(JavaDocumentSerializer))
+            }
+        }
+
+        private fun openStore(): MVStore = MVStore.Builder().fileName(file.path).autoCommitDisabled().open()
+
+        /**
+         * Starts the node without `forceRestartSync`.
+         */
+        private fun expectTheNewLogPulledWhole() {
+            createMvstoreUMN(file.path).syncing({ log.newClient() }, JavaDocumentSerializer, true).use { umn ->
+                expectAsync(true) { umn.exists(a) && umn.exists(b) }
+            }
+        }
+
+        @Test fun `killed before the syncer starts, the next start pulls the new log from 0`() {
+            val store = openStore()
+            val syncer = Syncer(MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver), JavaDocumentSerializer, { log.newClient() }, true)
+            store.closeImmediately()
+            syncer.close()
+            expectTheNewLogPulledWhole()
+        }
+
+        @Test fun `killed mid-repopulation, the next start pulls the new log from 0`() {
+            val store = openStore()
+            assertFailsWith<KilledException> {
+                Syncer(KilledMidWalk(MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver), after = 50), JavaDocumentSerializer, { log.newClient() }, true)
+            }
+            store.closeImmediately()
+            expectTheNewLogPulledWhole()
+        }
+    }
+
     @Nested inner class LocalEditCommits {
         @TempDir lateinit var dir: File
         private val file: File get() = File(dir, "node")

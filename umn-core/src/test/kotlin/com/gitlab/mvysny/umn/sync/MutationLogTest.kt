@@ -53,15 +53,27 @@ class MutationLogTest {
             val ids = killMidPopulation { MutationLog(it, "OUTGOING_BUFFER", JavaDocumentSerializer, true) }
             expect(ids.toSet()) { bufferedIds() }
         }
+
+        @Test fun `a kill right after the population keeps it`() {
+            val store = MVStore.Builder().fileName(file.path).autoCommitDisabled().open()
+            val node = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver)
+            node.create("doc")
+            MutationLog(node, "OUTGOING_BUFFER", JavaDocumentSerializer, false)
+            store.closeImmediately()
+
+            var populated = false
+            createMvstoreUMN(file.path).use { MutationLog(it, "OUTGOING_BUFFER", JavaDocumentSerializer, false) { populated = true } }
+            expect(false) { populated }
+        }
     }
 }
 
-private class KilledException : RuntimeException("simulated kill")
+internal class KilledException : RuntimeException("simulated kill")
 
 /**
  * Walks the documents of [delegate], [MvstoreUMN.commit]s after the [after]th and throws [KilledException].
  */
-private class KilledMidWalk(override val delegate: MvstoreUMN, private val after: Int) : UMN by delegate {
+internal class KilledMidWalk(override val delegate: MvstoreUMN, private val after: Int) : UMN by delegate {
     override fun getSequenceOfSerializedDocs(): Sequence<Pair<UUID, SerializedDocument>> =
         delegate.getSequenceOfSerializedDocs().withIndex().map { (index, doc) ->
             if (index == after) {

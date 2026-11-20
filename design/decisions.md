@@ -136,6 +136,25 @@ off and each change under a lock the committer waits on: exact, and free per cha
 builder would also have to pass `autoCommitBufferSize(0)`, silently wrong if forgotten, and every
 wrapper would take the lock.
 
+## D_refill_rewinds — Why does every refill of a node's outgoing buffer rewind its log pointer rather than `forceRestartSync` rewinding it?
+
+A refill is for a new server: `forceRestartSync` fills the buffer with every document for a server
+that has none of them, and whose log the node must pull from 0. Stored without the rewind, the
+refill makes the next start push to the new server but pull its log from the old one's position,
+skipping every record below it for good. Refill and pointer live in two maps, which MVStore stores
+map by map (`R_mvstore_store_per_map`), so no order of writes stores them together; one stored fact
+has to imply the other. That fact is the buffer's marker: `forceRestartSync` only removes it and
+commits, and whenever it is missing {MutationLog} refills and the {Syncer}'s `onPopulate` clears
+the pointer, both before the commit that precedes the marker. A kill anywhere leaves the marker
+missing, and the next start redoes both, or stored, both stored before it. A first sync rewinds a
+pointer that isn't there: the puller writes one only after a commit, which stores the marker, and
+0.9 already wrote the marker. Why not rewind where the pointer is read, as the first puller
+connects: until the next store, a second later or whenever the app starts the syncer, a kill keeps
+the refill and the old pointer. Why not rewind on the flag in the constructor, before the marker's
+removal commits: a store between the two writes still keeps one without the other, and a pointer
+cleared without the refill leaves the new server without this node's documents. What stays open is
+the flag itself, in memory until that first commit, so the app passes it until `syncing()` returns.
+
 ## D_compact_on_startup — Why does the proxy server rewrite its log on every start?
 
 Online compaction (`D_own_compaction_timer`) keeps the log only 40 % full, and can't reclaim the

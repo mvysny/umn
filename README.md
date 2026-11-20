@@ -481,6 +481,12 @@ the node throw away the current mutation log, rebuild a new one and send it to t
 It will also reset the polling pointer and will poll everything from the server - however
 the server is empty so this is fine.
 
+The switch is stored by the time `syncing()` returns. A node killed before that may forget it,
+and its next start, without the flag, would pull the new server's log from the old server's
+position, silently skipping records. So keep your own record of the pending switch, pass
+`forceRestartSync` on every start while it's there, and clear it only once `syncing()` has
+returned.
+
 Make sure to do this with ONE NODE ONLY - completely destroy other node's database and make
 them start from a clean state. That way, the state from one node will propagate to all
 other nodes. If the database is not cleaned from other nodes, all nodes will push their

@@ -101,7 +101,8 @@ Applying a `DocumentDeleted` records the ID in a node-local map (`__TOMBSTONES`)
 
 The app knows when it was restored (Android's `BackupAgent.onRestoreFinished()`, a marker file
 outside the backup) and calls, say, `SyncingUMN.restored()`. The node keeps its pointer `P0`,
-rewinds to 0 (`forceRestartSync` exists), pulls everything, then **drops every buffered record whose
+rewinds to 0 (a rewind exists, but only with a refill of the buffer, which this one keeps:
+`D_refill_rewinds`; this needs its own stored marker), pulls everything, then **drops every buffered record whose
 document ID appears in the log after `P0`**: either the original already delivered it, or someone
 changed that document since the copy and the buffered record is stale. What's left was never
 delivered and nobody touched since: push it.

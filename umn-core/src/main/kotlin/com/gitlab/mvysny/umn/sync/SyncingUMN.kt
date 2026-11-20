@@ -113,8 +113,7 @@ internal class Backoff(val initialMillis: Long = 1000L, val maxMillis: Long = 60
 private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient,
                               val documentSerializer: DocumentSerializer,
                               val typeToClassResolver: TypeToClassResolver,
-                              private val currentLogPointer: UtilityMap<Boolean, Long>,
-                              forceRestartSync: Boolean) : Closeable {
+                              private val currentLogPointer: UtilityMap<Boolean, Long>) : Closeable {
     private var closed: Boolean = false
     @Volatile
     var failure: LogRecordNotAppliedException? = null
@@ -122,20 +121,11 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
     /**
      * The next record's index; [currentLogPointer] holds [savedPtr], as of [savedAtNanos].
      */
-    private var currentPtr: Long
-    private var savedPtr: Long
+    private var currentPtr: Long = currentLogPointer.find(false) ?: 0L
+    private var savedPtr: Long = currentPtr
     private var savedAtNanos: Long = System.nanoTime()
 
     init {
-        if (forceRestartSync) {
-            // start from the beginning, pull all changes from the server.
-            currentLogPointer.put(false, null)
-        }
-
-        // continue pulling data where we left off
-        currentPtr = currentLogPointer.find(false) ?: 0L
-        savedPtr = currentPtr
-
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
             synchronized(this) {
                 if (!closed && failure == null) {
@@ -208,7 +198,9 @@ private const val POINTER_SAVE_INTERVAL_NANOS = 1_000_000_000L
  * @param forceRestartSync DANGEROUS. If true, all sync history is thrown out on this client, a fake sync history is reconstructed from the database
  * and everything is pushed to the global log. Only use this if you are switching your clients to a new sync server.
  * Re-pulls all events from the server - may result in duplicated records and data overwrite.
- * Always pass `false` here unless you know what you're doing!
+ * Always pass `false` here unless you know what you're doing! Stored by the time this returns: killed before then, the
+ * node may forget the switch and pull the new server's log from the old one's position, skipping records for good, so
+ * pass it on every start until a call with it has returned.
  * @return a wrapped receiver which syncs all changes to the global log.
  */
 public fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: DocumentSerializer, autoStart: Boolean = false, forceRestartSync: Boolean = false): SyncingUMN {
@@ -289,16 +281,19 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                                   forceRestartSync: Boolean,
                                   private val backoff: Backoff = Backoff()) : Closeable {
     /**
-     * buffer which stores outgoing changes until they are correctly transmitted over [GlobalLogClient] (produced by [clientProvider]).
-     */
-    private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer, forceRestartSync)
-
-    /**
      * How many global log records this node has pulled, under the key `false`. Opened here, not by each puller: MVStore
      * rewrites only an open map's pages, so on a node whose sync never starts, the map's page would pin its chunk in the
      * file, and keep the background writer rewriting around it (`R_mvstore_unopened_map_pins`).
      */
     private val logPointer: UtilityMap<Boolean, Long> = underlyingUMN.openUtilityMap("CURRENT_LOG_PTR")
+
+    /**
+     * buffer which stores outgoing changes until they are correctly transmitted over [GlobalLogClient] (produced by [clientProvider]).
+     */
+    private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer, forceRestartSync) {
+        // a refilled buffer is for a new server, whose log starts at 0: `D_refill_rewinds`
+        logPointer.put(false, null)
+    }
 
     private val eventLoop = Executors.newSingleThreadExecutor()
     //guarded-by: run in eventLoop
@@ -310,8 +305,6 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
      * and synced (once the syncing is [start]ed).
      */
     public val syncingUMN: SyncingUMN = SyncingUMN(announcingUMN, this)
-
-    private var forceRestartSyncOnFirstStart = forceRestartSync
 
     /**
      * What the syncer is doing right now; changes on the syncer's own thread, as [setStatusListener] hears it.
@@ -328,8 +321,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
      */
     public fun start(): Unit = event {
         if (loop == null) {
-            loop = SyncLoop(forceRestartSyncOnFirstStart)
-            forceRestartSyncOnFirstStart = false
+            loop = SyncLoop()
         }
     }
 
@@ -378,10 +370,8 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
     /**
      * Keeps one client connected, on a thread of its own: a failed client is closed and replaced
      * with a new one from [clientProvider] after a [backoff].
-     *
-     * @param forceRestartSync passed to the first [GlobalLogPuller] only.
      */
-    private inner class SyncLoop(private var forceRestartSync: Boolean) : Closeable {
+    private inner class SyncLoop : Closeable {
         private val closed = CountDownLatch(1)
         private val isClosed: Boolean get() = closed.count == 0L
         /**
@@ -462,8 +452,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                     client.closeQuietly()
                     return
                 }
-                puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, logPointer, forceRestartSync)
-                forceRestartSync = false
+                puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, logPointer)
                 pusher = GlobalLogPusher(client, mutationLog.fifolog)
                 connection = listOf(pusher, puller, client)
             }

@@ -50,6 +50,12 @@ step; the wire format never breaks, and a release opens every file 0.9 or later 
 - A node killed while it first fills its outgoing buffer with its documents, on its first sync or
   with `forceRestartSync`, could keep part of the buffer marked as complete and never push the
   rest. The next start now fills it again.
+- A node killed after `syncing(forceRestartSync = true)` but before it stored its rewound log
+  pointer, a second after the syncer first tried to connect, kept its refilled buffer and the old
+  server's pointer: the next start pulled the new server's log from there, skipping every record
+  below it for good. Every refill of the buffer now rewinds the pointer, and both are stored before
+  `syncing()` returns; pass the flag on every start until a call with it has returned. A kill right
+  after a fill no longer fills the buffer again, pushing every document twice.
 - A change through `SyncingUMN` is committed before the call returns, so a killed app keeps it. In
   0.18 a kill lost up to a second of changes, and could, rarely, keep a change without its outgoing
   record, so the node never sent it. The cost: ~1.4 ms a change on an API 22 emulator, on the
