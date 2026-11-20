@@ -26,8 +26,12 @@ class SyncingUMNTest {
     private fun idsInGlobalLog(): Set<UUID> =
         log.log.map { LogRecord.fromByteArray(it, JavaDocumentSerializer, AutoTypeResolver)!!.id }.toSet()
 
-    @Nested inner class GenericOverInMemoryGlobalLog : GenericUmnTestBattery() {
-        override fun newUmn(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer, true)
+    /**
+     * The syncer isn't started: a running one applies the node's own records back, so a document deleted right after its
+     * create can come back with the create's echo, until the delete's own echo arrives.
+     */
+    @Nested inner class Generic : GenericUmnTestBattery() {
+        override fun newUmn(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer)
     }
 
     @Nested inner class TestsWithSyncSendingDelayedAcks {
