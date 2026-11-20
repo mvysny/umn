@@ -26,18 +26,25 @@ language has no replayable shape. Why not JSON documents: binary serialization i
 phone, so the format is the caller's {DocumentSerializer}. The cost we carry: no transactions,
 no query planner, and a changed index definition takes a new index name (`D_build_index_on_open`).
 
-## D_frozen_0_15_formats — Why freeze the 0.15 disk and wire formats rather than migrate them?
+## D_frozen_0_15_formats — Why freeze the 0.15 wire format both ways but the disk format one way?
 
-Aedict-Online (a 0.15 node and admin client) and its sync server (a 2018 0.13-SNAPSHOT build)
-are not upgraded in step with the app, and Aedict-Reader must open what 0.15 wrote, so a phone
-on 0.16 talks to that server and may hand its file back to 0.15 code. A migration never helps:
-the other side can't run it. Frozen are the MVStore file format (stay on h2-mvstore 1.4.x:
-format 1, the same `ObjectDataType` tags; 2.x can't), the map names and key/value encodings
-(`ROOT2`, `__OUTGOING_BUFFER`, `__CURRENT_LOG_PTR`, `__INDEX2_*`, `users`, `{user}__log`), the
-{LogRecord} bytes, the proxy {AbstractMessage} bytes, headers and close codes, and the admin
-REST paths and JSON. A new capability may add a node-local map, which 0.15 ignores, but never a
-record or message type: 0.15 throws on an unknown type byte, and its sync stops for good. The API may change freely: adapting the app is easy, while a sync
-or storage mismatch shows up as silently diverging data. `umn-compat-0.15`'s tests hold HEAD to it.
+Installed Aedict apps never all update, and a proxy server upgrades on its own schedule, so any
+release may sync with any other, 0.15 included; a wire migration never helps, the other side
+can't run it. Frozen both ways: the {LogRecord} bytes, the proxy {AbstractMessage} bytes, headers
+and close codes, and the admin REST paths and JSON. A new capability may add a node-local map,
+never a record or message type: 0.15 throws on an unknown type byte, and its sync stops for good.
+A file only moves forward: Aedict and Aedict-Reader each keep their own, a cloud restore or a
+device transfer lands it under the latest app, and Android won't install an older app over a
+newer one. So a release opens every file an earlier one wrote — the MVStore format, the map names
+(`ROOT2`, `__OUTGOING_BUFFER`, `__CURRENT_LOG_PTR`, `__INDEX2_*`, `users`, `{user}__log`) and
+their key/value encodings — migrating it in place if they changed, losing nothing (Reader syncs
+nowhere, so its file is the only copy); older code needn't open the result. Why not both ways on
+disk, as through 0.18: it pins H2 to 1.4.x for good (`R_h2_reads_one_format`), to guard a
+hand-back that doesn't happen. The cost: H2 brings no migration, so leaving 1.4.x ships a
+relocated 1.4 reader for as long as an install may jump from a 1.4-era release, and a migrated
+proxy server can't roll back to its previous image. The API may change freely: adapting the app
+is easy, while a sync or storage mismatch shows up as silently diverging data.
+`umn-compat-0.15`'s tests hold HEAD to it.
 
 ## D_index_key_codec — Why is a composite index key a `CompositeKey` rather than the app's own class or a codec?
 

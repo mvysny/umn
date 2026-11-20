@@ -4,7 +4,7 @@ What the things we don't own actually do. About *them*, never us: a sentence sta
 is a `D_`. `## R_<slug> — <title>`, one claim per bullet, one provenance marker per claim —
 **[docs]**, **[src]**, **[verified <date>, <version>]**, **[unverified]** (a hypothesis; a design
 built on it says so). A claim is earned by its provenance, or by having cost real work to find
-out. Checked against h2-mvstore 1.4.198, the version `D_frozen_0_15_formats` holds us to. Cite by
+out. Checked against h2-mvstore 1.4.198 unless a claim names another version. Cite by
 slug, `R_<slug>`, never by position; `grep '^## R_' design/research.md` is the index. The first
 entry is the ruler: every later one trims to its length — which is how long this file gets, so
 keep it short. When you have written an entry, re-read it against the one above and cut the fat.
@@ -151,3 +151,21 @@ keep it short. When you have written an entry, re-read it against the one above 
   of the file. **[verified 2026-11-20, 1.4.198]**
 - Truncating the file at the end of its last complete chunk opens it at that chunk's version,
   every commit before it kept. **[verified 2026-11-20, 1.4.198]**
+
+## R_h2_reads_one_format — 1.4 and 2.x each open only their own file format
+
+- 1.4.x reads and writes format 1 only (`MVStore`'s `FORMAT_READ`, `FORMAT_WRITE`); a new file's
+  header says `format:1`. **[verified 2026-11-20, 1.4.200]**
+- 2.4.240 reads and writes format 3 only (`FileStore`'s `FORMAT_READ_MIN`/`_MAX`,
+  `FORMAT_WRITE_MIN`/`_MAX`). **[verified 2026-11-20, 2.4.240]**
+- Neither opens the other's file, read-only included: 2.4.240 on a 1.4.200 file throws
+  `MVStoreException: The read format 1 is smaller than the supported format 3`; 1.4.200 on a
+  2.4.240 file, `IllegalStateException: The read format 3 is larger than the supported format 1`.
+  **[verified 2026-11-20, 1.4.200 and 2.4.240]**
+- Which format a file is, the first line of its header says in plain text (`…,format:1,…`):
+  readable without H2. **[verified 2026-11-20, 1.4.200 and 2.4.240]**
+- Both put MVStore in `org.h2.mvstore`, so one class loader holds one of them; a process reading
+  1.4 and writing 2.x needs one copy relocated. **[verified 2026-11-20, 1.4.200 and 2.4.240]**
+- H2's own way across, 2.x's `org.h2.tools.Upgrade`, is for SQL databases only: it downloads the
+  old version's jar from Maven Central at runtime, dumps the database with `SCRIPT TO` and
+  reloads it with `RUNSCRIPT FROM`. **[src]** (2.4.240's class constants)

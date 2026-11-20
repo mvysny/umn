@@ -1,8 +1,8 @@
 # Changelog
 
 What changes for a user of each release, newest first. A `Breaking:` line carries its migration
-step; the disk and wire formats never break (`D_frozen_0_15_formats`). Releases before 0.16 have
-no entries.
+step; the wire format never breaks, and a release opens every file an earlier one wrote
+(`D_frozen_0_15_formats`). Releases before 0.16 have no entries.
 
 ## 0.19 — unreleased
 
