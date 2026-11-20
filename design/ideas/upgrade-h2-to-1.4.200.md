@@ -60,14 +60,29 @@ are mostly the transaction store, LOBs and 2PC, which UMN doesn't use. Unclear f
 #3097 "Possible MVStore compaction issue", #2972 negative page memory, #2967 `ObjectDataType`
 `averageSize` int overflow, #3066 "Very high DB opening/closing times".
 
+**On Android, offline, 2026-11-20.** Aedict is `minSdk` 24, so UMN's 22 ran without it.
+
+- Aedict 3.54.0 on UMN 0.19-SNAPSHOT and 1.4.200, on `API_24`, installed over 3.53.0 (1.4.198)
+  and its store of the synced test user, 23 documents: opened in 84 ms, every category, tag and
+  item shown; a Notepad add stored and queued in `__OUTGOING_BUFFER`. Logcat: no `VerifyError`,
+  `NoClassDefFoundError` or H2 error.
+- That store compacted by 1.4.198, so its header names no chunk, appended to by the 1.4.198
+  build, its last chunk cut by one block: the 1.4.198 build opens it with no user data at all,
+  the 1.4.200 build with all of it but the cut write.
+- `MvstoreUMN` alone on `API_22` (5.1.1), dexed `--min-api 22`, under `dalvikvm`: creates,
+  commits, closes, reopens and deserializes. 32 SIGKILLs mid-loop: each reopen read exactly what
+  was committed, but none landed inside a write, as 1.4.198 read them all too. A killed new store
+  with its last chunk cut: 1.4.198 opens it at version 0, 1.4.200 on `API_22` with all 71 commits.
+
 ## Still to do before upgrading
 
-1. Aedict on an API 22 emulator: open, sync, kill, reopen.
-2. The open after a kill now walks the file: time it on a copy of production's proxy log, with a
+1. The open after a kill now walks the file: time it on a copy of production's proxy log, with a
    cut chunk at the end. `close()` now syncs.
-3. Read the four unclear 2.x fixes against 1.4.200's source.
-4. Decide the `clean` flag: leave it, or never write it.
-5. Re-verify the `R_` entries checked on 1.4.198 (`R_mvstore_idle_compaction`,
+2. Read the four unclear 2.x fixes against 1.4.200's source.
+3. Decide the `clean` flag. `D_frozen_0_15_formats` no longer has an older release open a newer
+   file, but a proxy server rolled back to a 1.4.198 image and forward again is that handover:
+   test it, never write the flag, or warn in the proxy-server README.
+4. Re-verify the `R_` entries checked on 1.4.198 (`R_mvstore_idle_compaction`,
    `R_mvstore_removemap_leaks`, `R_mvstoretool_compact`, `R_mvstore_compact_concurrency`,
    `R_mvstore_object_array_keys`, `R_mvstore_clear_reads_no_key`, `R_mvstore_store_per_map`), and
    `research.md`'s "checked against 1.4.198".
