@@ -154,6 +154,13 @@ that, so on Android make the call off the main thread. For the same reason, open
 map your app keeps in the store as soon as you open the store, even one it uses rarely: MVStore
 moves only an open map's pages, so the page of a map left closed holds its chunk just the same.
 
+Keep H2's default `autoCommitBufferSize`, which H2 sizes from the heap: 16 MB on a phone's 256 MB
+heap. A small buffer costs you silently. While the store sits idle, H2's background writer moves
+no chunk larger than the buffer, so a file an older H2 left at several times its live data stays
+that size for good. Stores H2 1.4.197 wrote, around 4× their live data, shrank to a median 1.13×
+within a few commits at the default buffer, but only to 2.4× at 256 KB. A first sync, which pulls
+the user's whole log, also runs about 10× longer at 256 KB.
+
 # Documentation
 
 So you've been using SQL databases, you're accustomed to write SELECTs, creating indices and other

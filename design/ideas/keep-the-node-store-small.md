@@ -22,13 +22,18 @@ Phones on 1.4.197/1.4.198 likely look alike. The 14 replicas that stayed at 3–
 pinned by pages 1.4.197 leaked (`R_mvstore_197_meta_leak`); an app now drops those before opening
 (`D_drop_leaked_pages`).
 
+Opened as an app on HEAD opens them, leaks dropped and the log pointer open, the 67 without a v1
+document went from 1 018 MB to 246 MB for 194 MB live, after two idle minutes, 6 commits and 30 s
+at 16 MB (`idle`, 2026-11-20). Median 1.04×, p90 2.0×, max 2.3×; on UMN 0.18, 431 MB, 1.13×,
+3.3×, 5.6×. The 20 leaky ones: median 3.17× → 1.05×. Of the 13 clean ones 0.18 left at 2.1–3.0×,
+11 closed at 1.01–1.13×, so the log pointer, left closed, had pinned their chunks
+(`R_mvstore_unopened_map_pins`). The 7 still at 2.0–2.3× held dead chunks, 0.4–16 MB, inside the
+45 s retention; in the 3 largest, 9–18 MB live and chunks 81–87 % live, the commits had set the
+writer rewriting them. 6 more commits past the retention brought each to 1.00–1.11×: all 67 end
+within 1.13× of their live data.
+
 ## Next
 
-- `Q_clean_2x`: 9 replicas with no leaked page still sat at 2.1–3.0× 30 s after the commits, in a
-  test that never started the sync, so the log pointer's page pinned its chunk
-  (`R_mvstore_unopened_map_pins`). With it open and leaks dropped, 4 of 5 traced closed at
-  1.01–1.30×, the fifth at 1.97×, its surplus all dead chunks awaiting commits. Are the 9 the
-  same? Rerun `idle` on HEAD.
 - `Q_drop_on_phone`: how long does `dropLeakedPages()`'s first call take on a phone? On a desktop,
   a cold JVM per call: 0.12 s on clean files of 22 and 67 MB; a copy took 0.36 s for 3.5 MB to
   1.5 MB, 1.03 s for 5 MB to 1 MB (6 100 inner pages), 0.33 s for 40 MB to 4.9 MB, 0.40 s for
@@ -39,8 +44,3 @@ pinned by pages 1.4.197 leaked (`R_mvstore_197_meta_leak`); an app now drops tho
   phone's pace (10× slower than the desktop: a guess)? Only on a phone short of space. If it
   does: a lower `retentionTime` during the pull (its 45 s guards a power cut, not a kill:
   `R_kill_vs_crash`).
-
-## On graduation
-
-- The README tells a node to open its store with H2's default `autoCommitBufferSize`: a small one
-  leaves an old store 2–5× its live data for good, silently, and slows a first sync about 10×.

@@ -27,8 +27,9 @@ import kotlin.reflect.KClass
  * ### Implementation
  * Intercepts all calls and passes them to underlying map, but updates the indices on the fly.
  *
- * Optimized for unique indices or indices with low number of collisions. If the index is expected to have high number of
- * collisions, use TODO.
+ * Each key holds an array of the IDs it indexes, rewritten whole on every add or remove, so a write costs as much as the
+ * documents sharing its key. Where many would, make the key tell them apart: `CompositeKey.of(categoryId, ordinal)`, queried by
+ * [For.prefix]`(CompositeKey.of(categoryId))`.
  *
  * Not atomic across a kill: the document and its index entries are separate writes, and a store landing between them may keep
  * either without the other (`R_mvstore_store_per_map`), for good, since a built index is never rebuilt. Replaying the record
