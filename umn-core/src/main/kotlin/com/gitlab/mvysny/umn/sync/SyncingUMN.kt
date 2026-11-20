@@ -220,7 +220,36 @@ public fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: Docume
 }
 
 /**
+ * Runs [block], committing its changes through a [SyncingUMN] once, as it returns, rather than each as it's made: for many
+ * changes in a row, which would otherwise pay a commit each (`D_commit_per_local_edit`).
+ *
+ * ```
+ * syncingUMN.batch {
+ *     notes.forEach { syncingUMN.update(it.id, it.copy(tags = it.tags + tag)) }
+ * }
+ * ```
+ *
+ * Not a transaction: a [block] that throws keeps the changes it made, committed as it throws. Until it returns, a kill may
+ * lose them, and, rarely, keep a document without its outgoing record, never pushed (`R_mvstore_store_per_map`). Batches
+ * nest, the outermost committing; changes other threads make meanwhile commit each. Over a UMN that doesn't sync, [block]
+ * runs and then commits.
+ */
+public fun <T> UMN.batch(block: () -> T): T {
+    val log = generateSequence(this) { it.delegate }.filterIsInstance<AnnouncingUMN>().firstNotNullOfOrNull { it.listener as? MutationLog }
+    if (log != null) return log.batch(block)
+    try {
+        return block()
+    } finally {
+        commit()
+    }
+}
+
+/**
  * Syncs all documents as they are modified in this UMN. To start the synchronization, call [Syncer.start].
+ *
+ * A change through it is committed before it returns, on the calling thread: a killed process then keeps it, and its
+ * outgoing record. A power cut may still lose it, as H2 doesn't sync the file to disk (`R_kill_vs_crash`). Many changes in
+ * a row commit once with [batch].
  */
 public class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, public val syncer: Syncer) : UMN by delegate {
     override fun close() {

@@ -39,6 +39,13 @@ public class MutationLog(
 ) : AnnouncingUMN.Listener {
     public val fifolog: AckFIFOBuffer<ByteArray>
 
+    /**
+     * How deep in [batch]es the current thread is.
+     */
+    private val batchDepth = object : ThreadLocal<Int>() {
+        override fun initialValue(): Int = 0
+    }
+
     init {
         // buffer which stores the UMN mutation log.
         val map: UtilityMap<Long, ByteArray> = umn.openUtilityMap(bufferName)
@@ -72,6 +79,27 @@ public class MutationLog(
 
     override fun onRecord(logRecord: LogRecord) {
         fifolog.append(logRecord.toByteArray(serializer))
+        // stores the document and this record together, before the edit returns: `D_commit_per_local_edit`
+        if (batchDepth.get() == 0) umn.commit()
+    }
+
+    /**
+     * Runs [block], [onRecord] committing nothing on this thread meanwhile; commits once as the outermost batch returns or
+     * throws.
+     */
+    internal fun <T> batch(block: () -> T): T {
+        batchDepth.set(batchDepth.get() + 1)
+        try {
+            return block()
+        } finally {
+            val depth = batchDepth.get() - 1
+            if (depth == 0) {
+                batchDepth.remove()
+                umn.commit()
+            } else {
+                batchDepth.set(depth)
+            }
+        }
     }
 
     /**

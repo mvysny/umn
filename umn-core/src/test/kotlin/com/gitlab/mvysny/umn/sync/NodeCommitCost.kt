@@ -14,8 +14,9 @@ import kotlin.random.Random
 
 /**
  * Measures a commit after each local edit on a node's store, opened as Aedict opens it: `compress()`, H2's default
- * `autoCommitBufferSize`, two indices, synced; `R_mvstore_commit_per_write`. Runs the edits once per [Mode]. Args: the directory for the store files, documents, edits, idle seconds after the edits, milliseconds
- * between edits, and an `autoCommitBufferSize` in KB, 0 for H2's default:
+ * `autoCommitBufferSize`, two indices, synced; `R_mvstore_commit_per_write`. Runs the edits once per [Mode]. Args: the
+ * directory for the store files, documents, edits, idle seconds after the edits, milliseconds between edits, and an
+ * `autoCommitBufferSize` in KB, 0 for H2's default:
  *
  * ```
  * java -cp <umn-core's test runtime classpath> com.gitlab.mvysny.umn.sync.NodeCommitCost /tmp 30000 1000 0 0
@@ -45,8 +46,8 @@ object NodeCommitCost {
     }
 
     /**
-     * What follows each edit: nothing, a commit, or a commit requested from a background thread, which edits made while one
-     * runs share.
+     * What follows each edit: nothing, as in a [batch]; a commit, as a [SyncingUMN] change makes by itself; or a commit
+     * requested from a background thread, which edits made while one runs share.
      */
     enum class Mode { NONE, SYNC, BACKGROUND }
 
@@ -88,22 +89,25 @@ object NodeCommitCost {
             commitNanos.add(System.nanoTime() - t)
         }
         val start = System.nanoTime()
-        repeat(edits) { i ->
-            val id = ids.random(random)
-            val doc = note(i)
-            val t0 = System.nanoTime()
-            node.update(id, doc)
-            when (mode) {
-                Mode.NONE -> {}
-                Mode.SYNC -> commit()
-                // cleared before the commit: an edit made after it either lands in this commit or requests the next
-                Mode.BACKGROUND -> if (pending.compareAndSet(false, true)) committer.execute { pending.set(false); commit() }
+        // the node commits each edit by itself; in one batch, only the mode does
+        node.batch {
+            repeat(edits) { i ->
+                val id = ids.random(random)
+                val doc = note(i)
+                val t0 = System.nanoTime()
+                node.update(id, doc)
+                when (mode) {
+                    Mode.NONE -> {}
+                    Mode.SYNC -> commit()
+                    // cleared before the commit: an edit made after it either lands in this commit or requests the next
+                    Mode.BACKGROUND -> if (pending.compareAndSet(false, true)) committer.execute { pending.set(false); commit() }
+                }
+                editNanos[i] = System.nanoTime() - t0
+                if (pauseMillis > 0) Thread.sleep(pauseMillis)
             }
-            editNanos[i] = System.nanoTime() - t0
-            if (pauseMillis > 0) Thread.sleep(pauseMillis)
+            committer.shutdown()
+            committer.awaitTermination(1, TimeUnit.MINUTES)
         }
-        committer.shutdown()
-        committer.awaitTermination(1, TimeUnit.MINUTES)
         val totalMillis = (System.nanoTime() - start) / 1_000_000
         val after = file.length()
         editNanos.sort()

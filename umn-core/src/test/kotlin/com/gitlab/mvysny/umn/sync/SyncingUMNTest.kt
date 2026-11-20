@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import kotlin.concurrent.thread
 import kotlin.system.measureTimeMillis
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.test.expect
 import java.io.File
@@ -342,6 +343,79 @@ class SyncingUMNTest {
                 umn.close()
                 other.close()
             }
+        }
+    }
+
+    @Nested inner class LocalEditCommits {
+        @TempDir lateinit var dir: File
+        private val file: File get() = File(dir, "node")
+        private lateinit var store: MVStore
+        private lateinit var umn: SyncingUMN
+        @BeforeEach fun createUmn() {
+            store = MVStore.Builder().fileName(file.path).autoCommitDisabled().open()
+            umn = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer)
+        }
+        @AfterEach fun closeUmn() { umn.close() }
+
+        @Test fun `a kill right after a local edit keeps it, and its outgoing record`() {
+            val id = umn.create("a")
+            store.closeImmediately()
+            createMvstoreUMN(file.path).use { reopened ->
+                expect("a") { reopened.find(id, String::class) }
+                expect(listOf(id)) { MutationLog(reopened, "OUTGOING_BUFFER", JavaDocumentSerializer, false).drain().map { it.id } }
+            }
+        }
+
+        @Test fun `every local edit commits before it returns`() {
+            val id = umn.create("a")
+            expect(false) { store.hasUnsavedChanges() }
+            umn.update(id, "b")
+            expect(false) { store.hasUnsavedChanges() }
+            umn.delete(id)
+            expect(false) { store.hasUnsavedChanges() }
+        }
+
+        @Test fun `a batch commits once, as it returns`() {
+            val ids = umn.batch {
+                val ids = listOf(umn.create("a"), umn.create("b"))
+                expect(true) { store.hasUnsavedChanges() }
+                ids
+            }
+            expect(false) { store.hasUnsavedChanges() }
+            expect(listOf("a", "b")) { ids.map { umn.get(it, String::class) } }
+        }
+
+        @Test fun `only the outermost batch commits`() {
+            umn.batch {
+                umn.batch { umn.create("a") }
+                expect(true) { store.hasUnsavedChanges() }
+            }
+            expect(false) { store.hasUnsavedChanges() }
+        }
+
+        @Test fun `a batch that throws commits the edits it made`() {
+            assertFailsWith<IllegalStateException> {
+                umn.batch {
+                    umn.create("a")
+                    error("simulated")
+                }
+            }
+            expect(false) { store.hasUnsavedChanges() }
+            expect(1) { umn.getSequenceOfIDs().count() }
+        }
+
+        @Test fun `another thread's edit commits while a batch runs`() {
+            umn.batch {
+                umn.create("a")
+                thread { umn.create("b") }.join()
+                expect(false) { store.hasUnsavedChanges() }
+            }
+        }
+
+        @Test fun `a batch over a UMN that doesn't sync commits as it returns`() {
+            val plain = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver)
+            plain.batch { plain.create("a") }
+            expect(false) { store.hasUnsavedChanges() }
         }
     }
 

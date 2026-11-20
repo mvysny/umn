@@ -132,9 +132,9 @@ restore the app knows about. What's the smallest set that covers what Aedict mee
 
 - `Q_lost_ack_window`: how wide is the window in `S_lost_ack` in practice: the server appends and
   ACKs in one step, so it takes a connection dying between the two, and a sibling deleting X before
-  the reconnect, at most 60 s with `Backoff`. A kill widens it: the node's store loses the ACKs of
-  its last second (`survive-a-kill-mid-write.md`), and re-sends those records at its next start,
-  however late, a day say.
+  the reconnect, at most 60 s with `Backoff`. A kill widens it: the node commits no ACK, so its
+  store loses the last second's (`R_mvstore_kill_opens_empty`), and re-sends those records at its
+  next start, however late, a day say.
 - `Q_divergence_vs_resurrection`: with a client-side fix, old and new nodes disagree on resurrected
   documents. Better or worse than everyone agreeing on them?
 - `Q_tombstone_growth`: keep tombstones forever, or drop them after N months?
