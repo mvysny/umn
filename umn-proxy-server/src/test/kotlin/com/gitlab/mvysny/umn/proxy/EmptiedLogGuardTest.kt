@@ -87,7 +87,7 @@ class EmptiedLogGuardTest {
         EmptiedLogGuard.check(file)
     }
 
-    @Disabled("red until the fix: design/ideas/survive-a-kill-mid-write.md")
+    // TEMP-ENABLED @Disabled("red until the fix: design/ideas/survive-a-kill-mid-write.md")
     @Test fun `a compacted log cut short still opens with its records`() {
         writeCompactedLog()
         cutLastChunk()

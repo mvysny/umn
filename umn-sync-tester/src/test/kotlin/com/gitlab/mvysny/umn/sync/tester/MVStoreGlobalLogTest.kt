@@ -81,11 +81,11 @@ class MVStoreGlobalLogTest {
                 if (i % 20 == 0) db.commit()
             }
             db.commit()
-            val before = db.currentFillRate
+            val before = db.chunksFillRate
             log.deleteUser("deleted")
             db.commit()
             // half the data gone: the fill rate halves, give or take the B-tree's own garbage
-            assertTrue(db.currentFillRate < before * 2 / 3, "fill rate $before % → ${db.currentFillRate} %")
+            assertTrue(db.chunksFillRate < before * 2 / 3, "fill rate $before % → ${db.chunksFillRate} %")
             expect(listOf("kept")) { log.listUsers() }
         }
     }

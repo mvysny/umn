@@ -198,7 +198,7 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
      * Compacts the database file.
      */
     public fun compact() {
-        store.compactRewriteFully()
+        store.compactFile(Long.MAX_VALUE)
         store.compactMoveChunks()
     }
 

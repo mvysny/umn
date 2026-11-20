@@ -81,7 +81,7 @@ class DroppedIndexTest {
 
     private fun expectKeysUnloadable() {
         MVStore.Builder().fileName(file).readOnly().open().use { store ->
-            val e = assertFailsWith<IllegalArgumentException> {
+            val e = assertFailsWith<RuntimeException> {  // TEMP: 1.4.200 throws IllegalStateException
                 store.openMap("__INDEX2_gone", MVMap.Builder<Any, Any>().keyType(CompositeKeyDataType()))
             }
             assertTrue(generateSequence<Throwable>(e) { it.cause }.any { it is ClassNotFoundException }, e.toString())
@@ -92,11 +92,11 @@ class DroppedIndexTest {
         val store = MVStore.Builder().fileName(file).autoCommitDisabled().open()
         // else every chunk counts as young, wholly live
         store.retentionTime = 0
-        val before = store.currentFillRate
+        val before = store.chunksFillRate
         MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver).use { storage ->
             IndexingUMN(storage, setOf())
             expect(null) { storage.openUtilityMap<String, Boolean>("INDEX_STATE").find("gone") }
-            val after = store.currentFillRate
+            val after = store.chunksFillRate
             expect(false) { store.hasMap("__INDEX2_gone") }
             expect(entries) { store.openMap<String, Array<UUID>>("kept").size }
             println("fill rate before $before %, after $after %")

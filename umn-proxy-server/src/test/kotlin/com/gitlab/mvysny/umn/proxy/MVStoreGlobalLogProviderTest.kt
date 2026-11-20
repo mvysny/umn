@@ -20,7 +20,7 @@ class MVStoreGlobalLogProviderTest {
     private fun provider(compactInterval: Duration = Duration.ofMinutes(1)) =
         MVStoreGlobalLogProvider(dir.absoluteFile, compactInterval).also { providers += it }
 
-    private val MVStoreGlobalLogProvider.fillRate: Int get() = mvstorelog.db.currentFillRate
+    private val MVStoreGlobalLogProvider.fillRate: Int get() = mvstorelog.db.chunksFillRate
 
     /**
      * Logs of three users, interleaved in many small commits, two of them then cleared: every chunk ends about a

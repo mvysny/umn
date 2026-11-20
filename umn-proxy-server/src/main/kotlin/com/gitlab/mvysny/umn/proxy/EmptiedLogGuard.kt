@@ -70,13 +70,22 @@ internal object EmptiedLogGuard {
             val header = DataUtils.parseMap(headerLine)
             val end = pos + DataUtils.readHexLong(header, "len", 0) * BLOCK
             if (end <= pos || end > channel.size() || DataUtils.readHexLong(header, "block", 0) * BLOCK != pos) return null
-            val footer = DataUtils.parseChecksummedMap(channel.readAt(end - FOOTER, FOOTER)) ?: return null
+            val footer = parseFooter(channel.readAt(end - FOOTER, FOOTER)) ?: return null
             if (footer["chunk"] != header["chunk"]) return null
             return Chunk(end, DataUtils.readHexLong(footer, "version", 0))
         } catch (e: IllegalStateException) {
             log.debug("$pos: not a chunk", e)
             return null
         }
+    }
+
+    /** A chunk footer, `chunk:…,block:…,version:…,fletcher:…`, when its Fletcher-32 checksum holds. */
+    private fun parseFooter(bytes: ByteArray): Map<String, String>? {
+        val line = String(bytes, ISO_8859_1).trimEnd()
+        val at = line.lastIndexOf(",fletcher:")
+        if (at < 0) return null
+        val checksum = line.substring(at + ",fletcher:".length).toLongOrNull(16)?.toInt() ?: return null
+        return if (checksum == DataUtils.getFletcher32(bytes, 0, at)) DataUtils.parseMap(line.substring(0, at)) else null
     }
 
     private fun FileChannel.readAt(pos: Long, length: Int): ByteArray {

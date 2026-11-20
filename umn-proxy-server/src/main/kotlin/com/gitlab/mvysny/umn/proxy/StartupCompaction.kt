@@ -47,13 +47,13 @@ internal object StartupCompaction {
         try {
             MVStore.Builder().fileName(file.path).readOnly().open().use { source ->
                 // an upper bound: a chunk counts as live until it is old, and leaked pages count as live too
-                val needed = sizeBefore / 100 * source.currentFillRate
+                val needed = sizeBefore / 100 * source.chunksFillRate
                 val free = usableSpace(file.absoluteFile.parentFile)
                 if (free < needed) {
                     log.warn("$file: not compacting it, ${free.mb} free but the copy may need ${needed.mb}")
                     return
                 }
-                log.info("$file: compacting ${sizeBefore.mb}, ${source.currentFillRate} % full")
+                log.info("$file: compacting ${sizeBefore.mb}, ${source.chunksFillRate} % full")
                 MVStore.Builder().fileName(copy.path).compress().open().use { target ->
                     MVStoreTool.compact(source, target)
                     checkSameCounts(source, target)
