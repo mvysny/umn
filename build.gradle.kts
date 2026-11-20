@@ -102,7 +102,7 @@ subprojects {
                     pom {
                         this.description = description
                         name = artifactId
-                        url = "https://gitlab.com/mvysny/umn"
+                        url = "https://github.com/mvysny/umn"
                         licenses {
                             license {
                                 name = "The Apache Software License, Version 2.0"
@@ -118,7 +118,7 @@ subprojects {
                             }
                         }
                         scm {
-                            url = "https://gitlab.com/mvysny/umn"
+                            url = "https://github.com/mvysny/umn"
                         }
                     }
                     

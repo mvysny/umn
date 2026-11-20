@@ -22,7 +22,7 @@ implementation that talks to this server.
 The deployment is simple. First you need to compile the server:
 
 1. Install Java JDK 17 or higher
-2. `git clone https://gitlab.com/mvysny/umn`
+2. `git clone https://github.com/mvysny/umn`
 3. `cd umn && ./gradlew umn-proxy-server:build -x test`
 4. Find the zip file at `umn-proxy-server/build/distributions/*.zip`
 

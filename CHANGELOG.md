@@ -6,6 +6,8 @@ step; the wire format never breaks, and a release opens every file an earlier on
 
 ## 0.19 — unreleased
 
+- The project moved from GitLab to GitHub: https://github.com/mvysny/umn. The groupId
+  `com.gitlab.mvysny.umn` and the package names stay as they are.
 - `UMN.get(id, Long::class)` and `find()` accept a Kotlin primitive class, and an `IndexDef`'s
   document type may be one. In 0.18, `get`/`find` threw `ClassCastException` and the index ignored
   every document; only `java.lang.Long::class` worked.

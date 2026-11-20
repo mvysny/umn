@@ -1,4 +1,4 @@
-[![pipeline status](https://gitlab.com/mvysny/umn/badges/master/pipeline.svg)](https://gitlab.com/mvysny/umn/commits/master)
+[![build](https://github.com/mvysny/umn/actions/workflows/build.yml/badge.svg)](https://github.com/mvysny/umn/actions/workflows/build.yml)
 
 # U.M.N.
 

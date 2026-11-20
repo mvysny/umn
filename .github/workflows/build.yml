@@ -1,0 +1,29 @@
+name: build
+on:
+  push:
+  pull_request:
+
+jobs:
+  design-tripwires:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: design/verify_design_tripwires.sh
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: ['17', '21', '25']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+          # no `cache:` — setup-gradle caches Gradle
+      - uses: gradle/actions/setup-gradle@v6
+      # the design-tripwires job runs the tripwire
+      - run: ./gradlew build -x verifyDesignTripwires
+      - run: ./gradlew clean umn-proxy-client:build -x test
