@@ -24,6 +24,15 @@ step; the wire format never breaks, and a release opens every file 0.9 or later 
   header named no chunk yet, as in a new node's store and in the proxy server's log after every
   start, and its close then truncated the file: a node lost its unsynced edits, the proxy server
   its whole log.
+- New `MvstoreUMN.dropLeakedPages(file)`: call it before opening the store. It rewrites a file,
+  once, if H2 1.4.197 or 1.4.198 leaked pages into it, pages counted live that no map reaches.
+  Each keeps its chunk in the file for good, and under 1.4.200 keeps the background writer
+  rewriting the store for as long as it is open: on Aedict-Online's replicas, 40–700 MB written a
+  minute and 10 fsyncs a second, idle. An app that ran UMN 0.15, on 1.4.197, has such files: 20 of
+  Aedict-Online's 69 replicas over 1 MB.
+- The sync opens its log pointer map when constructed, not when the sync starts. On a node whose
+  sync never started, the map's page held its chunk in the file under 1.4.200, with the same
+  rewriting.
 - **Breaking:** a proxy server upgrades only forward. 0.19 closes its log with H2's clean-shutdown
   flag, which 0.18 and older keep while they write, so 0.19 started again on a log an older
   server wrote meanwhile opens it silently missing those records. Migration: fix a bad release

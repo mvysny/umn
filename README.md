@@ -125,8 +125,10 @@ To open/create a database, use the following code:
 data class Person(val name: String, val surname: String) : Serializable
 
 fun main(args: Array<String>) {
-    val dbfile = "/home/mavi/temp/testdb.db"
-    val mvstore = MVStore.Builder().compress().fileName(dbfile).open()
+    val dbfile = File("/home/mavi/temp/testdb.db")
+    // before opening: rewrites a file UMN 0.18 or older wrote, once, if old H2s leaked pages into it
+    MvstoreUMN.dropLeakedPages(dbfile)
+    val mvstore = MVStore.Builder().compress().fileName(dbfile.path).open()
     
     // beware! Don't use JavaDocumentSerializer nor AutoTypeResolver for production!
     // see those classes's javadoc for more info.
@@ -142,6 +144,15 @@ fun main(args: Array<String>) {
     }
 }
 ```
+
+Call `dropLeakedPages()` before every open, not only once: on a file UMN 0.18 or older wrote, H2
+1.4.197 and 1.4.198 may have leaked pages, which keep their chunks in the file and keep H2
+1.4.200's background writer rewriting the store for as long as it is open. The first call rewrites
+such a file; every later one returns within milliseconds. On a desktop's cold start the first call
+takes 0.1 s on a clean file and 0.3–1 s on a leaky one of up to 66 MB; a phone may take ten times
+that, so on Android make the call off the main thread. For the same reason, open every utility
+map your app keeps in the store as soon as you open the store, even one it uses rarely: MVStore
+moves only an open map's pages, so the page of a map left closed holds its chunk just the same.
 
 # Documentation
 

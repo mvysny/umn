@@ -112,8 +112,8 @@ internal class Backoff(val initialMillis: Long = 1000L, val maxMillis: Long = 60
  */
 private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient,
                               val documentSerializer: DocumentSerializer,
-                              val typeToClassResolver: TypeToClassResolver) : Closeable {
-    private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openLogPointer()
+                              val typeToClassResolver: TypeToClassResolver,
+                              private val currentLogPointer: UtilityMap<Boolean, Long>) : Closeable {
     private var closed: Boolean = false
     @Volatile
     var failure: LogRecordNotAppliedException? = null
@@ -176,11 +176,6 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
  * How often a [GlobalLogPuller] saves its pointer: as often as MVStore's default auto-commit stores anyway.
  */
 private const val POINTER_SAVE_INTERVAL_NANOS = 1_000_000_000L
-
-/**
- * The log pointer, under the key `false`: the index of the next record a [GlobalLogPuller] pulls; absent, 0.
- */
-private fun UMN.openLogPointer(): UtilityMap<Boolean, Long> = openUtilityMap("CURRENT_LOG_PTR")
 
 /**
  * Wraps given receiver and syncs all changes to the global log through clients provided by given [clientProvider].
@@ -286,11 +281,18 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                                   forceRestartSync: Boolean,
                                   private val backoff: Backoff = Backoff()) : Closeable {
     /**
+     * How many global log records this node has pulled, under the key `false`. Opened here, not by each puller: MVStore
+     * rewrites only an open map's pages, so on a node whose sync never starts, the map's page would pin its chunk in the
+     * file, and keep the background writer rewriting around it (`R_mvstore_unopened_map_pins`).
+     */
+    private val logPointer: UtilityMap<Boolean, Long> = underlyingUMN.openUtilityMap("CURRENT_LOG_PTR")
+
+    /**
      * buffer which stores outgoing changes until they are correctly transmitted over [GlobalLogClient] (produced by [clientProvider]).
      */
     private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer, forceRestartSync) {
         // a refilled buffer is for a new server, whose log starts at 0: `D_refill_rewinds`
-        underlyingUMN.openLogPointer().put(false, null)
+        logPointer.put(false, null)
     }
 
     private val eventLoop = Executors.newSingleThreadExecutor()
@@ -450,7 +452,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                     client.closeQuietly()
                     return
                 }
-                puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver)
+                puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, logPointer)
                 pusher = GlobalLogPusher(client, mutationLog.fifolog)
                 connection = listOf(pusher, puller, client)
             }

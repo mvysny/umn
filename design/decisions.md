@@ -148,13 +148,12 @@ commits, and whenever it is missing {MutationLog} refills and the {Syncer}'s `on
 the pointer, both before the commit that precedes the marker. A kill anywhere leaves the marker
 missing, and the next start redoes both, or stored, both stored before it. A first sync rewinds a
 pointer that isn't there: the puller writes one only after a commit, which stores the marker, and
-0.9 already wrote the marker. Why
-not rewind where the pointer is read, as the first puller connects: until the next store, a second
-later or whenever the app starts the syncer, a kill keeps the refill and the old pointer. Why not
-rewind on the flag in the constructor, before the marker's removal commits: a store between the two
-writes still keeps one without the other, and a pointer cleared without the refill leaves the new
-server without this node's documents. What stays open is the flag itself, in memory until that
-first commit, so the app passes it until `syncing()` returns.
+0.9 already wrote the marker. Why not rewind where the pointer is read, as the first puller
+connects: until the next store, a second later or whenever the app starts the syncer, a kill keeps
+the refill and the old pointer. Why not rewind on the flag in the constructor, before the marker's
+removal commits: a store between the two writes still keeps one without the other, and a pointer
+cleared without the refill leaves the new server without this node's documents. What stays open is
+the flag itself, in memory until that first commit, so the app passes it until `syncing()` returns.
 
 ## D_compact_on_startup — Why does the proxy server rewrite its log on every start?
 
@@ -181,6 +180,20 @@ auto-compaction off for its gigabyte log on one CPU (`D_own_compaction_timer`); 
 megabytes, its walk cheap. Why not measure its battery cost on a phone: phones ran 1.4.198, whose
 writer walked every chunk on every wake-up; 1.4.200 walks on a subset of them
 (`R_mvstore_idle_compaction`). The cost: nothing checks that a real node's store stays small.
+
+## D_drop_leaked_pages — Why does a node copy its file once, before opening, and only if H2 leaked pages?
+
+1.4.197 and 1.4.198 left pages counted live that no map reaches. Each pins its chunk for good, and
+1.4.200's writer then rewrites the store for as long as it is open (`R_mvstore_197_meta_leak`,
+`R_mvstore_removemap_leaks`).
+Only a copy drops them, and the copy needs the file closed, so the app calls
+{MvstoreUMN.dropLeakedPages} before opening. It walks every map's tree and copies only if a chunk
+counts more live bytes than its maps reach; either way it marks the file checked in meta. Why not
+copy on every start, as the proxy server does (`D_compact_on_startup`): a phone starts often, a
+copy takes seconds there, and 1.4.200 leaks nothing, so once is enough. Why not judge by the fill
+rates: they can't tell a leaked page from a live one. Why not inside {MvstoreUMN}: it takes a
+store already open. The cost: a call each app must remember, and on the first start after the
+upgrade a walk of the trees, 0.1 s on a desktop, or a copy, 0.3–1 s; every later start, a few ms.
 
 ## D_build_index_on_open — Why does IndexingUMN build a new index when constructed rather than in the background?
 

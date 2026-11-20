@@ -18,12 +18,23 @@ sets the buffer, `UMN_FIRST_SYNC_SCALE` a phone's slowness.
 
 The web replicas, written by the 1.4.197 Vaadin 8 app over six years with no compaction call:
 1 153 MB on disk for 242 MB live, 4.8×; of the 69 over 1 MB, median 4.1×, p90 7.5×, max 13×.
-Phones on 1.4.197/1.4.198 likely look alike.
+Phones on 1.4.197/1.4.198 likely look alike. The 14 replicas that stayed at 3–5.6× held chunks
+pinned by pages 1.4.197 leaked (`R_mvstore_197_meta_leak`); an app now drops those before opening
+(`D_drop_leaked_pages`).
 
 ## Next
 
-- `Q_underfilled`: at 16 MB, 14 of the 67 replicas stay at 3–5.6× after the commits, their files
-  full of chunks 24–47 % live. Why doesn't the writer rewrite them?
+- `Q_clean_2x`: 9 replicas with no leaked page still sat at 2.1–3.0× 30 s after the commits, in a
+  test that never started the sync, so the log pointer's page pinned its chunk
+  (`R_mvstore_unopened_map_pins`). With it open and leaks dropped, 4 of 5 traced closed at
+  1.01–1.30×, the fifth at 1.97×, its surplus all dead chunks awaiting commits. Are the 9 the
+  same? Rerun `idle` on HEAD.
+- `Q_drop_on_phone`: how long does `dropLeakedPages()`'s first call take on a phone? On a desktop,
+  a cold JVM per call: 0.12 s on clean files of 22 and 67 MB; a copy took 0.36 s for 3.5 MB to
+  1.5 MB, 1.03 s for 5 MB to 1 MB (6 100 inner pages), 0.33 s for 40 MB to 4.9 MB, 0.40 s for
+  45 MB to 10 MB, 0.61 s for 66 MB to 18 MB; every later call 1–3 ms. At a phone's pace (10×, a
+  guess), up to 10 s, once. Aedict opens its store in `Application.onCreate()`, on the main thread.
+  Measure on the emulator, and if it's too slow, Aedict opens its store off the main thread.
 - `Q_first_sync_peak`: does a first sync's transient peak matter, up to 152× live and 350 MB at a
   phone's pace (10× slower than the desktop: a guess)? Only on a phone short of space. If it
   does: a lower `retentionTime` during the pull (its 45 s guards a power cut, not a kill:
@@ -33,13 +44,3 @@ Phones on 1.4.197/1.4.198 likely look alike.
 
 - The README tells a node to open its store with H2's default `autoCommitBufferSize`: a small one
   leaves an old store 2–5× its live data for good, silently, and slows a first sync about 10×.
-
-## The fallback: an offline copy on start
-
-`StartupCompaction`'s copy-and-rename before `MvstoreUMN` opens the file (`D_compact_on_startup`).
-Shrinks to the live size, even what 1.4.198 leaked (`R_mvstore_removemap_leaks`) and what the
-idle writer can't move. Costs a start as long as the copy and free space the size of the live
-data, both a few MB on a node; Android kills apps, so it must be crash-safe as the proxy's is
-(`R_kill_vs_crash`). Only when the file is, say, over 3× its live size, which the file's and the
-chunks' fill rates estimate without a copy (`getFillRate()` × `getChunksFillRate()`); neither
-sees what 1.4.198 leaked.

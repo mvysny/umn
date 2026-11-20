@@ -164,6 +164,29 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
          */
         public fun inMemory(serializer: DocumentSerializer, typeToClassResolver: TypeToClassResolver): MvstoreUMN =
             MvstoreUMN(MVStore.open(null), serializer, typeToClassResolver)
+
+        /**
+         * Rewrites [file] into a copy without the pages H2 1.4.197 and 1.4.198 leaked, if it has any; call it before
+         * anything opens the store:
+         *
+         * ```
+         * MvstoreUMN.dropLeakedPages(dbfile)
+         * val umn = MvstoreUMN(MVStore.Builder().compress().fileName(dbfile.path).open(), serializer, resolver)
+         * ```
+         *
+         * A leaked page keeps its chunk in the file for good, and keeps 1.4.200's background writer rewriting the store
+         * for as long as it is open (`R_mvstore_197_meta_leak`). The first call walks every map's tree, and copies the
+         * file only if a page leaked; it then marks the file checked, so every later call opens it read-only and
+         * returns. On a desktop's cold start: 0.1 s for a clean file, 0.3–1 s for a copy of up to 18 MB of live
+         * data, then a few ms; a phone takes several times that. Never throws: a failure,
+         * or too little disk for the copy, is logged and leaves the file as it was. A kill leaves the old file or the
+         * new one, whole.
+         *
+         * Blocks the calling thread.
+         *
+         * @return the leaked bytes the copy left behind; 0 when none, the file was checked before, or the copy failed.
+         */
+        public fun dropLeakedPages(file: File): Long = LeakedPages.drop(file)
     }
 }
 
@@ -223,13 +246,13 @@ public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String
 }
 
 /**
- * Reads a page's keys, or a leaf's values, as one opaque blob: the rest of the page. For [MvstoreUMN.dropUtilityMap] only,
- * whose `clear()` needs an inner page's child positions alone, which come before its keys (`R_mvstore_clear_reads_no_key`).
- * Never writes, never compares.
+ * Reads a page's keys, or a leaf's values, as one opaque blob: the rest of the page. For [MvstoreUMN.dropUtilityMap],
+ * whose `clear()` needs an inner page's child positions alone, which come before its keys (`R_mvstore_clear_reads_no_key`),
+ * and for [LeakedPages]' walk, which needs only those. Never writes, never compares.
  *
  * A copy of H2's `MVStoreTool.GenericDataType`, package-private there.
  */
-private object OpaqueDataType : DataType {
+internal object OpaqueDataType : DataType {
     override fun compare(a: Any?, b: Any?): Int = throw UnsupportedOperationException("opaque, can't compare")
 
     override fun getMemory(obj: Any?): Int = (obj as ByteArray?)?.size ?: 0
