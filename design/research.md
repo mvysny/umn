@@ -74,7 +74,7 @@ keep it short. When you have written an entry, re-read it against the one above 
 - A chunk the rewrite emptied is freed once `versionsToKeep` (5) later versions are stored, at
   least one; till then the fill rate counts it. So `compactFile()`, rewriting until the chunks are
   95 % full, never returns on a live store: after 30 s still rewriting, its file doubled.
-  **[src]**, **[verified 2026-11-20, 1.4.200]** (`MvstoreUMNTest`)
+  **[src]**, **[verified 2026-11-20, 1.4.200]**
 - The file is `nio:` by default, a `RandomAccessFile`'s `FileChannel`: interrupting a thread inside
   its I/O closes the channel for every thread (`ClosedByInterruptException`), and the store is
   dead until reopened. **[src]**, **[docs]** (`InterruptibleChannel`)

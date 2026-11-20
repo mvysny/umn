@@ -25,12 +25,11 @@ step; the wire format never breaks, and a release opens every file an earlier on
   server wrote meanwhile opens it silently missing those records. Migration: fix a bad release
   with a newer one, never by starting the older image; see the server's README.
 - **Breaking:** for code calling MVStore itself, 1.4.200 drops `compactRewriteFully()` and
-  `getCurrentFillRate()`. Migration: `MvstoreUMN.compact()` for the first; not 1.4.200's
-  `compactFile(Long.MAX_VALUE)`, which never returns on a store whose data is live. And
-  `getChunksFillRate()` for the second.
-- **Breaking:** `MvstoreUMN.compact()` must run while no other thread uses the UMN: it frees the
-  space it empties at once, under any reader still on the version before. Migration: call it
-  before anything else touches the store, say on the app's start, before the sync starts.
+  `getCurrentFillRate()`. Migration: drop the first, as MVStore's auto-compaction keeps the file
+  small; not 1.4.200's `compactFile(Long.MAX_VALUE)`, which never returns on a store whose data
+  is live. And `getChunksFillRate()` for the second.
+- **Breaking:** `MvstoreUMN.compact()` is gone: MVStore's auto-compaction already keeps the file
+  small. Migration: drop the call, and open the store with the default `autoCompactFillRate`.
 - **Breaking:** `UMN.dropUtilityMap(name)` frees a utility map's entries and forgets the map,
   reading none of its keys or values. Migration: a `UMN` implemented outside this library, such as
   a wrapper, implements it, typically as `delegate.dropUtilityMap(name)`.

@@ -6,14 +6,10 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertTimeoutPreemptively
 import java.io.DataInputStream
-import java.time.Duration
 import java.util.*
 import java.util.concurrent.CyclicBarrier
 import kotlin.concurrent.thread
-import kotlin.random.Random
-import kotlin.test.assertTrue
 import kotlin.test.expect
 import java.io.File
 
@@ -24,39 +20,6 @@ class MvstoreUMNTest {
 
     @Nested inner class FileBasedTests : GenericUmnTestBattery() {
         override fun newUmn(): UMN = createMvstoreUMN()
-    }
-
-    @Test fun `compact keeps the documents`() {
-        createMvstoreUMN().use { umn ->
-            expect(null) { umn.delegate }
-            val ids = (0..100).map { umn.create("doc $it") }
-            ids.take(50).forEach { umn.delete(it) }
-            umn.compact()
-            expect("doc 50") { umn.get(ids[50], String::class) }
-            expect(51) { umn.getSequenceOfIDs().count() }
-        }
-    }
-
-    @Test fun `compact returns, shrinking a store whose documents are all live`() {
-        val file = File.createTempFile("compact", ".mv")
-        val store = MVStore.Builder().fileName(file.path).open()
-        MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver).use { umn ->
-            val random = Random(42)
-            val a = umn.openUtilityMap<Int, ByteArray>("a")
-            val b = umn.openUtilityMap<Int, ByteArray>("b")
-            val ids = List(30_000) { i ->
-                a.put(i, random.nextBytes(100))
-                b.put(i, random.nextBytes(100))
-                umn.create("doc $i".padEnd(100)).also { if (i % 100 == 99) store.commit() }
-            }
-            val before = file.length()
-            assertTimeoutPreemptively(Duration.ofSeconds(30)) { umn.compact() }
-            assertTrue(file.length() < before / 2, "${file.length()} vs $before")
-            expect("doc 29999".padEnd(100)) { umn.get(ids.last(), String::class) }
-            expect(30_000) { umn.getSequenceOfIDs().count() }
-            expect(30_000) { a.keyCount() }
-        }
-        file.delete()
     }
 
     @Test fun `threads opening a new utility map at once all write into one map`() {

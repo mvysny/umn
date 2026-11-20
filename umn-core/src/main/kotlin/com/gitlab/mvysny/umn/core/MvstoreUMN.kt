@@ -64,16 +64,13 @@ public object JavaDocumentSerializer : DocumentSerializer {
  *
  * Supports all [Serializable]/[Externalizable] keys; for more info please consult the documentation for H2 MV Store.
  *
+ * The file stays small through MVStore's own auto-compaction, so open [store] with the default `autoCompactFillRate`
+ * (`D_node_auto_compaction`).
+ *
  * @property store the underlying store to use, closed when this UMN is closed.
  */
 public class MvstoreUMN(private val store: MVStore, private val serializer: DocumentSerializer,
                  override val typeToClassResolver: TypeToClassResolver) : UMN {
-    init {
-        // this radically decreases database size: https://github.com/h2database/h2database/issues/1835
-        // but this could introduce huge initial pause. Investigate setRetentionTime()
-//        store.compactRewriteFully()
-//        store.compactMoveChunks()
-    }
     override val delegate: UMN?
         get() = null
 
@@ -81,10 +78,6 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
             = map.putIfAbsent(id, serialize(document)) == null
 
     override fun close() {
-        // this radically decreases database size: https://github.com/h2database/h2database/issues/1835
-        // but this could introduce huge initial pause. Investigate setRetentionTime()
-//        store.compactRewriteFully()
-//        store.compactMoveChunks()
         store.close()
     }
 
@@ -191,38 +184,6 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
     override fun findSerialized(id: UUID): SerializedDocument? = map[id]
 
     override fun isEmpty(): Boolean = map.isEmpty()
-
-    /**
-     * Compacts the database file: rewrites the live pages of every open map into fresh chunks, once, and moves the
-     * chunks to the file's start, shrinking it. Call it while no other thread uses this UMN.
-     *
-     * ## Implementation notes
-     *
-     * One rewrite, not `compactFile()`: that loops until the chunks are 95 % full, but each round empties chunks that
-     * count until the next one, so on a live store it never returns (`R_mvstore_compact_concurrency`). Meanwhile
-     * `versionsToKeep` and the retention time are 0, so the emptied chunks are freed at the next stored version,
-     * which a reader on an older version wouldn't survive; and the background writer stops, as `compact()` skips the
-     * rewrite when it can't take the store's lock within 10 ms.
-     */
-    public fun compact() {
-        val autoCommitDelay = store.autoCommitDelay
-        val versionsToKeep = store.versionsToKeep.toInt()
-        val retentionTime = store.retentionTime
-        store.autoCommitDelay = 0
-        store.setVersionsToKeep(0)
-        store.retentionTime = 0
-        try {
-            store.compact(100, Int.MAX_VALUE)
-            // changes nothing but makes commit() store a version, after which the emptied chunks may be freed
-            store.storeVersion = store.storeVersion
-            store.commit()
-            store.compactMoveChunks()
-        } finally {
-            store.retentionTime = retentionTime
-            store.setVersionsToKeep(versionsToKeep)
-            store.autoCommitDelay = autoCommitDelay
-        }
-    }
 
     public companion object {
         /**

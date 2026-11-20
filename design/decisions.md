@@ -115,6 +115,18 @@ it pays: the fill rate can't see leaked pages, and a heuristic is harder to reas
 constant cost on a rare deploy. Why not an operator command: nobody remembers it. Why not online:
 the copy needs the file closed. `compactDatabaseOnStartup: false` turns it off.
 
+## D_node_auto_compaction — Why does a node's store compact itself rather than through a UMN call?
+
+A node opens its store with the default `autoCompactFillRate`, so MVStore's background writer
+rewrites and moves chunks whenever it projects the file under 90 % full; it compacted a
+100 000-chunk test store within seconds (`R_mvstore_idle_compaction`). So {MvstoreUMN} offers no
+compaction. Why not one on the app's start: a full rewrite blocks the start for as long as it
+runs, and a phone app can't wait. Why not on a timer beside the sync: the writer already does
+that, and a call can't do better, since freeing the emptied chunks at once would pull them from
+under readers on an older version (`R_mvstore_compact_concurrency`). The proxy server turns
+auto-compaction off for its gigabyte log on one CPU (`D_own_compaction_timer`); a node's store is
+megabytes, its walk cheap. The cost: nothing checks that a real node's store stays small.
+
 ## D_build_index_on_open — Why does IndexingUMN build a new index when constructed rather than in the background?
 
 A new index starts empty, and `update()` of an unchanged document registers no key, so only a walk
