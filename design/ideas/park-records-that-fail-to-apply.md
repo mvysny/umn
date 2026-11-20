@@ -89,7 +89,8 @@ applies. That's the "missed record" the owner prefers, and it's no longer silent
 - `Q_parked_forever`: does a chain that never applies get dropped after a while, or does it stay
   parked for good? It's bytes in a node-local map, so keeping it costs little and leaves a
   diagnosis possible. Lean: keep it.
-- `Q_parked_and_forceRestartSync`: `forceRestartSync` rewinds the pointer to 0. Clear
-  `PARKED_RECORDS` then, since every record comes again.
+- `Q_parked_and_forceRestartSync`: every refill of the outgoing buffer, `forceRestartSync`'s
+  included, rewinds the pointer to 0, in the `Syncer`'s `onPopulate` (`D_refill_rewinds`). Clear
+  `PARKED_RECORDS` there too, since every record comes again.
 - Aedict's data: `../aedict/aedict-common`'s `ProductionLogReplayTest` replays production's logs
   under 0.18 and counts the failures. How many users that is decides how urgent 0.19 is.
