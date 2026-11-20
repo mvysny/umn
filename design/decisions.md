@@ -125,7 +125,9 @@ runs, and a phone app can't wait. Why not on a timer beside the sync: the writer
 that, and a call can't do better, since freeing the emptied chunks at once would pull them from
 under readers on an older version (`R_mvstore_compact_concurrency`). The proxy server turns
 auto-compaction off for its gigabyte log on one CPU (`D_own_compaction_timer`); a node's store is
-megabytes, its walk cheap. The cost: nothing checks that a real node's store stays small.
+megabytes, its walk cheap. Why not measure its battery cost on a phone: phones ran 1.4.198, whose
+writer walked every chunk on every wake-up; 1.4.200 walks on a subset of them
+(`R_mvstore_idle_compaction`). The cost: nothing checks that a real node's store stays small.
 
 ## D_build_index_on_open — Why does IndexingUMN build a new index when constructed rather than in the background?
 

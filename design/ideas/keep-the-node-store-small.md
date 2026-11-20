@@ -26,8 +26,6 @@ Phones on 1.4.197/1.4.198 likely look alike.
   at 3–6×. Not the maps an app leaves unopened: stuck and shrinking replicas hold the same ones.
   A lead **[unverified]**: the idle move budget scales with `autoCommitMemory`, and Aedict's
   `autoCommitBufferSize(256)` cuts it from H2's default of up to 19 MB to 256 KB.
-- `Q_battery`: what does the background writer cost on a phone: the walk after each commit
-  (`R_mvstore_idle_compaction`, 1–2 ms per 100 000 chunks on a desktop) and its own rewrites?
 
 ## The fallback: an offline copy on start
 

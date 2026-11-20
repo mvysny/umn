@@ -13,9 +13,10 @@ keep it short. When you have written an entry, re-read it against the one above 
 
 ## R_mvstore_idle_compaction — the background writer walks every chunk on its wake-ups
 
-- The background writer wakes every `autoCommitDelay / 10` ms, 100 by default. A wake-up with no
-  file I/O since the last runs `doMaintenance()`; one after I/O calls `getProjectedFillRate()`,
-  which walks every chunk, whatever `autoCompactFillRate`. **[src]**
+- The background writer wakes every `autoCommitDelay / 10` ms, 100 by default. A wake-up after
+  file I/O calls `getProjectedFillRate()`, which walks every chunk, whatever `autoCompactFillRate`;
+  one with none runs `doMaintenance()`, which walks them only with the file over
+  `autoCompactFillRate` full. **[src]**
 - `autoCompactFillRate` defaults to 90 (its javadoc says 40). Projected under it, the writer
   rewrites and moves chunks itself; at 0 it rewrites nothing, yet still moves chunks once the free
   space is fragmented (`isFragmented()`). A store committed in small writes grows a chunk a
@@ -24,8 +25,9 @@ keep it short. When you have written an entry, re-read it against the one above 
   every 200 ms, 6–10 ms a second, nearly all in `getProjectedFillRate()`, 1–2 ms a walk; once, at
   start, 1.2–1.7 s moving chunks. The default builder compacts that store itself within seconds.
   **[verified 2026-11-20, 1.4.200]**
-- On 1.4.198 an idle store walked on every wake-up: production's 129 299-chunk log took 5.5 % of a
-  CPU idle, 7.6 % on the droplet's; with `autoCompactFillRate(0)`, 0.1 %. **[verified 2026-11-07, 1.4.198]**
+- 1.4.198 walks every chunk on every wake-up, I/O or not (`compact()` → `getCurrentFillRate()`).
+  **[src]** Idle, production's 129 299-chunk log took 5.5 % of a CPU, 7.6 % on the droplet's; with
+  `autoCompactFillRate(0)`, 0.1 %. **[verified 2026-11-07, 1.4.198]**
 
 ## R_mvstore_store_growth — how far a node's store outgrows its live data
 
