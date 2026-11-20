@@ -11,6 +11,10 @@ step; the wire format never breaks, and a release opens every file 0.9 or later 
 - `UMN.get(id, Long::class)` and `find()` accept a Kotlin primitive class, and an `IndexDef`'s
   document type may be one. In 0.18, `get`/`find` threw `ClassCastException` and the index ignored
   every document; only `java.lang.Long::class` worked.
+- `IndexingUMN` builds a new index in key order, holding its entries in memory until the walk over
+  the documents ends. Two indices over 30 000 documents, on a store opened with
+  `autoCommitBufferSize(256)` as Aedict opens it, now build in 0.7 s and leave the file at 1.3× its
+  live size; 0.18 took 7 s and grew the file to 60×, written to flash on a phone.
 - `IndexingUMN` clears an index no longer passed without reading its keys, so the old index's key
   class may now be deleted, renamed or obfuscated once the index has a new name. In 0.18, the
   open threw `ClassNotFoundException` once the class was gone, and the app couldn't open its

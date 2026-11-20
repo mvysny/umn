@@ -21,8 +21,8 @@ import kotlin.reflect.KClass
  * part which is then used to order the paged results.
  *
  * The constructor builds every index not built yet over the stored documents: one walk over all of them, blocking, so the first
- * open after adding an index reads the whole database. An index once built is never rebuilt: to change its [IndexDef.keyGetter]
- * or key type, give it a new name. `D_build_index_on_open`.
+ * open after adding an index reads the whole database, and holds the new indices' entries in memory until the walk ends. An index
+ * once built is never rebuilt: to change its [IndexDef.keyGetter] or key type, give it a new name. `D_build_index_on_open`.
  *
  * ### Implementation
  * Intercepts all calls and passes them to underlying map, but updates the indices on the fly.
@@ -96,6 +96,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
         // before the first entry: a crash mid-build must leave a state behind
         commit()
         indices.forEach { it.clear() }
+        val builders = indices.map { it.Builder() }
         var count = 0
         for (id in delegate.getSequenceOfIDs()) {
             val document = try {
@@ -104,9 +105,10 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
                 log.error("Building indices $names: skipping document $id, which fails to load", e)
                 null
             } ?: continue
-            indices.forEach { it.indexStored(id, document) }
+            builders.forEach { it.add(id, document) }
             count++
         }
+        builders.forEach { it.write() }
         // a stored `true` must imply every entry above
         commit()
         names.forEach { indexState.put(it, true) }
@@ -227,20 +229,44 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
          * Maps key to a set of documents IDs (the [V] documents). Don't use Set since that's serialized using Java serialization; use Arrays
          * since that's serialized more effectively; see [ObjectDataType#TYPE_ARRAY] for more info.
          */
-        private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap(indexMapName(def.name), CompositeKeyDataType())
+        private val keyType = CompositeKeyDataType()
+        private val indexStore: UtilityMap<K, Array<UUID>> = delegate.openUtilityMap(indexMapName(def.name), keyType)
 
         internal fun clear() {
             indexStore.clear()
         }
 
         /**
-         * Indexes [document], already stored; logs and skips it if its keys or value ID fail.
+         * Builds this index, cleared, over documents already stored: [add] each, then [write] once. Writing the entries as the walk
+         * finds them, in document-ID order, would scatter them over the index, and every store MVStore makes on the way, one per
+         * `autoCommitBufferSize` of changes, would rewrite nearly all its pages: a 320 MB file for 5 MB live in `IndexBuildGrowthTest`.
          */
-        internal fun indexStored(id: UUID, document: Any) {
-            try {
-                prepareUpdate(document, null)(id)
-            } catch (e: Exception) {
-                log.error("Building index ${def.name}: skipping document $id, whose keys fail", e)
+        internal inner class Builder {
+            /** Ordered as [indexStore]'s B-tree, by its own key type, so [write] fills each page once. */
+            private val entries = TreeMap<K, MutableList<UUID>>(Comparator { a, b -> keyType.compare(a, b) })
+
+            /**
+             * Collects [document]'s entries; logs and skips it if its keys or value ID fail.
+             */
+            fun add(id: UUID, document: Any) {
+                val docType = def.documentType.javaObjectType
+                if (!docType.isInstance(document)) return
+                try {
+                    val d = docType.cast(document)
+                    val keys = def.keyGetter(d)
+                    val valueId = def.valueIdGetter(id, d)
+                    keys.forEach { entries.getOrPut(it) { ArrayList(1) }.add(valueId) }
+                } catch (e: Exception) {
+                    log.error("Building index ${def.name}: skipping document $id, whose keys fail", e)
+                }
+            }
+
+            /**
+             * Writes the collected entries in key order: each key's value IDs in the order [add] met them, each once.
+             */
+            fun write() {
+                for ((key, valueIds) in entries) indexStore.put(key, valueIds.distinct().toTypedArray())
+                entries.clear()
             }
         }
 

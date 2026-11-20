@@ -770,6 +770,36 @@ abstract class IndexingUmnTestBattery {
             expect(true) { indexStore("identity").isEmpty() }
         }
 
+        @Test fun `builds the entries that indexing on create writes, for every key type`() {
+            val parent = UUID.randomUUID()
+            val string = IndexingUMN.IndexDef.simple<String, String>("string", { setOf(it) }, String::class)
+            val long = IndexingUMN.IndexDef.simple<Long, String>("long", { setOf(it.length % 3L) }, String::class)
+            val composite = IndexingUMN.IndexDef.simple<CompositeKey, String>("composite",
+                { setOf(CompositeKey.of(it.take(1), it.length)) }, String::class)
+            val serialized = IndexingUMN.IndexDef.simple<CKey, String>("serialized",
+                { setOf(CKey(it.take(1), it.length.toFloat())) }, String::class)
+            // every document of a letter keyed to one value ID: a build must list it once
+            val toParent = IndexingUMN.IndexDef<String, String, String>("parent", { setOf(it.take(1)) }, String::class,
+                String::class) { _, _ -> parent }
+            val defs = setOf(string, long, composite, serialized, toParent)
+            val created = IndexingUMN(storage, defs)
+            // unique words, five first letters, lengths 2 to 4
+            List(300) { i -> "${'a' + i % 5}${i * 7919 % 1000}" }.forEach { created.create(it) }
+            val expected = listOf(created.entries(string), created.entries(long), created.entries(composite),
+                created.entries(serialized), created.entries(toParent))
+
+            indexState.clear()
+            val built = IndexingUMN(storage, defs)
+            expect(expected) { listOf(built.entries(string), built.entries(long), built.entries(composite),
+                built.entries(serialized), built.entries(toParent)) }
+        }
+
+        /** Every key in the index's order, with its value IDs sorted, duplicates kept. */
+        private fun <K : Comparable<K>> IndexingUMN.entries(def: IndexingUMN.IndexDef<K, String, *>): List<Pair<K, List<UUID>>> {
+            val index = getIndex<K, String, Any>(def.name)
+            return index.keySequence(For.all()).map { it to index.getSequenceOfIDs(For.Key(it)).toList().sorted() }.toList()
+        }
+
         @Test fun `fills an index keyed to another document`() {
             data class Parent(val name: String) : Serializable
             data class Child(val name: String, val parentId: UUID) : Serializable
