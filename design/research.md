@@ -34,15 +34,23 @@ keep it short. When you have written an entry, re-read it against the one above 
 - Steady phone-paced edits: 1.4–2.4× the live data on 1.4.200, 3.0–4.9× on 1.4.198. Ten
   production users' logs, 20 000 edits each through Aedict's own stack and sync, MVStore's timers
   and the pauses scaled 100×. **[verified 2026-11-20, 1.4.198 and 1.4.200]**
-- A burst outgrows that by what `retentionTime`'s 45 s of writes hold: the same ten whole logs
-  pulled at desktop speed, as a first sync, wrote 6.1 GB for 78 MB live. Two idle minutes later,
-  1.4.200 was at 860 MB, 8 stores at 3.4–5.6× and still shrinking, 2 stuck at 480–650×; 1.4.198
-  at 3.3 GB. **[verified 2026-11-20, 1.4.198 and 1.4.200]**
+- `autoCommitBufferSize` sets how often a burst stores a chunk; H2's default is
+  `min(19, 64 × max heap / 1 GB)` MB, 16 MB on a 256 MB heap. **[src]** The same ten whole logs
+  pulled as a first sync: 144–509 s at Aedict's 256 KB, peaking at 28–375× live; 17–42 s at
+  16 MB, 8–39×. With MVStore's timers 10× faster, as on a slower phone: 8–85× and 9–152×, worst
+  the stores under 1 MB live, at most 350 MB. **[verified 2026-11-20, 1.4.200]**
+- A chunk emptied at a commit is freed only 45 s and `versionsToKeep` (5) commits later. Idle, the
+  writer commits only to rewrite or move chunks, neither while the file is over 90 % full and
+  `getProjectedFillRate()`, blind to dead chunks, sees no gain. **[src]** So a pull's last chunks
+  stay: at a phone's pace, 20 idle minutes on, dead chunks filled 29–95 % of the files, at
+  1.9–22× live; 6 commits later, 1.0–2.8× at 16 MB and 1.7–2.6× at 256 KB.
+  **[verified 2026-11-20, 1.4.200]**
 - Idle, a store under 90 % full is never rewritten: the writer only moves chunks into free space,
   `autoCommitMemory × 90 / fillRate` bytes a wake-up, and never a chunk larger than that
-  (`findChunksToMove()`). **[src]** Production's 67 web replicas over 1 MB, 1 067 MB for 213 MB
-  live: 621 MB after two idle minutes on 1.4.200, all or nothing per store, the stores under
-  ~22 % full collapsing to their live size; 1 021 MB on 1.4.198. **[verified 2026-11-20, 1.4.200]**
+  (`findChunksToMove()`). **[src]** Production's 67 web replicas over 1 MB, 1 018 MB for 192 MB
+  live, two idle minutes and 6 commits on: 519 MB at 256 KB, median 2.40×, 24 of the 25 stores
+  over 3× after the idle holding a chunk over the budget; 431 MB at 16 MB, median 1.13×, no chunk
+  over it. 1 021 MB on 1.4.198. **[verified 2026-11-20, 1.4.198 and 1.4.200]**
 
 ## R_mvstore_removemap_leaks — 1.4.198's `removeMap()` left the map's pages counted live
 
