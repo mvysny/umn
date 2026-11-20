@@ -716,14 +716,15 @@ abstract class IndexingUmnTestBattery {
             expect(1) { calls }
         }
 
-        @Test fun `an index from before the build state is adopted when non-empty, filled when empty`() {
+        @Test fun `an index with entries but no build state is rebuilt`() {
             val id = IndexingUMN(storage, setOf(idxIdentity)).create("a")
             val unindexed = storage.create("bb")
+            indexStore("identity").put("stale", arrayOf(UUID.randomUUID()))
             indexState.clear()
-            val umn = IndexingUMN(storage, setOf(idxIdentity, idxLength))
+            val umn = IndexingUMN(storage, setOf(idxIdentity))
             expect(setOf(id)) { umn.ids(idxIdentity, "a") }
-            expect(setOf()) { umn.ids(idxIdentity, "bb") }
-            expect(setOf(unindexed)) { umn.getIndex(idxLength).findAllIDs(For.Key(2)) }
+            expect(setOf(unindexed)) { umn.ids(idxIdentity, "bb") }
+            expect(setOf()) { umn.ids(idxIdentity, "stale") }
             expect(true) { indexState.find("identity") }
         }
 

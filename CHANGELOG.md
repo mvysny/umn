@@ -1,7 +1,7 @@
 # Changelog
 
 What changes for a user of each release, newest first. A `Breaking:` line carries its migration
-step; the wire format never breaks, and a release opens every file an earlier one wrote
+step; the wire format never breaks, and a release opens every file 0.9 or later wrote
 (`D_frozen_0_15_formats`). Releases before 0.16 have no entries.
 
 ## 0.19 — unreleased
@@ -28,6 +28,13 @@ step; the wire format never breaks, and a release opens every file an earlier on
   `getCurrentFillRate()`. Migration: drop the first, as MVStore's auto-compaction keeps the file
   small; not 1.4.200's `compactFile(Long.MAX_VALUE)`, which never returns on a store whose data
   is live. And `getChunksFillRate()` for the second.
+- `IndexingUMN` rebuilds an index that has entries but no build state, as every index of a store
+  0.17 or older last opened: that first open walks the whole database once, and the index loses
+  its stale keys and gains the documents a crash left unindexed. 0.18 kept such an index as built,
+  holes included.
+- **Breaking:** `MvstoreUMN.migrateV1V2()` is gone, and with it the migration of 0.8's format,
+  whose untyped documents sit in the `ROOT` map; this release sees such a store as empty.
+  Migration: open a store 0.8 or older wrote with 0.18 and run `migrateV1V2()` first.
 - **Breaking:** `MvstoreUMN.compact()` is gone: MVStore's auto-compaction already keeps the file
   small. Migration: drop the call, and open the store with the default `autoCompactFillRate`.
 - **Breaking:** `UMN.dropUtilityMap(name)` frees a utility map's entries and forgets the map,

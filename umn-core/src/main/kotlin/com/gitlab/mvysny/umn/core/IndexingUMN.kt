@@ -52,17 +52,15 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
     private val indexMap: Map<String, IndexImpl<*, *, *>> = indices.associate { it.name to it.toImpl(this) }
 
     /**
-     * Each index's build state, by name: `true` built, `false` a build begun, maybe cut short by a crash; no state for an index from
-     * before this map existed.
+     * Each index's build state, by name: `true` built; `false` a build begun, maybe cut short by a crash; none never built, as
+     * every index of a store 0.17 or older last opened. An index's entries never outlive its state, the only way
+     * [clearDroppedIndices] finds them.
      */
     private val indexState: UtilityMap<String, Boolean> = delegate.openUtilityMap("INDEX_STATE")
 
     init {
         indexUpdaterGlobalLock.withLock {
             clearDroppedIndices()
-            // an index from before INDEX_STATE: adopted, never rebuilt, for migrateV1V2(); D_build_index_on_open
-            indexMap.values.filter { indexState.find(it.def.name) == null && !it.isEmpty() }
-                .forEach { indexState.put(it.def.name, true) }
             build(indexMap.values.filter { indexState.find(it.def.name) != true })
         }
     }
@@ -81,7 +79,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
             }
         }
         if (cleared.isEmpty()) return
-        // else a re-added index could find its old entries with no state, and adopt them
+        // else a crash could keep the entries yet store their state gone
         commit()
         cleared.forEach { name -> indexState.put(name, null) }
         log.info("Cleared the entries of indices no longer passed: $cleared")
@@ -95,7 +93,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
         val start = System.currentTimeMillis()
         val names = indices.map { it.def.name }
         names.forEach { indexState.put(it, false) }
-        // before the first entry: entries with no state would be adopted as built
+        // before the first entry: a crash mid-build must leave a state behind
         commit()
         indices.forEach { it.clear() }
         var count = 0

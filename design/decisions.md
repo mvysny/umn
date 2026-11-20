@@ -35,7 +35,7 @@ and close codes, and the admin REST paths and JSON. A new capability may add a n
 never a record or message type: 0.15 throws on an unknown type byte, and its sync stops for good.
 A file only moves forward: Aedict and Aedict-Reader each keep their own, a cloud restore or a
 device transfer lands it under the latest app, and Android won't install an older app over a
-newer one. So a release opens every file an earlier one wrote — the MVStore format, the map names
+newer one. So a release opens every file 0.9 or later wrote — the MVStore format, the map names
 (`ROOT2`, `__OUTGOING_BUFFER`, `__CURRENT_LOG_PTR`, `__INDEX2_*`, `users`, `{user}__log`) and
 their key/value encodings — migrating it in place if they changed, losing nothing (Reader syncs
 nowhere, so its file is the only copy); older code never opens the result. Nor does an older proxy
@@ -134,8 +134,9 @@ over every document fills it. {IndexingUMN}'s constructor walks once for every i
 no other thread holds the instance yet, so no write races the walk and no query sees a half-built
 index. The cost: the first open after adding an index blocks for the walk, paid once. The state lives in the node-local `INDEX_STATE`: `false` before the
 walk, `true` after, each behind a commit (`R_mvstore_store_per_map`), so a crash redoes the walk.
-An index from before `INDEX_STATE` is adopted when non-empty, not rebuilt: Aedict's `migrateV1V2()`,
-run after the constructor, types V1 documents by their old index entries. A document whose keys
+An index with no state, as every index of a store 0.17 or older last opened, is built like a new
+one. Why not adopt a non-empty one as built: its holes, stale keys and the documents a crash left
+unindexed, would stay for good. A document whose keys
 throw is logged and skipped: failing the open would lock the app out of its data. An index once
 built is never rebuilt, so a changed `keyGetter` or key type takes a new name; a name no longer
 passed is cleared, through `UMN.dropUtilityMap()`, which decodes no key, so the old key class may

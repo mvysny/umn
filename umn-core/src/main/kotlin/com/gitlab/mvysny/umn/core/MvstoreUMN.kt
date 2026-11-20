@@ -90,35 +90,6 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
         store.commit()
     }
 
-    /**
-     * Migrates v1 database to v2. Only needs to be run once. Warning: thread-unsafe! Needs to be run after this class
-     * is constructed, but before it is accessed by other parties.
-     *
-     * The v2 database added support for document having types.
-     *
-     * The function does nothing if the database is already migrated.
-     *
-     * If the [typeResolver] throws an exception, the whole function fails and leaves the db half-migrated. When this function
-     * is re-run, it will clean up and start the migration anew.
-     *
-     * @param typeResolver resolves the type for given document. Note that you CAN'T load the document using [get] - hopefully
-     * you had every document indexed by its type previously :-D
-     * since that only works on v2 database (which is not yet populated).
-     */
-    public fun migrateV1V2(typeResolver: (UUID)->Short) {
-        // migrate to v2 with types
-        val oldMap: MVMap<UUID, ByteArray> = store.openMap("ROOT")
-        if (oldMap.isNotEmpty()) {
-            map.clear()
-            oldMap.keyIterator(null).forEach { id ->
-                val clazz = typeToClassResolver.toClass(typeResolver(id))
-                val doc = serializer.deserialize(clazz, oldMap[id]!!)
-                map[id] = serialize(doc)
-            }
-            oldMap.clear()
-        }
-    }
-
     private fun serialize(doc: Any): SerializedDocument = serializeData {
         val type = typeToClassResolver.toType(doc.javaClass.kotlin)
         writeShort(type.toInt())
