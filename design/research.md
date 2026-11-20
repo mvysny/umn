@@ -5,9 +5,9 @@ is a `D_`. `## R_<slug> — <title>`, one claim per bullet, one provenance marke
 **[docs]**, **[src]**, **[verified <date>, <version>]**, **[unverified]** (a hypothesis; a design
 built on it says so). A claim is earned by its provenance, or by having cost real work to find
 out. Checked against h2-mvstore 1.4.200 unless a claim names another version. Cite by
-slug, `R_<slug>`, never by position; `grep '^## R_' design/research.md` is the index. The first
-entry is the ruler: every later one trims to its length — which is how long this file gets, so
-keep it short. When you have written an entry, re-read it against the one above and cut the fat.
+slug, `R_<slug>`, never by position; `grep '^## R_' design/research.md` is the index. When you
+have written an entry, re-read it against the one above for consistency; a marker already says
+where a claim came from, so the prose doesn't repeat it.
 
 ---
 
@@ -144,6 +144,16 @@ keep it short. When you have written an entry, re-read it against the one above 
   another. **[src]**
 - A map's root is a copy-on-write snapshot: within one map, a stored write implies every earlier
   write to it. **[src]**
+- The walk follows `maps.values()`, a `ConcurrentHashMap` keyed by map id, ids handed out in
+  creation order: ascending while every id is below the table's size. A chunk holds the later of
+  two writes to different maps without the earlier only if the walk takes the earlier-written
+  map's root first, and both writes land before it takes the other's. **[src]**
+- A node pulling records, 3 000 maps opened between `ROOT2` and its log pointer, a `commit()` from
+  another thread, then `closeImmediately()`: the stored pointer stood 6 to 79 records past what
+  `ROOT2` held, in 5 runs of 5. **[verified 2026-11-20, 1.4.200]** (`SyncingUMNTest`)
+- `Builder.autoCommitDisabled()` sets only `autoCommitDelay` to 0, stopping the background writer.
+  `autoCommitMemory` is final, so a write past it still stores, from the writing thread
+  (`beforeWrite()`). **[src]**
 - `commit()` waits for `storeLock`, as `tryCommit()` doesn't, then stores every write made before
   the call; a later chunk holds them too, and a commit finding them stored does nothing. A no-op on
   an in-memory store; throws on a read-only one only with unsaved writes. **[src]**
@@ -154,6 +164,18 @@ keep it short. When you have written an entry, re-read it against the one above 
   followed by `commit()`: 280–400 µs each, 10 000 chunks, the file from 64 to 329 MB. Uncommitted,
   the same appends took 19 ms and one chunk. **[verified 2026-11-20, 1.4.200]**
 - Four to seven `compact(40, autoCommitMemory)` calls took the 10 499 chunks down to 740–950.
+  **[verified 2026-11-20, 1.4.200]**
+- A node's store, `compress()`, H2's default buffer, 30 000 documents and two indices in 8.5 MB:
+  1 000 local edits back to back grew it 6.9 KB an edit, 35 KB with a commit after each. The
+  commit took 0.47 ms median on a desktop, 1.4 ms (p90 3.6 ms) on API 22's emulator, 4 x86_64
+  cores, and the edits 2.2× as long. At `autoCommitBufferSize(256)`, 36 KB an edit without the
+  commit: a chunk every few edits anyway. **[verified 2026-11-20, 1.4.200]** (`NodeCommitCost`)
+- Edits 1.5 s apart: 24 KB an edit with or without the commit, the background writer storing each
+  edit on its own. The commit, cold: 0.6 ms median on a desktop, 1.4–1.7 ms on API 22's emulator,
+  p90 3–11 ms. **[verified 2026-11-20, 1.4.200]**
+- A commit run on another thread after each edit, the edits made meanwhile sharing it: back to
+  back, 15 commits and 8.4 KB an edit on a desktop, 322 and 19 KB on API 22's emulator, in about
+  the time with no commit; one took 2.8 ms median there, 42 ms at most.
   **[verified 2026-11-20, 1.4.200]**
 
 ## R_kill_vs_crash — a killed JVM loses no write; a crashed host loses the unsynced ones

@@ -392,6 +392,20 @@ Done. Just remember to use `syncingUMN` to update the database from now on. `syn
 database changes and transmit them to the UMN Proxy Server. It will also apply all changes made by other
 nodes.
 
+Every change through `syncingUMN` is committed to the file before the call returns, so an app the
+system kills right after keeps it, and later sends it. That costs ~1.4 ms a change on an API 22
+emulator, on the calling thread. For many changes in a row, say tagging a hundred notes, wrap them in
+`batch`, which commits once, as it returns:
+
+```kotlin
+syncingUMN.batch {
+    notes.forEach { syncingUMN.update(it.id, it.copy(tags = it.tags + tag)) }
+}
+```
+
+A batch isn't a transaction: if it throws halfway, the changes it made stay. Until it returns, a
+kill may lose them.
+
 When the connection drops, say the phone goes offline, the syncer reconnects by itself with a new
 client from `createProxyClient()`, waiting from 1 second up to 1 minute between attempts. Changes
 made meanwhile wait in the node's outgoing log. Only a wrong username or password stops the syncer;

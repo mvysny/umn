@@ -7,9 +7,9 @@ the next person would otherwise redo (cited as its `R_`). Not an entry: windows 
 "because that's the trend", this red over that red, `get_foo` over `is_foo?`, the testing library,
 the CI host, a version bump — a comment at the site of the choice, or nothing; nothing about
 `design/` itself. Cite by slug, `D_<slug>`, never by position; `grep '^## D_' design/decisions.md`
-is the index. The first entry is the ruler: every later one trims to its length — which is how
-long this file gets, so keep it short. When you have written an entry, re-read it against the one
-above, open the doc comments it touches and cut what they already say, then cut the fat.
+is the index. An entry is as long as its question needs: every road not taken keeps all of its
+losing reasons. When you have written an entry, re-read it against the one above for consistency,
+and open the doc comments it touches and delete what they already say.
 
 ---
 
@@ -114,6 +114,27 @@ end, never carrying another client's record mid-commit. The cost is a chunk per 
 file a record, freed after the retention time; pushes from different connections share commits.
 Why not group commit: ACKs and broadcasts would move to a shared committer thread, where one slow
 client's blocking send stalls every user.
+
+## D_commit_per_local_edit — Why does a node commit each local change before it returns rather than leave it to MVStore's auto-commit?
+
+A kill, which Android sends to reclaim an app's memory, loses what no commit stored: up to
+`autoCommitDelay`, 1 s, of the user's changes. Worse, a store landing between a change's document
+and its outgoing record may keep the document alone, which the node then never pushes
+(`R_mvstore_store_per_map`). So {MutationLog} commits after appending each record, storing both.
+The cost (`R_mvstore_commit_per_write`): ~1.4 ms a change on API 22's emulator, on the calling
+thread, often the UI's. Changes a second apart write no more bytes, as MVStore's own writer stores
+each alone anyway; a burst grows the file 5× and takes 2.2× as long, hence {batch}, which commits
+once as it returns. Why not commit on a background thread, which costs the change nothing and lets
+a burst's changes share commits: a change that returned could still be lost, if only for
+milliseconds, and one change's milliseconds are well accepted, a burst having {batch}. Why not
+append the record before writing the document, so that a tear leaves only a record the node
+applies again: a `keyGetter` that throws would leave pushed a record the node itself can't apply,
+and the sync stalls on it; {AnnouncingUMN.Listener} promises the change is already made; and
+`create(document)` takes its ID from the delegate. Why not let UMN own every commit, auto-commit
+off and each change under a lock the committer waits on: exact, and free per change, but
+`autoCommitDisabled()` leaves the full-buffer commit on (`R_mvstore_store_per_map`), so the app's
+builder would also have to pass `autoCommitBufferSize(0)`, silently wrong if forgotten, and every
+wrapper would take the lock.
 
 ## D_compact_on_startup — Why does the proxy server rewrite its log on every start?
 

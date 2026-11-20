@@ -2,12 +2,15 @@ package com.gitlab.mvysny.umn.sync
 
 import com.gitlab.mvysny.umn.core.*
 import com.gitlab.mvysny.umn.sync.SyncerStatus.*
+import org.h2.mvstore.MVStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import kotlin.concurrent.thread
 import kotlin.system.measureTimeMillis
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.test.expect
 import java.io.File
@@ -23,8 +26,12 @@ class SyncingUMNTest {
     private fun idsInGlobalLog(): Set<UUID> =
         log.log.map { LogRecord.fromByteArray(it, JavaDocumentSerializer, AutoTypeResolver)!!.id }.toSet()
 
-    @Nested inner class GenericOverInMemoryGlobalLog : GenericUmnTestBattery() {
-        override fun newUmn(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer, true)
+    /**
+     * The syncer isn't started: a running one applies the node's own records back, so a document deleted right after its
+     * create can come back with the create's echo, until the delete's own echo arrives.
+     */
+    @Nested inner class Generic : GenericUmnTestBattery() {
+        override fun newUmn(): UMN = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer)
     }
 
     @Nested inner class TestsWithSyncSendingDelayedAcks {
@@ -292,6 +299,130 @@ class SyncingUMNTest {
         expect(60000L) { backoff.delayMillis(1000) }
     }
 
+    @Nested inner class KillMidPull {
+        @TempDir lateinit var dir: File
+
+        @Test fun `a kill never leaves the log pointer past a record the node lacks`() {
+            repeat(3) { run ->
+                val file = File(dir, "node$run")
+                val store = MVStore.Builder().fileName(file.path).autoCommitDisabled().open()
+                val node = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver)
+                // between ROOT2 and the log pointer: a store spends milliseconds walking them, in which the puller applies
+                // records and moves the pointer past them (`R_mvstore_store_per_map`)
+                repeat(3000) { node.openUtilityMap<Long, Long>("filler$it") }
+                val syncer = Syncer(node, JavaDocumentSerializer, { EndlessLogClient() }, false)
+                val pointer = node.openUtilityMap<Boolean, Long>("CURRENT_LOG_PTR")
+                syncer.start()
+                expectAsync(true) { (pointer.find(false) ?: 0L) > 0L }
+                // MVStore's background writer stores, and the node is killed before its next store
+                store.commit()
+                store.closeImmediately()
+                syncer.close()
+                syncer.awaitClose()
+
+                createMvstoreUMN(file.path).use { reopened ->
+                    val saved = reopened.openUtilityMap<Boolean, Long>("CURRENT_LOG_PTR").find(false)!!
+                    val missing = (0 until saved).count { !reopened.exists(UUID(0, it)) }
+                    expect(0, "records missing below the saved pointer $saved, run $run") { missing }
+                }
+            }
+        }
+
+        @Test fun `the pointer catches up with an idle log, and is saved on stop`() {
+            val other = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer, true)
+            val node = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
+            val umn = node.syncing({ log.newClient() }, JavaDocumentSerializer, true)
+            val pointer = node.openUtilityMap<Boolean, Long>("CURRENT_LOG_PTR")
+            try {
+                val ids = (1..3).map { other.create("doc $it") }
+                expectAsync(true) { ids.all { umn.exists(it) } }
+                expectAsync(3L) { pointer.find(false) }
+
+                val last = other.create("last")
+                expectAsync(true) { umn.exists(last) }
+                umn.syncer.stop()
+                expectAsync(Stopped) { umn.syncer.status }
+                expect(4L) { pointer.find(false) }
+            } finally {
+                umn.close()
+                other.close()
+            }
+        }
+    }
+
+    @Nested inner class LocalEditCommits {
+        @TempDir lateinit var dir: File
+        private val file: File get() = File(dir, "node")
+        private lateinit var store: MVStore
+        private lateinit var umn: SyncingUMN
+        @BeforeEach fun createUmn() {
+            store = MVStore.Builder().fileName(file.path).autoCommitDisabled().open()
+            umn = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer)
+        }
+        @AfterEach fun closeUmn() { umn.close() }
+
+        @Test fun `a kill right after a local edit keeps it, and its outgoing record`() {
+            val id = umn.create("a")
+            store.closeImmediately()
+            createMvstoreUMN(file.path).use { reopened ->
+                expect("a") { reopened.find(id, String::class) }
+                expect(listOf(id)) { MutationLog(reopened, "OUTGOING_BUFFER", JavaDocumentSerializer, false).drain().map { it.id } }
+            }
+        }
+
+        @Test fun `every local edit commits before it returns`() {
+            val id = umn.create("a")
+            expect(false) { store.hasUnsavedChanges() }
+            umn.update(id, "b")
+            expect(false) { store.hasUnsavedChanges() }
+            umn.delete(id)
+            expect(false) { store.hasUnsavedChanges() }
+        }
+
+        @Test fun `a batch commits once, as it returns`() {
+            val ids = umn.batch {
+                val ids = listOf(umn.create("a"), umn.create("b"))
+                expect(true) { store.hasUnsavedChanges() }
+                ids
+            }
+            expect(false) { store.hasUnsavedChanges() }
+            expect(listOf("a", "b")) { ids.map { umn.get(it, String::class) } }
+        }
+
+        @Test fun `only the outermost batch commits`() {
+            umn.batch {
+                umn.batch { umn.create("a") }
+                expect(true) { store.hasUnsavedChanges() }
+            }
+            expect(false) { store.hasUnsavedChanges() }
+        }
+
+        @Test fun `a batch that throws commits the edits it made`() {
+            assertFailsWith<IllegalStateException> {
+                umn.batch {
+                    umn.create("a")
+                    error("simulated")
+                }
+            }
+            expect(false) { store.hasUnsavedChanges() }
+            expect(1) { umn.getSequenceOfIDs().count() }
+        }
+
+        @Test fun `another thread's edit commits while a batch runs`() {
+            umn.batch {
+                umn.create("a")
+                thread { umn.create("b") }.join()
+                expect(false) { store.hasUnsavedChanges() }
+            }
+        }
+
+        @Test fun `a batch over a UMN that doesn't sync commits as it returns`() {
+            val plain = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver)
+            plain.batch { plain.create("a") }
+            expect(false) { store.hasUnsavedChanges() }
+        }
+    }
+
     @Nested inner class ForceRestartSyncRelatedTests {
         private val tempFile = File.createTempFile("tmp", null).absolutePath
         private lateinit var umn: SyncingUMN
@@ -372,6 +503,37 @@ class ClientCapturingReceiver(val delegate: GlobalLogClient) : GlobalLogClient b
     override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
         receiver = callback
         delegate.setReceiverCallback(rewind, callback)
+    }
+}
+
+/**
+ * A log that never ends: from the rewind on, record `k` creates the document `"k"` under `UUID(0, k)`, as fast as the
+ * receiver takes them, on a thread of its own.
+ */
+class EndlessLogClient : GlobalLogClient {
+    @Volatile private var closed = false
+    @Volatile private var generator: Thread? = null
+    private var rewind = 0L
+    private var receiver: (ByteArray?) -> Unit = {}
+    override val isStarted: Boolean get() = generator != null && !closed
+    override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
+        this.rewind = rewind
+        receiver = callback
+    }
+    override fun setAddCallback(callback: () -> Unit) {}
+    override fun start() {
+        generator = thread(isDaemon = true, name = "endless log") {
+            var k = rewind
+            while (!closed) {
+                receiver(LogRecord.DocumentCreated("$k", AutoTypeResolver.toType(String::class), UUID(0, k)).toByteArray(JavaDocumentSerializer))
+                k++
+            }
+        }
+    }
+    override fun addAsync(record: ByteArray) {}
+    override fun close() {
+        closed = true
+        generator?.join()
     }
 }
 

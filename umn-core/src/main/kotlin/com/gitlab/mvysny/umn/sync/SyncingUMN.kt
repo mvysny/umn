@@ -99,6 +99,15 @@ internal class Backoff(val initialMillis: Long = 1000L, val maxMillis: Long = 60
  * pointer under the next puller. So are the records after one that fails to apply, its [failure]:
  * the log pointer stays on it, and the next puller retries it.
  *
+ * The log pointer is saved right after a commit, at most once a second ([saveIfDue]) and on [close]: a kill re-pulls
+ * the records since, which apply again harmlessly, and never skips one.
+ *
+ * ## Implementation notes
+ *
+ * Saved after each record with no commit between, a store could keep the pointer and lose the records below it, as
+ * MVStore stores map by map (`R_mvstore_store_per_map`). A commit per record would cost a chunk each through a whole
+ * initial pull (`R_mvstore_commit_per_write`).
+ *
  * @param globalLogClient not closed by this class
  */
 private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient,
@@ -110,6 +119,12 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
     @Volatile
     var failure: LogRecordNotAppliedException? = null
         private set
+    /**
+     * The next record's index; [currentLogPointer] holds [savedPtr], as of [savedAtNanos].
+     */
+    private var currentPtr: Long
+    private var savedPtr: Long
+    private var savedAtNanos: Long = System.nanoTime()
 
     init {
         if (forceRestartSync) {
@@ -118,7 +133,8 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
         }
 
         // continue pulling data where we left off
-        var currentPtr: Long = currentLogPointer.find(false) ?: 0L
+        currentPtr = currentLogPointer.find(false) ?: 0L
+        savedPtr = currentPtr
 
         globalLogClient.setReceiverCallback(currentPtr) { serializedItem ->
             synchronized(this) {
@@ -128,7 +144,8 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
                             val item = LogRecord.fromByteArray(serializedItem, documentSerializer, typeToClassResolver)!!
                             item.applyTo(umn)
                         }
-                        currentLogPointer.put(false, ++currentPtr)
+                        currentPtr++
+                        saveIfDue()
                     } catch (e: Exception) {
                         failure = LogRecordNotAppliedException(currentPtr, e)
                     }
@@ -137,12 +154,38 @@ private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalL
         }
     }
 
+    /**
+     * Saves the log pointer if it moved and a second has passed since the last save.
+     */
+    fun saveIfDue() {
+        synchronized(this) {
+            if (!closed && currentPtr != savedPtr && System.nanoTime() - savedAtNanos >= POINTER_SAVE_INTERVAL_NANOS) {
+                save()
+            }
+        }
+    }
+
+    private fun save() {
+        umn.commit()
+        currentLogPointer.put(false, currentPtr)
+        savedPtr = currentPtr
+        savedAtNanos = System.nanoTime()
+    }
+
     override fun close() {
         synchronized(this) {
-            closed = true
+            if (!closed) {
+                closed = true
+                if (currentPtr != savedPtr) save()
+            }
         }
     }
 }
+
+/**
+ * How often a [GlobalLogPuller] saves its pointer: as often as MVStore's default auto-commit stores anyway.
+ */
+private const val POINTER_SAVE_INTERVAL_NANOS = 1_000_000_000L
 
 /**
  * Wraps given receiver and syncs all changes to the global log through clients provided by given [clientProvider].
@@ -177,7 +220,36 @@ public fun UMN.syncing(clientProvider: () -> GlobalLogClient, serializer: Docume
 }
 
 /**
+ * Runs [block], committing its changes through a [SyncingUMN] once, as it returns, rather than each as it's made: for many
+ * changes in a row, which would otherwise pay a commit each (`D_commit_per_local_edit`).
+ *
+ * ```
+ * syncingUMN.batch {
+ *     notes.forEach { syncingUMN.update(it.id, it.copy(tags = it.tags + tag)) }
+ * }
+ * ```
+ *
+ * Not a transaction: a [block] that throws keeps the changes it made, committed as it throws. Until it returns, a kill may
+ * lose them, and, rarely, keep a document without its outgoing record, never pushed (`R_mvstore_store_per_map`). Batches
+ * nest, the outermost committing; changes other threads make meanwhile commit each. Over a UMN that doesn't sync, [block]
+ * runs and then commits.
+ */
+public fun <T> UMN.batch(block: () -> T): T {
+    val log = generateSequence(this) { it.delegate }.filterIsInstance<AnnouncingUMN>().firstNotNullOfOrNull { it.listener as? MutationLog }
+    if (log != null) return log.batch(block)
+    try {
+        return block()
+    } finally {
+        commit()
+    }
+}
+
+/**
  * Syncs all documents as they are modified in this UMN. To start the synchronization, call [Syncer.start].
+ *
+ * A change through it is committed before it returns, on the calling thread: a killed process then keeps it, and its
+ * outgoing record. A power cut may still lose it, as H2 doesn't sync the file to disk (`R_kill_vs_crash`). Many changes in
+ * a row commit once with [batch].
  */
 public class SyncingUMN internal constructor(override val delegate: AnnouncingUMN, public val syncer: Syncer) : UMN by delegate {
     override fun close() {
@@ -392,7 +464,11 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                 client.start()
                 failures = 0
                 post(SyncerStatus.Connected)
-                pusher.push { puller.failure == null }
+                pusher.push {
+                    // else, with no record coming, the pointer would stay behind the last ones until the close
+                    puller.saveIfDue()
+                    puller.failure == null
+                }
                 puller.failure?.let { throw it }
             } finally {
                 closeConnection()

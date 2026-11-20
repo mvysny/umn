@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Checks the doc layer — the files described in AGENTS.md, "Design docs" — and nothing else:
-#   - every cited D_ / R_ slug has its "## " heading in design/decisions.md / design/research.md
+#   - every D_ / R_ slug cited outside design/ideas/ has its "## " heading in
+#     design/decisions.md / design/research.md
 #   - every "## D_" heading reads "D_<slug> — <the question>?"; decisions.md carries no
 #     "Superseded by" / "Amended by" / strikethrough / line-initial "Status:"
-#   - root AGENTS.md is under 34 KB, a nested one under 10 KB, design/architecture.md under 12 KB
+#   - root AGENTS.md is under 34 KB — the one size rule: it is loaded every turn
 #   - every nested AGENTS.md is named in the root AGENTS.md module map
 #   - every CLAUDE.md is a symlink to AGENTS.md, and one sits beside every AGENTS.md
 #   - every line of the root AGENTS.md "What this is" section occurs verbatim in README.md
 #   - no retired doc files: root UPPERCASE docs, design/requirements.md, design/solution*.md, …
-#   - prints, without failing, the per-entry sizes of decisions.md and research.md
 # Run from anywhere inside the repo; needs bash and git. Exit 0 when green, 1 with one
 # "tripwire:" line per failure otherwise. A failure is as often a stale expectation as a real
 # violation — read the line before "fixing" the doc.
@@ -17,7 +17,7 @@
 # belong in its tests and linters, which are better at it. The checks carry no ids — each is
 # named by what it checks.
 set -euo pipefail
-export LC_ALL=C   # byte order for sort/comm, byte counts for the caps
+export LC_ALL=C   # byte order for sort/comm, byte count for the cap
 cd "$(git rev-parse --show-toplevel)"
 
 fail=0
@@ -36,7 +36,8 @@ tracked() { printf '%s\0' "${files[@]}"; }
 check_namespace() {
   local prefix=$1 file=$2 pattern cited defined missing slug
   pattern="\\b${prefix}_[a-z][a-z0-9_]*"
-  cited=$(tracked | xargs -0 grep -I -o -h -E "$pattern" 2>/dev/null | sort -u || true)
+  # An idea names the entries it will add once it graduates, so ideas cite nothing yet.
+  cited=$(tracked | grep -z -v "^$DESIGN/ideas/" | xargs -0 grep -I -o -h -E "$pattern" 2>/dev/null | sort -u || true)
   if [ ! -f "$file" ]; then
     [ -z "$cited" ] || err "$file does not exist but ${prefix}_ slugs are cited: $(printf '%s ' $cited)"
     return
@@ -61,27 +62,22 @@ if [ -f "$DESIGN/decisions.md" ]; then
   done < <(grep -n -E 'Superseded by|Amended by|~~|^(\*\*)?Status:' "$DESIGN/decisions.md" || true)
 fi
 
-# --- loaded files are capped; nested files are linked from the root map --------
+# --- the root AGENTS.md is capped; nested files are linked from the root map ----
 ROOT_LIMIT=$((34 * 1024))
-NESTED_LIMIT=$((10 * 1024))
-ARCH_LIMIT=$((12 * 1024))
-cap() {
-  local f=$1 limit=$2 size
-  size=$(wc -c < "$f")
-  [ "$size" -le "$limit" ] || err "$f is $size bytes; the cap is $limit — see 'Maintenance of this file' in AGENTS.md"
-}
-[ -f AGENTS.md ] || err "no root AGENTS.md"
+if [ -f AGENTS.md ]; then
+  size=$(wc -c < AGENTS.md)
+  [ "$size" -le "$ROOT_LIMIT" ] || err "AGENTS.md is $size bytes; the cap is $ROOT_LIMIT — see 'Maintenance of this file' in AGENTS.md"
+else
+  err "no root AGENTS.md"
+fi
 while IFS= read -r -d '' f; do
   case "$f" in
-    AGENTS.md) cap "$f" "$ROOT_LIMIT" ;;
     */AGENTS.md)
-      cap "$f" "$NESTED_LIMIT"
       if [ -f AGENTS.md ] && ! grep -q -F -- "$f" AGENTS.md; then
         err "$f is not named in the root AGENTS.md module map — add 'Rules: $f' to its module's line"
       fi ;;
   esac
 done < <(tracked)
-if [ -f "$DESIGN/architecture.md" ]; then cap "$DESIGN/architecture.md" "$ARCH_LIMIT"; fi
 
 # --- CLAUDE.md is a symlink to AGENTS.md, both directions ----------------------
 while IFS= read -r -d '' f; do
@@ -119,22 +115,6 @@ if [ -e "$DESIGN/comparison.md" ]; then err "$DESIGN/comparison.md is retired �
 for f in "$DESIGN"/solution.md "$DESIGN"/solution-*.md; do
   if [ -e "$f" ]; then err "$f is retired — one normative $DESIGN/architecture.md, deliverables as sections"; fi
 done
-
-# --- per-entry sizes, informational: a reading list, not a cut list -------------
-# The first entry is the ruler; later ones land within 1-2x of it. An entry far off
-# that length is usually carrying facts that belong in research.md, or answering two
-# questions and wanting a split — neither is fixed by compressing it.
-sizes() {
-  local file=$1 prefix=$2
-  [ -f "$file" ] || return 0
-  echo "$file, bytes per entry:"
-  awk -v p="^## ${prefix}_" '
-    $0 ~ p { if (slug) printf "  %6d %s\n", n, slug; slug = $2; n = 0 }
-    { n += length($0) + 1 }
-    END { if (slug) printf "  %6d %s\n", n, slug }' "$file" | sort -rn
-}
-sizes "$DESIGN/decisions.md" D
-sizes "$DESIGN/research.md" R
 
 if [ "$fail" -eq 0 ]; then echo "design tripwires: ok"; fi
 exit "$fail"

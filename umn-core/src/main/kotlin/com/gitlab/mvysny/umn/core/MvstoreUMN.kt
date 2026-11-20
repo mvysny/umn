@@ -168,6 +168,15 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
 }
 
 /**
+ * Stores every write made so far, when an [MvstoreUMN] ends this chain; a no-op over any other store. A write that must never
+ * be stored without an earlier one, to another map, goes after this call: MVStore alone stores map by map, and may keep the
+ * later write and lose the earlier (`R_mvstore_store_per_map`).
+ */
+internal fun UMN.commit() {
+    generateSequence(this) { it.delegate }.filterIsInstance<MvstoreUMN>().firstOrNull()?.commit()
+}
+
+/**
  * Obtain one through [MvstoreUMN.openUtilityMap]: two constructors racing on a map not created yet split it in two.
  *
  * Thread-safe.

@@ -30,8 +30,12 @@ import kotlin.reflect.KClass
  * Optimized for unique indices or indices with low number of collisions. If the index is expected to have high number of
  * collisions, use TODO.
  *
- * Not atomic across a crash: the document and its index entries are separate writes, so a process dying between them leaves
- * the document unindexed, for good, since a built index is never rebuilt.
+ * Not atomic across a kill: the document and its index entries are separate writes, and a store landing between them may keep
+ * either without the other (`R_mvstore_store_per_map`), for good, since a built index is never rebuilt. Replaying the record
+ * doesn't heal it: [create] skips an existing document, [update] diffs against the stored one, [delete] returns on a missing
+ * one. Writing the entries first would let a replay heal it, but readers would see a key ahead of its document on every
+ * write. A change through a [com.gitlab.mvysny.umn.sync.SyncingUMN] commits both before it returns, narrowing the gap to a
+ * kill within that commit.
  *
  * @property delegate delegate all calls to the underlying UMN storage. Typically an [MvstoreUMN].
  * @param indices pass the same set on every open: an index left out has its entries cleared, and is built anew once passed again.
@@ -113,14 +117,6 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
         commit()
         names.forEach { indexState.put(it, true) }
         log.info("Built indices $names over $count documents in ${System.currentTimeMillis() - start} ms")
-    }
-
-    /**
-     * Stores every write so far, before any later one. MVStore alone may store a later write to one map before an earlier write to
-     * another (`R_mvstore_store_per_map`).
-     */
-    private fun commit() {
-        generateSequence(delegate) { it.delegate }.filterIsInstance<MvstoreUMN>().firstOrNull()?.commit()
     }
 
     override fun create(document: Any, id: UUID): Boolean {
