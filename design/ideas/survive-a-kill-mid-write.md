@@ -30,17 +30,26 @@ such pair on a node:
 ## Next: commit after each local edit
 
 The owner's call, 2026-11-20: yes, if a commit on a node-sized store costs a millisecond or less.
+Measured (`R_mvstore_commit_per_write`), it doesn't on API 22's emulator: 1.4 ms median, p90
+3.6–11 ms, and a phone of that age is slower than the emulator's host. So the commit's shape is
+open again, `Q_sync_or_background`.
 
-Commit after the buffer entry is appended (`AnnouncingUMN` → `MutationLog.onRecord()`). The tear
-then needs a kill within that one commit, not within a second. And a local edit that returned
-survives a kill, which a user notices. Pulled records don't pass through `AnnouncingUMN`, so only
-local edits pay; a bulk import pays a commit per document.
+Either way the commit follows the buffer entry's append (`AnnouncingUMN` →
+`MutationLog.onRecord()`), so it stores the document and its entry together. Pulled records don't
+pass through `AnnouncingUMN`, so only local edits pay. Edits a second or more apart cost no extra
+bytes: MVStore's background writer stores each one on its own already.
 
-- `Q_node_commit_cost`: what does a commit cost on a node's store, megabytes, on a phone?
-  `R_mvstore_commit_per_write` measured the proxy's 64 MB log: 280–400 µs and ~26 KB a commit. An
-  `R_` once measured, desktop and an API 22 emulator.
-- `Q_bulk_edits`: does any app edit in bulk (Aedict importing a category?), and does it then need
-  a way out, a commit per batch?
+- **On the editing thread.** The tear needs a kill within that one commit; a local edit that
+  returned survives a kill. The edit waits 1.4 ms median on API 22, often the UI thread, which
+  then writes to disk. A burst takes 2.2× as long and grows the file 5×: 35 KB an edit, not 7.
+- **On a background thread**, edits made while one commit runs sharing the next. The edit waits
+  for nothing, and a burst takes about as long as with no commit, at 8–19 KB an edit. The tear,
+  and the loss of a returned edit, need a kill within a few milliseconds of the edit: 1.5 ms
+  median on API 22 between edits, tens of milliseconds in a burst. The thread is the `Syncer`'s,
+  closed with it.
+
+`Q_sync_or_background`: the owner's call. The lean: background, which costs the caller nothing
+and turns a second's window into milliseconds; a kill that close to a tap is no swipe.
 
 Rejected:
 

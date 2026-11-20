@@ -165,6 +165,18 @@ keep it short. When you have written an entry, re-read it against the one above 
   the same appends took 19 ms and one chunk. **[verified 2026-11-20, 1.4.200]**
 - Four to seven `compact(40, autoCommitMemory)` calls took the 10 499 chunks down to 740–950.
   **[verified 2026-11-20, 1.4.200]**
+- A node's store, `compress()`, H2's default buffer, 30 000 documents and two indices in 8.5 MB:
+  1 000 local edits back to back grew it 6.9 KB an edit, 35 KB with a commit after each. The
+  commit took 0.47 ms median on a desktop, 1.4 ms (p90 3.6 ms) on API 22's emulator, 4 x86_64
+  cores, and the edits 2.2× as long. At `autoCommitBufferSize(256)`, 36 KB an edit without the
+  commit: a chunk every few edits anyway. **[verified 2026-11-20, 1.4.200]** (`NodeCommitCost`)
+- Edits 1.5 s apart: 24 KB an edit with or without the commit, the background writer storing each
+  edit on its own. The commit, cold: 0.6 ms median on a desktop, 1.4–1.7 ms on API 22's emulator,
+  p90 3–11 ms. **[verified 2026-11-20, 1.4.200]**
+- A commit run on another thread after each edit, the edits made meanwhile sharing it: back to
+  back, 15 commits and 8.4 KB an edit on a desktop, 322 and 19 KB on API 22's emulator, in about
+  the time with no commit; one took 2.8 ms median there, 42 ms at most.
+  **[verified 2026-11-20, 1.4.200]**
 
 ## R_kill_vs_crash — a killed JVM loses no write; a crashed host loses the unsynced ones
 
