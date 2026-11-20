@@ -62,6 +62,11 @@ below), never plain ws.
 file (just a single file, `umn_proxy_log`), created automatically. To create users, please use the
 Admin REST API as described below.
 
+**Upgrade only forward: never start an older server version on a log a newer one has written.**
+0.19 and later close the log with H2's clean-shutdown flag, which 0.18 and older keep while they
+write; started again, the newer server trusts the stale flag and opens the log silently missing
+records the older one appended. Fix a bad release with a newer one.
+
 On every start the server first rewrites `umn_proxy_log` into a compact copy, dropping the space
 that deleted records and users left behind, and swaps it in; since 0.18. Expect:
 
@@ -74,17 +79,6 @@ that deleted records and users left behind, and swaps it in; since 0.18. Expect:
   next start deletes a half-written copy.
 
 `compactDatabaseOnStartup: false` under `standalone:` turns it off.
-
-**If the server refuses to start with "H2 would open it empty"**, a kill (`docker kill`, the OOM
-killer, `docker stop` past its grace period) cut short a write to the log while H2 had no other way
-to find the log's data, as after every start until the log has taken writes for a while. H2 would
-open the log empty and the server would overwrite it, so it stops instead; since 0.19. The data is
-still in the file:
-
-1. Keep a copy of `umn_proxy_log`.
-2. Truncate the file at the byte the message names, e.g. `truncate -s 15966208 umn_proxy_log`. In
-   Docker, do it on the `db` volume, from the host or from a throwaway container mounting it.
-3. Start the server again. It has lost only the write the kill cut short.
 
 ### Secure WebSockets over SSL/HTTPS
 

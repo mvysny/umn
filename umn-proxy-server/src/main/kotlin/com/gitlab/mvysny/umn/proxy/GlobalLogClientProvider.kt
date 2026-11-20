@@ -38,7 +38,6 @@ internal interface GlobalLogClientProvider : Closeable {
  * `D_own_compaction_timer`.
  *
  * @param compactOnStartup first rewrites the file with [StartupCompaction].
- * @throws IllegalStateException from [EmptiedLogGuard], on a log a kill left that H2 would open empty.
  */
 internal class MVStoreGlobalLogProvider(
     val dbdir: File,
@@ -71,7 +70,6 @@ internal class MVStoreGlobalLogProvider(
             Files.createDirectory(dbdir.toPath())
         }
         val file = File(dbdir, "umn_proxy_log")
-        EmptiedLogGuard.check(file)
         if (compactOnStartup) StartupCompaction.compact(file)
         db = MVStore.Builder().compress().autoCompactFillRate(0).fileName(file.absolutePath).open()
         mvstorelog = MVStoreGlobalLog(db)

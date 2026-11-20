@@ -26,7 +26,7 @@ class MVStoreGlobalLogProviderTest {
      * Logs of three users, interleaved in many small commits, two of them then cleared: every chunk ends about a
      * third live, so the store is well under 40 % full.
      */
-    private fun MVStoreGlobalLogProvider.fillWithGarbage(): List<ByteArray> {
+    private fun MVStoreGlobalLogProvider.fillWithGarbage(): MutableList<ByteArray> {
         val log = mvstorelog
         val db = log.db
         db.retentionTime = 0  // every chunk old at once, so compaction may touch it
@@ -43,12 +43,24 @@ class MVStoreGlobalLogProviderTest {
             if (i % 20 == 0) db.commit()
         }
         db.commit()
-        // clear() first: removeMap() alone leaves the pages counted live, see R_mvstore_removemap_leaks
         log.getLogMap("deleted1").clear()
         log.getLogMap("deleted2").clear()
         db.commit()
         assertTrue(fillRate < 40, "fill rate $fillRate %")
         return kept
+    }
+
+    /**
+     * Appends a record to `kept`'s log and commits, [times] times, as a live server does all the time: H2 frees a chunk
+     * that compaction emptied only once `versionsToKeep`, 5, later versions are stored.
+     */
+    private fun MVStoreGlobalLogProvider.write(kept: MutableList<ByteArray>, times: Int = 1) {
+        repeat(times) {
+            val record = Random.nextBytes(1000)
+            mvstorelog.getLogMap("kept").append(record)
+            kept += record
+            mvstorelog.db.commit()
+        }
     }
 
     private fun MVStoreGlobalLogProvider.assertKept(kept: List<ByteArray>) {
@@ -70,6 +82,7 @@ class MVStoreGlobalLogProviderTest {
         val p = provider()
         val kept = p.fillWithGarbage()
         while (p.compact()) {}
+        p.write(kept, times = 6)
         assertTrue(p.fillRate >= 40, "fill rate ${p.fillRate} %")
         p.assertKept(kept)
     }
@@ -78,7 +91,10 @@ class MVStoreGlobalLogProviderTest {
         val p = provider(Duration.ofMillis(20))
         val kept = p.fillWithGarbage()
         val deadline = System.currentTimeMillis() + 10_000
-        while (p.fillRate < 40 && System.currentTimeMillis() < deadline) Thread.sleep(20)
+        while (p.fillRate < 40 && System.currentTimeMillis() < deadline) {
+            p.write(kept)
+            Thread.sleep(20)
+        }
         assertTrue(p.fillRate >= 40, "fill rate ${p.fillRate} %")
         p.assertKept(kept)
     }

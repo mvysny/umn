@@ -13,11 +13,22 @@ step; the wire format never breaks, and a release opens every file an earlier on
   class may now be deleted, renamed or obfuscated once the index has a new name. In 0.18, the
   open threw `ClassNotFoundException` once the class was gone, and the app couldn't open its
   database. A clear that fails is now logged and retried on the next open, not fatal.
-- The proxy server refuses to start on a log that H2 would open empty although it holds committed
-  records. A kill in the middle of a write leaves such a log, after every start until H2 first
-  reuses space; 0.18 and older started on the empty log and overwrote the file. The message names
-  the byte to truncate the file at, which brings back everything but the write the kill cut; see
-  the server's README.
+- Dependencies: h2-mvstore 1.4.200, the last 1.4.x, still file format 1. A store whose last write
+  a kill cut short now opens at its last whole commit. 1.4.198 opened it empty whenever the store
+  header named no chunk yet, as in a new node's store and in the proxy server's log after every
+  start, and its close then truncated the file: a node lost its unsynced edits, the proxy server
+  its whole log.
+- **Breaking:** a proxy server upgrades only forward. 0.19 closes its log with H2's clean-shutdown
+  flag, which 0.18 and older keep while they write, so 0.19 started again on a log an older
+  server wrote meanwhile opens it silently missing those records. Migration: fix a bad release
+  with a newer one, never by starting the older image; see the server's README.
+- **Breaking:** for code calling MVStore itself, 1.4.200 drops `compactRewriteFully()` and
+  `getCurrentFillRate()`. Migration: `MvstoreUMN.compact()` for the first; not 1.4.200's
+  `compactFile(Long.MAX_VALUE)`, which never returns on a store whose data is live. And
+  `getChunksFillRate()` for the second.
+- **Breaking:** `MvstoreUMN.compact()` must run while no other thread uses the UMN: it frees the
+  space it empties at once, under any reader still on the version before. Migration: call it
+  before anything else touches the store, say on the app's start, before the sync starts.
 - **Breaking:** `UMN.dropUtilityMap(name)` frees a utility map's entries and forgets the map,
   reading none of its keys or values. Migration: a `UMN` implemented outside this library, such as
   a wrapper, implements it, typically as `delegate.dropUtilityMap(name)`.

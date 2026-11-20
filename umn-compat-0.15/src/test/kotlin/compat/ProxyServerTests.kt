@@ -17,7 +17,6 @@ class OnProdServerTest {
     @Nested inner class PhoneUpgrade : PhoneUpgradeTestBattery(ProdServer.shared)
     @Nested inner class MixedFleet : MixedFleetTestBattery(ProdServer.shared)
     @Nested inner class Admin : AdminTestBattery(ProdServer.shared)
-    @Nested inner class Downgrade : DowngradeTestBattery(ProdServer.shared)
 
     @Test fun `a JSON-body PUT fails loudly and creates nobody, as createOrUpdateUser2 warns`() {
         val user = UUID.randomUUID().toString()
@@ -40,5 +39,4 @@ class OnHeadServerTest {
     @Nested inner class PhoneUpgrade : PhoneUpgradeTestBattery(HeadServer.shared)
     @Nested inner class MixedFleet : MixedFleetTestBattery(HeadServer.shared)
     @Nested inner class Admin : AdminTestBattery(HeadServer.shared)
-    @Nested inner class Downgrade : DowngradeTestBattery(HeadServer.shared)
 }

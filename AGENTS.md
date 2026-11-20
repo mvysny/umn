@@ -12,7 +12,7 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 - **Runs on Android, minSdk 22 (5.1)**, 0.16's floor, kept although Aedict moved to 24. `umn-core`, `umn-proxy-protocol` and `umn-proxy-client` target Java 17 bytecode, which Android Gradle Plugin 8+ desugars, and keep to dependencies API 22 can load.
 - **A dumb core.** The storage is a UUID → blob map with three mutations; every other capability is a wrapper around it. See `D_three_op_log`.
 - **Sync over any server.** All sync logic is client-side; a new backend is a thin `GlobalLogClient`, nothing server-side.
-- **0.15-compatible on the wire both ways, on disk one way.** Every later release syncs with 0.15 nodes and proxy servers, and opens any file an earlier release wrote, migrating it in place; an older release needn't open a newer file. See `D_frozen_0_15_formats`.
+- **0.15-compatible on the wire both ways, on disk one way.** Every later release syncs with 0.15 nodes and proxy servers, and opens any file an earlier release wrote, migrating it in place; an older release never opens a newer file, as no node or proxy server is ever downgraded. See `D_frozen_0_15_formats`.
 
 ## Design docs
 

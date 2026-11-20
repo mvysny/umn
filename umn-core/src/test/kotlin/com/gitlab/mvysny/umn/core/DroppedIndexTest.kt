@@ -63,7 +63,7 @@ class DroppedIndexTest {
 
     /**
      * Writes index `gone`, built, of [entries] keyed by [LiveKey]s stored as [GONE_KEY], interleaved in the same chunks
-     * with as many entries of map `kept`: a chunk wholly dead would leave [MVStore.getCurrentFillRate]'s count.
+     * with as many entries of map `kept`: a chunk wholly dead would leave [MVStore.getChunksFillRate]'s count.
      *
      * @return the depth of `gone`'s page tree.
      */
@@ -81,7 +81,7 @@ class DroppedIndexTest {
 
     private fun expectKeysUnloadable() {
         MVStore.Builder().fileName(file).readOnly().open().use { store ->
-            val e = assertFailsWith<RuntimeException> {  // TEMP: 1.4.200 throws IllegalStateException
+            val e = assertFailsWith<IllegalStateException> {
                 store.openMap("__INDEX2_gone", MVMap.Builder<Any, Any>().keyType(CompositeKeyDataType()))
             }
             assertTrue(generateSequence<Throwable>(e) { it.cause }.any { it is ClassNotFoundException }, e.toString())

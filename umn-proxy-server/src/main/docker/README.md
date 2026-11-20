@@ -4,7 +4,9 @@
 
 UMN Proxy Server images are hosted on the Docker Hub at [UMN Proxy Server Docker Repository](https://hub.docker.com/r/mvysny/umn-proxy-server/),
 for amd64 and, since 0.17, arm64 too (a Raspberry Pi, an ARM VPS). Only version tags exist, no
-`latest`, so name the version you run and upgrade on purpose.
+`latest`, so name the version you run and upgrade on purpose, and only forward: an older image
+started on a log a newer one wrote loses records silently, see
+[the server's README](../../../README.md#configuration-and-deployment).
 
 To run the UMN Proxy Server, simply issue the following command in your terminal:
 

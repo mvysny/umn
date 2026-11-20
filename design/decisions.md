@@ -38,11 +38,13 @@ device transfer lands it under the latest app, and Android won't install an olde
 newer one. So a release opens every file an earlier one wrote — the MVStore format, the map names
 (`ROOT2`, `__OUTGOING_BUFFER`, `__CURRENT_LOG_PTR`, `__INDEX2_*`, `users`, `{user}__log`) and
 their key/value encodings — migrating it in place if they changed, losing nothing (Reader syncs
-nowhere, so its file is the only copy); older code needn't open the result. Why not both ways on
-disk, as through 0.18: it pins H2 to 1.4.x for good (`R_h2_reads_one_format`), to guard a
-hand-back that doesn't happen. The cost: H2 brings no migration, so leaving 1.4.x ships a
-relocated 1.4 reader for as long as an install may jump from a 1.4-era release, and a migrated
-proxy server can't roll back to its previous image. The API may change freely: adapting the app
+nowhere, so its file is the only copy); older code never opens the result. Nor does an older proxy
+server: its owner fixes a bad release forward, and H2 relies on that, as 1.4.200 trusts a
+clean-shutdown flag that 1.4.198, writing in between, leaves stale
+(`R_mvstore_clean_flag_handover`). Why not both ways on disk, as through 0.18: it pins H2 to 1.4.x
+for good (`R_h2_reads_one_format`), to guard a hand-back that doesn't happen. The cost: H2 brings no migration, so leaving 1.4.x ships a
+relocated 1.4 reader for as long as an install may jump from a 1.4-era release, and a proxy
+server's only way back from a bad release is forward. The API may change freely: adapting the app
 is easy, while a sync or storage mismatch shows up as silently diverging data.
 `umn-compat-0.15`'s tests hold HEAD to it.
 
@@ -87,11 +89,13 @@ bundles web fonts from JDK 23 on, 4.3 MB in `umn-core`'s jar, so `publish()` pas
 
 ## D_own_compaction_timer — Why does the proxy server compact its log on its own timer rather than MVStore's?
 
-MVStore's auto-compaction makes an idle store walk every chunk ten times a second
-(`R_mvstore_idle_compaction`): 7.6 % of production's one CPU on a 4 GB log, growing with it. So
+MVStore's auto-compaction rewrites and moves chunks in the background whenever it projects the
+file under 90 % full, walking every chunk on its wake-ups to find out (`R_mvstore_idle_compaction`);
+on 1.4.198 the walk alone took 7.6 % of production's one CPU, idle, on a 4 GB log. So
 {MVStoreGlobalLogProvider} opens the store with `autoCompactFillRate(0)` and calls
-`MVStore.compact()` once a minute instead, the same 40 % target and write budget, a six-hundredth
-of the walks. Why not compaction off for good: partly dead chunks would never be rewritten, and the
+`MVStore.compact()` once a minute instead, at a 40 % target and the store's write budget. The
+writer still walks once after each write, 1–2 ms per 100 000 chunks, which {StartupCompaction}
+keeps few. Why not compaction off for good: partly dead chunks would never be rewritten, and the
 file, 3.4 GB of chunks for 1.47 GB live, would grow faster than the log. Why not a longer
 `autoCommitDelay`: it widens the window of acknowledged records a crash loses. Why not a
 read/write lock around the timer: `compact()` is a concurrent path H2 already runs beside writers
@@ -104,15 +108,12 @@ interrupted, before the store closes.
 Online compaction (`D_own_compaction_timer`) keeps the log only 40 % full, and can't reclaim the
 logs `deleteUser()` leaked before 0.18 (`R_mvstore_removemap_leaks`): production's 3.8 GB held
 755 MB of live data. So {StartupCompaction} copies the closed log with `MVStoreTool.compact()`, a
-byte-exact passthrough, checks the entry counts, forces the copy to disk (H2 syncs nothing) and
-renames it over the log (`R_mvstoretool_compact`). Any failure, or too little disk, starts on the
-log as it was. The cost: a start as long as the copy, 20 s on production's log; and the copy's
-store header names no chunk, so until H2 first reuses space a kill mid-write leaves a log H2 opens
-empty (`R_mvstore_kill_opens_empty`), which {EmptiedLogGuard} refuses. Why not only when
+byte-exact passthrough, checks the entry counts, forces the copy to disk, renames it over the log
+and syncs the directory (`R_mvstoretool_compact`). Any failure, or too little disk, starts on the
+log as it was. The cost: a start as long as the copy, 20 s on production's log. Why not only when
 it pays: the fill rate can't see leaked pages, and a heuristic is harder to reason about than a
 constant cost on a rare deploy. Why not an operator command: nobody remembers it. Why not online:
-the copy needs the file closed. A rollback stays possible: the 0.12 server reads the copy, held so
-by `ServerUpgradeTest`. `compactDatabaseOnStartup: false` turns it off.
+the copy needs the file closed. `compactDatabaseOnStartup: false` turns it off.
 
 ## D_build_index_on_open — Why does IndexingUMN build a new index when constructed rather than in the background?
 
@@ -127,5 +128,4 @@ throw is logged and skipped: failing the open would lock the app out of its data
 built is never rebuilt, so a changed `keyGetter` or key type takes a new name; a name no longer
 passed is cleared, through `UMN.dropUtilityMap()`, which decodes no key, so the old key class may
 then be deleted (`R_mvstore_clear_reads_no_key`). A clear that fails is logged and retried on the
-next open, for the same reason. Accepted: an older app version doesn't maintain an index it doesn't know, so
-after a downgrade and upgrade that index misses the documents created meanwhile.
+next open, for the same reason.

@@ -2,8 +2,8 @@
 
 The owner, 2026-11-20: `D_frozen_0_15_formats` lets the disk format move one way, so 2.x is allowed. But
 2.x opens no 1.4 file and H2 brings no migration (`R_h2_reads_one_format`): the migrator is ours,
-and apps carry it for years. Not before a reason worth that, say a 1.4.200 bug fixed only in 2.x
-(`upgrade-h2-to-1.4.200.md`, check 7).
+and apps carry it for years. Not before a reason worth that, say a 1.4.200 bug fixed only in 2.x;
+none of 2.0.202's so far (`R_h2_1_4_200_drop_in`).
 
 ## The migrator
 
@@ -25,14 +25,12 @@ and apps carry it for years. Not before a reason worth that, say a 1.4.200 bug f
   interface in 2.x, and `CompositeKey` reproduces 1.4's `Object[]` order. Take H2's types out of
   the public API while at it?
 - **The proxy server** migrates at startup, beside `StartupCompaction`.
-- **minSdk 22:** the API level 2.x needs is unchecked; 1.4.198 needed 19 (issue #6).
+- **minSdk 22:** the API level 2.x needs is unchecked; 1.4.200 runs on 22 (`R_h2_1_4_200_drop_in`).
 - **The pitch's 10-100×:** measure again on 2.x.
 
 ## On graduation
 
-- Proxy-server README: once migrated, the server can't roll back to an older image, and a
-  pre-migration backup restored instead rewinds the log under nodes that read past it
-  (`survive-a-restored-log.md`).
-- `umn-compat-0.15`: `DowngradeTestBattery` goes; a battery opens a 1.4 file with HEAD, a kill
-  mid-migration included.
-- CHANGELOG `Breaking:` lines: the API, and no way back to an older release.
+- Proxy-server README: a pre-migration backup restored rewinds the log under nodes that read past
+  it (`survive-a-restored-log.md`).
+- `umn-compat-0.15`: a battery opens a 1.4 file with HEAD, a kill mid-migration included.
+- CHANGELOG `Breaking:` line: the API.

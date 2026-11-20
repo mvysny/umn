@@ -4,40 +4,39 @@ What the things we don't own actually do. About *them*, never us: a sentence sta
 is a `D_`. `## R_<slug> — <title>`, one claim per bullet, one provenance marker per claim —
 **[docs]**, **[src]**, **[verified <date>, <version>]**, **[unverified]** (a hypothesis; a design
 built on it says so). A claim is earned by its provenance, or by having cost real work to find
-out. Checked against h2-mvstore 1.4.198 unless a claim names another version. Cite by
+out. Checked against h2-mvstore 1.4.200 unless a claim names another version. Cite by
 slug, `R_<slug>`, never by position; `grep '^## R_' design/research.md` is the index. The first
 entry is the ruler: every later one trims to its length — which is how long this file gets, so
 keep it short. When you have written an entry, re-read it against the one above and cut the fat.
 
 ---
 
-## R_mvstore_idle_compaction — an idle store walks every chunk ten times a second
+## R_mvstore_idle_compaction — the background writer walks every chunk on its wake-ups
 
-- The background writer wakes every `autoCommitDelay / 10` ms (100 ms by default) and calls
-  `writeInBackground()`, which skips the round only while `time <= lastCommitTime +
-  autoCommitDelay`. **[src]**
-- `lastCommitTime` moves only in `storeNow()`, when something is actually stored. In an idle store
-  it stays put, so every wake-up goes on to `compact()` whenever `autoCompactFillRate > 0` (the
-  default, 40). **[src]**
-- `compact()` → `findOldChunks()` → `getCurrentFillRate()` walks every chunk, even when the fill
-  rate turns out above the target and nothing more happens. The cost is linear in the chunk count,
-  and a store committed in small writes grows one chunk per commit. **[src]**
-- Production's proxy log, 3.95 GB, 129 299 chunks (median 20 KB), 42 % full, idle on one CPU:
-  the writer thread used 5.5 % CPU, 2–6 ms a walk; JFR put 99 % of its samples in
-  `getCurrentFillRate()`. With `autoCompactFillRate(0)`, 0.1 %, as for an empty store. On the
-  droplet's slower vCPU, 7.6 %. **[verified 2026-11-07, 1.4.198]**
+- The background writer wakes every `autoCommitDelay / 10` ms, 100 by default. A wake-up with no
+  file I/O since the last runs `doMaintenance()`; one after I/O calls `getProjectedFillRate()`,
+  which walks every chunk, whatever `autoCompactFillRate`. **[src]**
+- `autoCompactFillRate` defaults to 90 (its javadoc says 40). Projected under it, the writer
+  rewrites and moves chunks itself; at 0 it rewrites nothing, yet still moves chunks once the free
+  space is fragmented (`isFragmented()`). A store committed in small writes grows a chunk a
+  commit. **[src]**
+- 100 000 chunks, `autoCompactFillRate(0)`: idle, 1.5 ms CPU a second, as an empty store; a commit
+  every 200 ms, 6–10 ms a second, nearly all in `getProjectedFillRate()`, 1–2 ms a walk; once, at
+  start, 1.2–1.7 s moving chunks. The default builder compacts that store itself within seconds.
+  **[verified 2026-11-20, 1.4.200]**
+- On 1.4.198 an idle store walked on every wake-up: production's 129 299-chunk log took 5.5 % of a
+  CPU idle, 7.6 % on the droplet's; with `autoCompactFillRate(0)`, 0.1 %. **[verified 2026-11-07, 1.4.198]**
 
-## R_mvstore_removemap_leaks — `removeMap()` leaves the map's pages counted live
+## R_mvstore_removemap_leaks — 1.4.198's `removeMap()` left the map's pages counted live
 
-- `MVStore.removeMap()` drops the map's metadata and closes it, but never marks its pages removed;
-  `MVMap.clear()` does, through `removeAllRecursive()`. **[src]**
-- So a removed map's pages stay live in the chunks' accounting, and compaction skips the closed
-  map: its space is never reclaimed. Three interleaved maps, two removed: 47 % full before and
-  after; `clear()` first, 15 %, and compaction then brings it to 49 %.
-  **[verified 2026-11-07, 1.4.198]**
+- 1.4.198's `removeMap()` dropped the map's metadata and closed it, never marking its pages
+  removed: their space was never reclaimed. **[src]**, **[verified 2026-11-07, 1.4.198]**
+- 1.4.200's `removeMap(map)` clears the map first (`clearIt()`). Three interleaved maps, two
+  removed: chunks 61 % full → 20 % at the next commit, the same as with `clear()` first; compaction
+  then brings it to 98 %. **[src]**, **[verified 2026-11-20, 1.4.200]**
 - `clear()` is cheap: it swaps in an empty root, then reads only the inner pages, freeing an
   unloaded leaf by its position alone. **[src]**
-- Space already leaked comes back only offline, from `MVStoreTool.compact()`
+- Space 1.4.198 leaked comes back only offline, from `MVStoreTool.compact()`
   (`R_mvstoretool_compact`): on production's proxy log, 1.47 GB was counted live but 755 MB
   reachable, so ~0.7 GB was the deleted users' logs. **[verified 2026-11-07, 1.4.198]**
 
@@ -48,14 +47,14 @@ keep it short. When you have written an entry, re-read it against the one above 
 - The copy is a passthrough: `MVMap.copyFrom()` copies the trees page by page, their shape kept,
   and `GenericDataType` reads a page's whole remaining buffer as one blob and writes it back
   verbatim. Nothing is decoded, so any key and value type survives. **[src]**
-- Production's proxy log: 3 769 MB, 129 299 chunks, 42 % full → 755 MB, 1 181 chunks, in
-  17–20 s; every key and value of the 711 maps, 2 257 170 entries and 1 376 MB of records,
-  byte-identical, read back as UMN opens them. **[verified 2026-11-07, 1.4.198]**
+- Production's proxy log: 3 769 MB, 129 659 chunks, 42 % full → 753 MB, 593 chunks, in
+  17–23 s; every key and value of the 715 maps, 2 265 385 entries and 1 381 MB of records,
+  identical, read back as UMN opens them. **[verified 2026-11-20, 1.4.200]**
 - The two-argument `compact(file, compress)` swaps the copy in with `File.renameTo()`, atomic on
   Linux; if that fails, it deletes the original before moving the copy in, a window that
   `compactCleanUp()` repairs on the next open. **[src]**
-- Nothing is synced to disk: `FileStore.close()` never calls `force()`, so after a power cut a
-  renamed-in copy may lack its data. **[src]**
+- `MVStore.close()` of a writable store `sync()`s the file (`closeStore()`); nothing syncs the
+  directory, so after a power cut a rename may be lost. **[src]**
 - H2 1.4.197 reads what 1.4.198 writes, compacted or not: the `umn-proxy-server:0.12` image
   (1.4.197) and `0.17` (1.4.198), each on production's log and on its compacted copy, report
   the same 710 users and log sizes, stream six users' whole logs (2 to 279 301 records) with
@@ -63,15 +62,19 @@ keep it short. When you have written an entry, re-read it against the one above 
 
 ## R_mvstore_compact_concurrency — `compact()` is safe beside concurrent writers
 
-- With the defaults, the background writer itself calls `compact()` while other threads write;
-  it is a supported, concurrent path, not a maintenance-only one. **[src]**
-- The rewrite is ordinary map writes: `MVMap.rewritePage()` is `replace(key, value, value)`, on
-  the same compare-and-swap root update as `put`. A concurrent change of the value makes the
-  replace fail harmlessly. **[src]**
-- `compact()` holds `storeLock`, the lock every commit takes, and only via `tryLock(10 ms)`: when
-  the store is busy it skips the round rather than wait. **[src]**
+- With the defaults, the background writer itself rewrites chunks (`rewriteChunks()`) while other
+  threads write; it is a supported, concurrent path, not a maintenance-only one. **[src]**
+- The rewrite is ordinary map writes: `MVMap.rewritePage()` re-puts the key's current value
+  through `operate()`, one compare-and-swap like `put`; a key removed meanwhile aborts it. **[src]**
+- `compact()` takes `storeLock`, the lock every commit takes, only via `tryLock(10 ms)`, skipping a
+  busy round, and releases it while it rewrites the maps: commits interleave. **[src]**
 - A map removed mid-rewrite is skipped: `rewritePage()` checks `isClosed()`. **[src]**
-- On a closed store `compact()` throws `IllegalStateException` (`checkOpen()`). **[src]**
+- On a closed store that has stored a chunk, `compact()` throws `IllegalStateException`
+  (`checkOpen()`). **[src]**
+- A chunk the rewrite emptied is freed once `versionsToKeep` (5) later versions are stored, at
+  least one; till then the fill rate counts it. So `compactFile()`, rewriting until the chunks are
+  95 % full, never returns on a live store: after 30 s still rewriting, its file doubled.
+  **[src]**, **[verified 2026-11-20, 1.4.200]** (`MvstoreUMNTest`)
 - The file is `nio:` by default, a `RandomAccessFile`'s `FileChannel`: interrupting a thread inside
   its I/O closes the channel for every thread (`ClosedByInterruptException`), and the store is
   dead until reopened. **[src]**, **[docs]** (`InterruptibleChannel`)
@@ -81,7 +84,7 @@ keep it short. When you have written an entry, re-read it against the one above 
 - `ObjectDataType` writes an `Object[]` as `TYPE_ARRAY`, its component class's index in
   `COMMON_CLASSES` (`Object` is 8), the length, then each element under its own type tag; only a
   component class outside `COMMON_CLASSES` is written by name. Read back, it is an `Object[]`.
-  **[src]**, **[verified 2026-11-08, 1.4.198]**
+  **[src]**, **[verified 2026-11-20, 1.4.200]**
 - Two arrays compare element by element through `ObjectDataType`, then the shorter first.
   Elements of different types order by type id (`Integer` 4 before `Long` 5), not by value. **[src]**
 - A map's metadata holds only `name`, `createVersion` and `type` (`MVMap.asString()`); its key and
@@ -90,7 +93,7 @@ keep it short. When you have written an entry, re-read it against the one above 
 - Within one open store, a map takes the `DataType` of whoever opens it first. A later `openMap()`
   with another `DataType` class gets that map, and trips an `assert` under `-ea`
   (`MVStore.openMap()`): a test reading a UMN map raw then breaks the UMN. **[src]**,
-  **[verified 2026-11-08, 1.4.198]**
+  **[verified 2026-11-20, 1.4.200]**
 - `ObjectDataType`'s one field caches the last type seen; each type re-checks `instanceof` and
   falls back, so a race on it costs a lookup, never a wrong answer. **[src]**
 
@@ -99,13 +102,15 @@ keep it short. When you have written an entry, re-read it against the one above 
 - An inner page holds its header, the child positions and counts, then the keys, last; values
   only on leaves (`Page.read()`, `Page.write()`). `clear()` needs only the positions, so a key
   type that swallows the rest of the page as one blob, `MVStoreTool.GenericDataType` say, frees
-  the whole tree. **[src]**, **[verified 2026-11-09, 1.4.198]**
+  the whole tree. **[src]**, **[verified 2026-11-20]** (`DroppedIndexTest`)
 - `openMap()` reads the root page eagerly, keys and values, leaf or not: an unloadable class
-  throws there, before `clear()` runs. **[src]**, **[verified 2026-11-09, 1.4.198]**
+  throws there, wrapped in `IllegalStateException`, before `clear()` runs. **[src]**,
+  **[verified 2026-11-20]** (`DroppedIndexTest`)
 - `clear()` swaps in an empty root, then `removeAllRecursive()`: no search, no `compare()`. **[src]**
-- `removeMap(map)` closes the map but keeps it registered until its version ages out, so the next
-  commit may store its empty root, never freed after. `removeMap(name)` unregisters it at once.
-  A map's id is `meta["name.<name>"]`, hex; `getMap(id)` returns it if open. **[src]**
+- `removeMap(map)` clears and closes the map, keeping it registered until its version ages out or
+  the store closes. `removeMap(name)` opens it with `ObjectDataType` unless open, then does the
+  same: an unreadable map throws. A map's id is `meta["name.<name>"]`, hex; `getMap(id)` returns
+  it if open. **[src]**
 
 ## R_mvstore_store_per_map — a stored version is consistent per map, not across maps
 
@@ -134,23 +139,54 @@ keep it short. When you have written an entry, re-read it against the one above 
   missing, so a kill can't leave the swap half-done. **[docs]**
 - After a crash, a rename is on disk only if the directory was `fsync`ed after it. **[docs]**
 
-## R_mvstore_kill_opens_empty — a kill mid-chunk can open the whole store empty
+## R_mvstore_kill_opens_empty — a kill mid-chunk opened 1.4.198's store empty, not 1.4.200's
 
-- `storeNow()` rewrites the store header only for a chunk written short of the file's end, and
-  `rollbackTo()` does; `close()` never does. A new store's header names no chunk. **[src]**
-- Nor does the header of `MVStoreTool.compact()`'s copy: `H`, `blockSize`, `created`, `format`.
-  **[verified 2026-11-20, 1.4.198]**
-- `readStoreHeader()` takes the newer of the header's chunk and the one whose footer ends the
-  file, then follows `next`. With neither, the store opens empty at version 0, every complete
-  chunk in the file ignored. **[src]**
-- A SIGKILL can cut a chunk's write short: 5 of ~30 kills of a JVM committing to a new store, and
-  1 of 20 of one appending to a `StartupCompaction` copy as the proxy server does, opened empty.
-  One file ended 20 KB into a 48 KB chunk, after 364 complete ones. **[verified 2026-11-20, 1.4.198]**
-- A read-write open and `close()` of it truncates the file to its two header blocks
-  (`shrinkFileIfPossible(0)`); `MVStoreTool -repair` throws, reading the cut chunk past the end
-  of the file. **[verified 2026-11-20, 1.4.198]**
-- Truncating the file at the end of its last complete chunk opens it at that chunk's version,
-  every commit before it kept. **[verified 2026-11-20, 1.4.198]**
+- Up to 1.4.199, `readStoreHeader()` takes the newer of the header's chunk and the one whose
+  footer ends the file, then follows `next`; with neither, the store opens empty at version 0.
+  The header names a chunk only once one is stored short of the file's end: never in a new store
+  or in `MVStoreTool.compact()`'s copy. **[src]**, **[verified 2026-11-20, 1.4.198]**
+- So a SIGKILL cutting the last chunk short opened 1.4.198's store empty: 5 of ~30 kills of a JVM
+  committing to a new store, 1 of 20 appending to a `StartupCompaction` copy. A read-write open
+  and `close()` then truncated the file to its headers. **[verified 2026-11-20, 1.4.198]**
+- 1.4.200 trusts the header only when it says `clean:1`, which `close()` writes with the last
+  chunk, and the first store after an open drops. Otherwise it walks back from the file's end to
+  the last chunk whose header and footer agree, follows `next`, and checks every chunk the meta
+  map lists; failing that, it scans every block. **[src]**
+- A file a real kill left, 20 KB into a 48 KB chunk: 1.4.197 to 1.4.199 open it empty, 1.4.200
+  at version 364, all 3 640 entries. Production's log with its newest chunk cut, and stores on
+  Android API 22 and 24, open at the last whole commit too. **[verified 2026-11-20, 1.4.200]**
+- The walk costs what 1.4.198's open did, two small reads a chunk: on production's log after a
+  kill, 275 000 reads for 130 000 chunks, 1.3–3.6 s with the page cache warm; compacted, 3 000
+  reads, 70 ms; after a `close()`, 12 000 and 250. **[verified 2026-11-20, 1.4.198 and 1.4.200]**
+
+## R_mvstore_clean_flag_handover — 1.4.200 trusts a `clean:1` that 1.4.198 left stale
+
+- 1.4.197 and 1.4.198 copy every key of the header they read into each one they write, so a
+  `clean:1` survives their writes; and they rewrite it only for a chunk stored short of the
+  file's end. **[src]**
+- Trusting `clean:1`, 1.4.200 skips the walk from the file's end and follows `next` from the
+  header's chunk only (`R_mvstore_kill_opens_empty`). **[src]**
+- 1.4.200 closes a store, 1.4.198 commits 200 times into it with space reuse and closes it,
+  1.4.200 reopens: 5 of 14 runs ending in chunks no hole fits opened 2 to 8 versions short,
+  silently, while 1.4.198 read them all. With 1.4.200 closing by `commit()`, `sync()` and
+  `closeImmediately()`, never writing `clean:1`, 13 of 13 read everything.
+  **[verified 2026-11-20, 1.4.198 and 1.4.200]**
+
+## R_h2_1_4_200_drop_in — 1.4.200 writes 1.4.198's format and runs on Android API 22
+
+- `FORMAT_WRITE` and `FORMAT_READ` stay 1, `ObjectDataType` differs by a license URL, and
+  `Page.write()` lays a page out as before. Chunk metadata adds `unusedAtVersion` and `pinCount`,
+  the header `clean`; 1.4.197 parses both as maps and skips keys it doesn't know. **[src]**
+- Both jars are Java 7 bytecode. Of the Java APIs 1.4.200 calls and 1.4.198 didn't, API 22 has
+  all but `GarbageCollectorMXBean.getMemoryPoolNames()`, which only `Utils.collectGarbage()`
+  calls, and nothing in h2-mvstore calls that. **[src]**
+- `MvstoreUMN` under `dalvikvm` on API 22 creates, commits, reopens and reads; Aedict on API 24,
+  installed over its 1.4.198 build, opens the old store and writes to it; no `VerifyError`.
+  **[verified 2026-11-20, 1.4.200]**
+- 2.0.202's MVStore fixes miss a plain-map store: #3097 is in `rollbackTo()`; #2967 needs a
+  Java-serialized object over ~72 MB; #3066 is the SQL layer's LOB map, absent from h2-mvstore;
+  #2972, page memory drifting negative, needs Java-serialized values and costs cache, not data.
+  **[src]** (the issues' fix diffs against 1.4.200)
 
 ## R_h2_reads_one_format — 1.4 and 2.x each open only their own file format
 

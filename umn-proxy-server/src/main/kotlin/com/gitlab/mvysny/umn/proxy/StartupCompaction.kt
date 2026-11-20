@@ -24,10 +24,9 @@ import java.nio.file.StandardOpenOption.WRITE
  *
  * ## Implementation notes
  *
- * The copy is `MVStoreTool.compact()`'s byte-exact passthrough (`R_mvstoretool_compact`) of a read-only store. H2
- * syncs nothing, so the copy is forced to disk before the atomic rename, and the directory after it: a kill or a host
- * crash leaves one whole file (`R_kill_vs_crash`). The copy's store header names no chunk: until H2 first reuses space,
- * a kill mid-write leaves a log that [EmptiedLogGuard] refuses (`R_mvstore_kill_opens_empty`).
+ * The copy is `MVStoreTool.compact()`'s byte-exact passthrough (`R_mvstoretool_compact`) of a read-only store. It is
+ * forced to disk before the atomic rename, and the directory after it, which H2 never syncs: a kill or a host crash
+ * leaves one whole file (`R_kill_vs_crash`).
  */
 internal object StartupCompaction {
     /**

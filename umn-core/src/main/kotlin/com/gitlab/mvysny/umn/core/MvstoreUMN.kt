@@ -171,11 +171,10 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
      *
      * ## Implementation notes
      *
-     * `clear()`, then `removeMap()`: `removeMap()` alone leaves the pages counted live for good
-     * (`R_mvstore_removemap_leaks`). A map not open yet is opened with [OpaqueDataType]
-     * (`R_mvstore_clear_reads_no_key`); an open one is cleared as it is, since `openMap()` would return it, asserting the
-     * types match (`R_mvstore_object_array_keys`). `removeMap(name)`, not `removeMap(map)`, so the empty root is never
-     * stored.
+     * `removeMap(map)` clears the map, freeing its pages (`R_mvstore_removemap_leaks`), and needs it open. A map not open
+     * yet is opened with [OpaqueDataType] (`R_mvstore_clear_reads_no_key`), as `removeMap(name)` would open it with
+     * `ObjectDataType`, reading its keys; an open one is removed as it is, since `openMap()` would return it, asserting
+     * the types match (`R_mvstore_object_array_keys`).
      */
     @Synchronized
     override fun dropUtilityMap(name: String) {
@@ -184,8 +183,7 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
         val id = store.metaMap["name.$mapName"]?.toInt(16) ?: return
         val map: MVMap<Any, Any> = store.getMap(id)
             ?: store.openMap(mapName, MVMap.Builder<Any, Any>().keyType(OpaqueDataType).valueType(OpaqueDataType))
-        map.clear()
-        store.removeMap(mapName)
+        store.removeMap(map)
     }
 
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
@@ -195,11 +193,35 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
     override fun isEmpty(): Boolean = map.isEmpty()
 
     /**
-     * Compacts the database file.
+     * Compacts the database file: rewrites the live pages of every open map into fresh chunks, once, and moves the
+     * chunks to the file's start, shrinking it. Call it while no other thread uses this UMN.
+     *
+     * ## Implementation notes
+     *
+     * One rewrite, not `compactFile()`: that loops until the chunks are 95 % full, but each round empties chunks that
+     * count until the next one, so on a live store it never returns (`R_mvstore_compact_concurrency`). Meanwhile
+     * `versionsToKeep` and the retention time are 0, so the emptied chunks are freed at the next stored version,
+     * which a reader on an older version wouldn't survive; and the background writer stops, as `compact()` skips the
+     * rewrite when it can't take the store's lock within 10 ms.
      */
     public fun compact() {
-        store.compactFile(Long.MAX_VALUE)
-        store.compactMoveChunks()
+        val autoCommitDelay = store.autoCommitDelay
+        val versionsToKeep = store.versionsToKeep.toInt()
+        val retentionTime = store.retentionTime
+        store.autoCommitDelay = 0
+        store.setVersionsToKeep(0)
+        store.retentionTime = 0
+        try {
+            store.compact(100, Int.MAX_VALUE)
+            // changes nothing but makes commit() store a version, after which the emptied chunks may be freed
+            store.storeVersion = store.storeVersion
+            store.commit()
+            store.compactMoveChunks()
+        } finally {
+            store.retentionTime = retentionTime
+            store.setVersionsToKeep(versionsToKeep)
+            store.autoCommitDelay = autoCommitDelay
+        }
     }
 
     public companion object {
@@ -264,7 +286,7 @@ public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String
  * whose `clear()` needs an inner page's child positions alone, which come before its keys (`R_mvstore_clear_reads_no_key`).
  * Never writes, never compares.
  *
- * A copy of 1.4.198's `MVStoreTool.GenericDataType`, package-private there.
+ * A copy of H2's `MVStoreTool.GenericDataType`, package-private there.
  */
 private object OpaqueDataType : DataType {
     override fun compare(a: Any?, b: Any?): Int = throw UnsupportedOperationException("opaque, can't compare")
