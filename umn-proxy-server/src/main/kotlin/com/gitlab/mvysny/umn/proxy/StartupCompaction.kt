@@ -19,13 +19,15 @@ import java.nio.file.StandardOpenOption.WRITE
  * StartupCompaction.compact(File(dbdir, "umn_proxy_log"))   // before anything opens the store
  * ```
  *
- * It never throws: when the disk is short, or anything fails, the file stays as it was and the cause is logged. See
- * `D_compact_on_startup`.
+ * It never throws: when the disk is short, or anything fails, the file stays as it was and the cause is logged; a
+ * kill at any point leaves it as it was or fully compacted. See `D_compact_on_startup`.
  *
  * ## Implementation notes
  *
- * The copy is `MVStoreTool.compact()`'s byte-exact passthrough (`R_mvstoretool_compact`); H2 syncs nothing, so the
- * copy is forced to disk before the atomic rename, and the directory after it.
+ * The copy is `MVStoreTool.compact()`'s byte-exact passthrough (`R_mvstoretool_compact`) of a read-only store. H2
+ * syncs nothing, so the copy is forced to disk before the atomic rename, and the directory after it: a kill or a host
+ * crash leaves one whole file (`R_kill_vs_crash`). The copy's store header names no chunk: until H2 first reuses space,
+ * a kill mid-write leaves a log that [EmptiedLogGuard] refuses (`R_mvstore_kill_opens_empty`).
  */
 internal object StartupCompaction {
     /**

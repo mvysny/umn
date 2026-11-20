@@ -13,6 +13,11 @@ no entries.
   class may now be deleted, renamed or obfuscated once the index has a new name. In 0.18, the
   open threw `ClassNotFoundException` once the class was gone, and the app couldn't open its
   database. A clear that fails is now logged and retried on the next open, not fatal.
+- The proxy server refuses to start on a log that H2 would open empty although it holds committed
+  records. A kill in the middle of a write leaves such a log, after every start until H2 first
+  reuses space; 0.18 and older started on the empty log and overwrote the file. The message names
+  the byte to truncate the file at, which brings back everything but the write the kill cut; see
+  the server's README.
 - **Breaking:** `UMN.dropUtilityMap(name)` frees a utility map's entries and forgets the map,
   reading none of its keys or values. Migration: a `UMN` implemented outside this library, such as
   a wrapper, implements it, typically as `delegate.dropUtilityMap(name)`.

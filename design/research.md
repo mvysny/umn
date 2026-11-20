@@ -116,3 +116,38 @@ keep it short. When you have written an entry, re-read it against the one above 
   write to it. **[src]**
 - `commit()` stores, under `storeLock`, every write made before the call; a later chunk holds them
   too. A no-op on an in-memory store; throws on a read-only one only with unsaved writes. **[src]**
+
+## R_kill_vs_crash — a killed JVM loses no write; a crashed host loses the unsynced ones
+
+- `MVStore.Builder().readOnly()` opens the file in mode `"r"` under a shared lock
+  (`FileStore.open()`): the OS refuses every write. **[src]**
+- A reader killed anywhere leaves the file byte-identical: of 72 SIGKILLs spread over a
+  `StartupCompaction` of a 30 MB log (`KillTest`), 46 landed before its rename. **[verified
+  2026-11-20, 1.4.198]**
+- A killed process, SIGKILL included (`docker kill`, the OOM killer, `docker stop` past its grace
+  period), loses no `write()` that returned: the next process read every chunk H2 had written,
+  none of them synced. Whether H2 then finds them is `R_mvstore_kill_opens_empty`. **[verified
+  2026-11-20, 1.4.198]**
+- The bytes sit in the kernel's page cache, which outlives the process; only a kernel crash or a
+  power cut loses what no `fsync()` forced to disk. **[docs]**
+- `rename()` over an existing file replaces it atomically: no process ever finds the target
+  missing, so a kill can't leave the swap half-done. **[docs]**
+- After a crash, a rename is on disk only if the directory was `fsync`ed after it. **[docs]**
+
+## R_mvstore_kill_opens_empty — a kill mid-chunk can open the whole store empty
+
+- `storeNow()` rewrites the store header only for a chunk written short of the file's end, and
+  `rollbackTo()` does; `close()` never does. A new store's header names no chunk. **[src]**
+- Nor does the header of `MVStoreTool.compact()`'s copy: `H`, `blockSize`, `created`, `format`.
+  **[verified 2026-11-20, 1.4.198]**
+- `readStoreHeader()` takes the newer of the header's chunk and the one whose footer ends the
+  file, then follows `next`. With neither, the store opens empty at version 0, every complete
+  chunk in the file ignored. **[src]**
+- A SIGKILL can cut a chunk's write short: 5 of ~30 kills of a JVM committing to a new store, and
+  1 of 20 of one appending to a `StartupCompaction` copy as the proxy server does, opened empty.
+  One file ended 20 KB into a 48 KB chunk, after 364 complete ones. **[verified 2026-11-20, 1.4.198]**
+- A read-write open and `close()` of it truncates the file to its two header blocks
+  (`shrinkFileIfPossible(0)`); `MVStoreTool -repair` throws, reading the cut chunk past the end
+  of the file. **[verified 2026-11-20, 1.4.198]**
+- Truncating the file at the end of its last complete chunk opens it at that chunk's version,
+  every commit before it kept. **[verified 2026-11-20, 1.4.198]**

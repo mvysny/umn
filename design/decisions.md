@@ -99,7 +99,9 @@ logs `deleteUser()` leaked before 0.18 (`R_mvstore_removemap_leaks`): production
 755 MB of live data. So {StartupCompaction} copies the closed log with `MVStoreTool.compact()`, a
 byte-exact passthrough, checks the entry counts, forces the copy to disk (H2 syncs nothing) and
 renames it over the log (`R_mvstoretool_compact`). Any failure, or too little disk, starts on the
-log as it was. The cost: a start as long as the copy, 20 s on production's log. Why not only when
+log as it was. The cost: a start as long as the copy, 20 s on production's log; and the copy's
+store header names no chunk, so until H2 first reuses space a kill mid-write leaves a log H2 opens
+empty (`R_mvstore_kill_opens_empty`), which {EmptiedLogGuard} refuses. Why not only when
 it pays: the fill rate can't see leaked pages, and a heuristic is harder to reason about than a
 constant cost on a rare deploy. Why not an operator command: nobody remembers it. Why not online:
 the copy needs the file closed. A rollback stays possible: the 0.12 server reads the copy, held so
