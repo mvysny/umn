@@ -4,7 +4,7 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the wire format never breaks, and a release opens every file 0.9 or later wrote
 (`D_frozen_0_15_formats`). Releases before 0.16 have no entries.
 
-## 0.19 — unreleased
+## 0.19 — 2026-11-20
 
 - The project moved from GitLab to GitHub: https://github.com/mvysny/umn. The groupId
   `com.gitlab.mvysny.umn` and the package names stay as they are.
