@@ -19,6 +19,10 @@ import java.util.function.Consumer;
  * <li>{@code cat=<name>}, {@code item=<cat>/<text>} — create</li>
  * <li>{@code edit=<text>/<new text>}, {@code rename=<cat>/<new name>} — update</li>
  * <li>{@code del=<text>}, {@code delcat=<cat>} — delete; a category goes with its items</li>
+ * <li>{@code items=<cat>/<n>} — create {@code n} items {@code <cat> 0}…, committing the store after each, as a phone's
+ * edits spread over time do</li>
+ * <li>{@code idle=<ms>} — leave the store open, its background writer running</li>
+ * <li>{@code maps=<n>} — {@code n} more utility maps of one entry each, as an app's own indices add</li>
  * <li>{@code sync} — push the queue, pull the log; prints {@code synced log=<n>}</li>
  * <li>{@code ready} — prints {@code READY}, for a test to act while this node stays connected</li>
  * <li>{@code await=<n>} — wait until the node pulled {@code n} records</li>
@@ -62,6 +66,14 @@ public final class Steps {
                     case "rename": node.renameCategory(parts[0], parts[1]); break;
                     case "del": node.deleteItem(parts[0]); break;
                     case "delcat": node.deleteCategory(parts[0]); break;
+                    case "items":
+                        for (int i = 0; i < Integer.parseInt(parts[1]); i++) {
+                            node.addItem(parts[0], parts[0] + " " + i);
+                            node.commit();
+                        }
+                        break;
+                    case "idle": Thread.sleep(Long.parseLong(parts[0])); break;
+                    case "maps": node.addMaps(Integer.parseInt(parts[0])); break;
                     case "sync": out.accept("synced log=" + node.sync()); break;
                     case "ready": out.accept("READY"); break;
                     case "await": node.awaitPointer(Long.parseLong(parts[0])); break;

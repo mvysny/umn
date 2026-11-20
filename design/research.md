@@ -69,9 +69,10 @@ where a claim came from, so the prose doesn't repeat it.
 
 - After a commit replaced it, 1.4.197 sometimes left the old copy of the meta leaf that holds the
   maps' `map.`/`name.`/`root.` entries counted live in its chunk. 8 sessions of 20 commits on
-  12 maps, each idle 1.5–3 s before its close or kill: 28 of 160 chunks. With 3 maps, meta's one
-  leaf: none. Without the idle: none. 1.4.198, 1.4.199, 1.4.200: none.
-  **[verified 2026-11-20, 1.4.197–1.4.200]**
+  12 maps, each idle 1.5–3 s before its close or kill: 28 of 160 chunks. With 3 to 11 maps: none,
+  so it turns on meta's layout. Without the idle: none. 1.4.198, 1.4.199, 1.4.200: none.
+  **[verified 2026-11-20, 1.4.197–1.4.200]** A UMN 0.15 node given 12 maps, 8 such sessions of
+  20 edits: 81 KB leaked, pinning 860 of its 1 164 KB. **[verified 2026-11-20, 1.4.197]**
 - Production's web replicas, all written by 1.4.197: 20 of the 69 over 1 MB hold such chunks,
   written 2018–2026; in 14, nearly every chunk. **[verified 2026-11-20, 1.4.200]**
 - Such a chunk is never dead, so never freed, and no rewrite moves a page no map reaches: it keeps
@@ -80,12 +81,25 @@ where a claim came from, so the prose doesn't repeat it.
   **[verified 2026-11-20, 1.4.200]**
 - `getProjectedFillRate()` counts them as space a rewrite would free, so the file never looks
   90 % full and the idle writer never rests. It rewrites and moves the live data, and writes the
-  header and fsyncs 10 times a second. Over two idle minutes: 35 MB a minute for 0.9 MB live, 44
-  for 1.3 MB, 590 for 18 MB; the clean stores write nothing. **[src]**,
+  header and fsyncs 10 times a second. Over five idle minutes: 41 MB a minute for 0.9 MB live, 50
+  for 1.3 MB, 700 for 18 MB; the clean stores write nothing. **[src]**,
   **[verified 2026-11-20, 1.4.200]**
 - A walk of every map's tree and meta's finds them: chunks counting more live bytes than the pages
-  reached in them. `MVStoreTool.compact()` copies only reachable pages, so the copy drops them.
-  **[src]**
+  reached in them, 13–30 ms on 2–66 MB files. `MVStoreTool.compact()` copies only reachable pages,
+  so the copy drops them: 3.5 MB to 1.5 MB in 0.16 s, 66 MB to 18 MB in 0.8 s. Five replicas so
+  copied, opened with every map open: idle, the writer wrote nothing, and after 6 commits they
+  held 1.01–1.30× live, one 1.97× while its dead chunks awaited more. **[src]**,
+  **[verified 2026-11-20, 1.4.200]**
+
+## R_mvstore_unopened_map_pins — a map left closed pins the chunks holding its pages
+
+- The writer's rewrite walks only the open maps and meta (`compactRewrite()`); `compact()`'s
+  javadoc: "Only data of open maps can be moved." **[src]**, **[docs]**
+- So once every other page has moved out of a chunk, the page of a map no one opened keeps it in
+  the file, and the writer churns as around a leaked page (`R_mvstore_197_meta_leak`). A replica's
+  copy, one 1 060 KB chunk, opened with its sync off: the log pointer's one leaf kept that chunk,
+  and the idle writer wrote 15 MB a minute. `compact()` with the map open emptied the chunk; with
+  it closed, rewrote nothing. **[verified 2026-11-20, 1.4.200]**
 
 ## R_mvstoretool_compact — `MVStoreTool.compact()`: a byte-exact offline copy
 

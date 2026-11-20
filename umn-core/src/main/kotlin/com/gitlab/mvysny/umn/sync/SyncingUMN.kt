@@ -113,8 +113,8 @@ internal class Backoff(val initialMillis: Long = 1000L, val maxMillis: Long = 60
 private class GlobalLogPuller(val umn: UMN, private val globalLogClient: GlobalLogClient,
                               val documentSerializer: DocumentSerializer,
                               val typeToClassResolver: TypeToClassResolver,
+                              private val currentLogPointer: UtilityMap<Boolean, Long>,
                               forceRestartSync: Boolean) : Closeable {
-    private val currentLogPointer: UtilityMap<Boolean, Long> = umn.openUtilityMap("CURRENT_LOG_PTR")
     private var closed: Boolean = false
     @Volatile
     var failure: LogRecordNotAppliedException? = null
@@ -293,6 +293,13 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
      */
     private val mutationLog = MutationLog(underlyingUMN, "OUTGOING_BUFFER", serializer, forceRestartSync)
 
+    /**
+     * How many global log records this node has pulled, under the key `false`. Opened here, not by each puller: MVStore
+     * rewrites only an open map's pages, so on a node whose sync never starts, the map's page would pin its chunk in the
+     * file, and keep the background writer rewriting around it (`R_mvstore_unopened_map_pins`).
+     */
+    private val logPointer: UtilityMap<Boolean, Long> = underlyingUMN.openUtilityMap("CURRENT_LOG_PTR")
+
     private val eventLoop = Executors.newSingleThreadExecutor()
     //guarded-by: run in eventLoop
     private var loop: SyncLoop? = null
@@ -455,7 +462,7 @@ public class Syncer internal constructor(private val underlyingUMN: UMN,
                     client.closeQuietly()
                     return
                 }
-                puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, forceRestartSync)
+                puller = GlobalLogPuller(underlyingUMN, client, mutationLog.serializer, underlyingUMN.typeToClassResolver, logPointer, forceRestartSync)
                 forceRestartSync = false
                 pusher = GlobalLogPusher(client, mutationLog.fifolog)
                 connection = listOf(pusher, puller, client)

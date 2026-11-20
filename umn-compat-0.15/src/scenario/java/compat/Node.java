@@ -119,6 +119,16 @@ final class Node implements Closeable {
         umn.update(category(name), new Category(newName));
     }
 
+    void addMaps(int count) {
+        for (int i = 0; i < count; i++) {
+            store.openMap("__EXTRA_" + i).put(i, i);
+        }
+    }
+
+    void commit() {
+        store.commit();
+    }
+
     void deleteItem(String text) {
         umn.delete(item(text));
     }
