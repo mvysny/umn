@@ -5,7 +5,8 @@ A node leaves compaction to MVStore's auto-compaction (`D_node_auto_compaction`)
 The rest turns on the app's `autoCommitBufferSize`. At Aedict's 256 KB, the idle writer can't
 move the chunks of a store bloated before the upgrade, and a first sync's pull runs about 10×
 longer. At H2's default, 16 MB on a phone, a few commits bring the web replicas to a median 1.13×
-and a first-synced store to 1.0–2.8×.
+and a first-synced store to 1.0–2.8×. Aedict opens with H2's default since 2026-11-20 (Aedict's
+decisions, on the default buffer).
 
 The procedure is Aedict's `StoreGrowthReplayTest`: `replay`
 (time-scaled phone use), `firstSync` (a whole-log pull, real time), `idle` (real stores, opened and
@@ -21,8 +22,6 @@ Phones on 1.4.197/1.4.198 likely look alike.
 
 ## Next
 
-- Aedict opens its store with H2's default buffer, dropping `autoCommitBufferSize(256)` from
-  `UMNUtils.kt`: Aedict's change.
 - `Q_underfilled`: at 16 MB, 14 of the 67 replicas stay at 3–5.6× after the commits, their files
   full of chunks 24–47 % live. Why doesn't the writer rewrite them?
 - `Q_first_sync_peak`: does a first sync's transient peak matter, up to 152× live and 350 MB at a
