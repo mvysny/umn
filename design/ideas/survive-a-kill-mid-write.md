@@ -1,11 +1,13 @@
 # Survive a kill mid-write
 
-The owner, 2026-11-20, after `KillTest` found that a kill mid-chunk could open the whole store
-empty. H2 1.4.200 opens such a store at its last whole commit (`R_mvstore_kill_opens_empty`): the
-proxy server's log and a node's store alike, Android included. Installed 0.15 apps keep 1.4.197 and
-its empty open, and never update. What a kill can still lose:
+The owner, 2026-11-20. H2 1.4.200 opens a store a kill cut short at its last whole commit
+(`R_mvstore_kill_opens_empty`), so a kill loses what no commit stored yet: up to `autoCommitDelay`,
+1 s, of writes. The proxy server commits each record before ACKing it (`D_commit_before_ack`); a
+node's own store is what's left.
 
-- `Q_ack_before_commit`: does the proxy server ACK a record before the commit that stores it? Then
-  a kill loses an ACKed record however H2 recovers: the node has dropped it from
-  `__OUTGOING_BUFFER`, so it never reaches another node. Neither `MVStoreGlobalLog` nor the proxy
-  server calls `commit()`: MVStore's auto-commit stores within `autoCommitDelay`, 1 s by default.
+- `Q_node_pointer_ahead`: the puller applies a record, then advances `__CURRENT_LOG_PTR`, with no
+  commit between. A stored chunk may hold the later write to one map without the earlier to
+  another (`R_mvstore_store_per_map`): a kill then leaves the pointer past a record the node never
+  stored, skipped for good. As narrow as one store's walk over the maps; worth a commit per pulled
+  record (`R_mvstore_commit_per_write`)? The same question for a local edit and its
+  `__OUTGOING_BUFFER` entry.

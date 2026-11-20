@@ -10,6 +10,7 @@ import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Uses a local [MVStore] to store the log and the users. Doesn't make much sense on its own, but makes tons of sense when acting as a
@@ -44,6 +45,11 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
      * time the client connects.
      */
     internal lateinit var log: MVMap<Long, ByteArray>
+
+    /**
+     * The [log]'s committed end, shared by the user's clients: [onNewItems] sends no record at or past it.
+     */
+    internal lateinit var committedEnd: AtomicLong
 
     private fun checkNotClosed() {
         check(!closed.get()) { "Already closed" }
@@ -107,7 +113,10 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
     override fun addAsync(record: ByteArray) {
         check(started.get()) { "Not yet started" }
         checkNotClosed()
-        log.append(record)
+        val key = log.append(record)
+        // stores every key below this one too: append() puts a key only once the one before it is in the map
+        owner.db.commit()
+        committedEnd.accumulateAndGet(key + 1) { a, b -> maxOf(a, b) }
         addCallback()
         owner.fireNewItemNotification(username)
     }
@@ -120,8 +129,10 @@ public class MVStoreGlobalLogClient internal constructor(public val owner: MVSto
 
     @Synchronized
     internal fun onNewItems() {
+        // another client's record past it is still committing; that client announces it once committed
+        val end = committedEnd.get()
         log.keyIterator(currentLogPointer).forEach { key ->
-            if (closed.get()) return
+            if (closed.get() || key >= end) return
             // deleteUser() closes this client before it clears the log, so a missing record is either the user's
             // deletion, or a hole
             val record = log[key] ?: if (closed.get()) return else error("$username: no log record at $key")
@@ -156,9 +167,17 @@ public fun <V: Any> MVMap<Long, V>.append(value: V): Long {
  *
  * Contains the following maps:
  * * `users`: maps String username to String hashed password
- * * `{username}__log`: contains the global log for given user. Maps the log record ordinal to the serialized log record. */
+ * * `{username}__log`: contains the global log for given user. Maps the log record ordinal to the serialized log record.
+ *
+ * Commits each write before it returns or acknowledges it, so a killed JVM loses no record a client ACKed or
+ * received, and no user created or deleted: `D_commit_before_ack`.
+ */
 public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     private val startedClients = ConcurrentHashMap<String, BlockingQueue<MVStoreGlobalLogClient>>()
+    /**
+     * Each user's [MVStoreGlobalLogClient.committedEnd], from the first client started until the user is deleted.
+     */
+    private val committedEnds = ConcurrentHashMap<String, AtomicLong>()
     private val closed = AtomicBoolean(false)
 
     /**
@@ -179,6 +198,8 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
         if (users[client.username] == null) throw InvalidUsernamePasswordException("No such user: ${client.username}")
         // open the log before registering: a record added by another client notifies this one right away
         client.log = getLogMap(client.username)
+        // the user's first client: none has appended yet, so the whole log counts as committed
+        client.committedEnd = committedEnds.computeIfAbsent(client.username) { AtomicLong((client.log.lastKey() ?: -1L) + 1) }
         val clientsForUsername = startedClients.getOrPut(client.username) { LinkedBlockingQueue() }
         clientsForUsername.add(client)
     }
@@ -206,6 +227,7 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
      */
     public fun createOrUpdateUser(username: String, password: String) {
         users[username] = PasswordHash.createHash(password)
+        db.commit()
     }
 
     public fun listUsers(): List<String> = users.keyList().filterNotNull()
@@ -218,10 +240,16 @@ public class MVStoreGlobalLog(public val db: MVStore) : Closeable {
     public fun deleteUser(username: String) {
         users.remove(username)
         startedClients.remove(username)?.forEach { it.closeAsDeleted() }
+        committedEnds.remove(username)
         // clears the map, freeing its pages: R_mvstore_removemap_leaks
         db.removeMap(getLogMap(username))
+        db.commit()
     }
 
+    /**
+     * The user's log, to read: a record appended here rather than through a client reaches the started clients only
+     * once a client appends after it.
+     */
     public fun getLogMap(username: String): MVMap<Long, ByteArray> = openMap("${username}__log")
 
     internal val users: MVMap<String, String> get() = openMap("users")

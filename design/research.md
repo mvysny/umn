@@ -136,8 +136,17 @@ keep it short. When you have written an entry, re-read it against the one above 
   another. **[src]**
 - A map's root is a copy-on-write snapshot: within one map, a stored write implies every earlier
   write to it. **[src]**
-- `commit()` stores, under `storeLock`, every write made before the call; a later chunk holds them
-  too. A no-op on an in-memory store; throws on a read-only one only with unsaved writes. **[src]**
+- `commit()` waits for `storeLock`, as `tryCommit()` doesn't, then stores every write made before
+  the call; a later chunk holds them too, and a commit finding them stored does nothing. A no-op on
+  an in-memory store; throws on a read-only one only with unsaved writes. **[src]**
+
+## R_mvstore_commit_per_write — a commit after each small write costs a chunk, ~26 KB
+
+- 10 000 appends of 500 random bytes to a 64 MB compressed log, `autoCompactFillRate(0)`, each
+  followed by `commit()`: 280–400 µs each, 10 000 chunks, the file from 64 to 329 MB. Uncommitted,
+  the same appends took 19 ms and one chunk. **[verified 2026-11-20, 1.4.200]**
+- Four to seven `compact(40, autoCommitMemory)` calls took the 10 499 chunks down to 740–950.
+  **[verified 2026-11-20, 1.4.200]**
 
 ## R_kill_vs_crash — a killed JVM loses no write; a crashed host loses the unsynced ones
 

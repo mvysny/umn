@@ -24,6 +24,13 @@ step; the wire format never breaks, and a release opens every file 0.9 or later 
   flag, which 0.18 and older keep while they write, so 0.19 started again on a log an older
   server wrote meanwhile opens it silently missing those records. Migration: fix a bad release
   with a newer one, never by starting the older image; see the server's README.
+- The proxy server commits each pushed record before it ACKs it or sends it to the user's nodes,
+  and each user the admin REST creates or deletes before it answers. In 0.18, a server killed
+  within a second of a push (OOM, `docker stop` past its grace period) lost records it had ACKed,
+  which the pushing node never sent again, and gave a lost record's place in the log to the next
+  one, which the nodes connected at the kill then skipped. The cost: a node pushing a long offline
+  queue takes ~0.3 ms a record on the server, and ~26 KB of the log file a record, which H2 reuses
+  after 45 s.
 - **Breaking:** for code calling MVStore itself, 1.4.200 drops `compactRewriteFully()` and
   `getCurrentFillRate()`. Migration: drop the first, as MVStore's auto-compaction keeps the file
   small; not 1.4.200's `compactFile(Long.MAX_VALUE)`, which never returns on a store whose data

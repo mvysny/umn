@@ -66,9 +66,6 @@ final class Node implements Closeable {
         store = new MVStore.Builder().fileName(file.getAbsolutePath()).compress().autoCommitBufferSize(256).open();
         MvstoreUMN storage = new MvstoreUMN(store, Schema.SERIALIZER, Schema.TYPES);
         indexing = new IndexingUMN(storage, Schema.INDICES);
-        storage.migrateV1V2(id -> {
-            throw new IllegalStateException("a v1 document " + id);
-        });
         if (remote == null) {
             syncing = null;
             umn = indexing;

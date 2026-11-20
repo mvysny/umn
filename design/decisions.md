@@ -96,12 +96,24 @@ on 1.4.198 the walk alone took 7.6 % of production's one CPU, idle, on a 4 GB lo
 `MVStore.compact()` once a minute instead, at a 40 % target and the store's write budget. The
 writer still walks once after each write, 1–2 ms per 100 000 chunks, which {StartupCompaction}
 keeps few. Why not compaction off for good: partly dead chunks would never be rewritten, and the
-file, 3.4 GB of chunks for 1.47 GB live, would grow faster than the log. Why not a longer
-`autoCommitDelay`: it widens the window of acknowledged records a crash loses. Why not a
+file, 3.4 GB of chunks for 1.47 GB live, would grow faster than the log. Why not a
 read/write lock around the timer: `compact()` is a concurrent path H2 already runs beside writers
 (`R_mvstore_compact_concurrency`), and H2's own commits would stay outside our lock anyway; it would
 only let a compaction stall client pushes. The one hazard is shutdown: the timer stops, never
 interrupted, before the store closes.
+
+## D_commit_before_ack — Why does the proxy server commit each record before ACKing it rather than leave it to MVStore's auto-commit?
+
+The ACK drops the record from the node's `__OUTGOING_BUFFER`, and the broadcast moves the user's
+nodes' `__CURRENT_LOG_PTR` past it. Killed before the auto-commit, up to `autoCommitDelay` later,
+the server lost the record for good and gave its key to the next one, which those nodes then
+skipped; 1.4.200 recovers only up to the last commit (`R_mvstore_kill_opens_empty`). So
+{MVStoreGlobalLogClient} commits after each append, and a broadcast stops at the user's committed
+end, never carrying another client's record mid-commit. The cost is a chunk per record
+(`R_mvstore_commit_per_write`): a node pushing a long offline queue takes ~0.3 ms and ~26 KB of
+file a record, freed after the retention time; pushes from different connections share commits.
+Why not group commit: ACKs and broadcasts would move to a shared committer thread, where one slow
+client's blocking send stalls every user.
 
 ## D_compact_on_startup — Why does the proxy server rewrite its log on every start?
 
