@@ -2,10 +2,12 @@ package com.gitlab.mvysny.umn.sync
 
 import com.gitlab.mvysny.umn.core.*
 import com.gitlab.mvysny.umn.sync.SyncerStatus.*
+import org.h2.mvstore.MVStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import kotlin.concurrent.thread
 import kotlin.system.measureTimeMillis
 import kotlin.test.assertTrue
@@ -292,6 +294,57 @@ class SyncingUMNTest {
         expect(60000L) { backoff.delayMillis(1000) }
     }
 
+    @Nested inner class KillMidPull {
+        @TempDir lateinit var dir: File
+
+        @Test fun `a kill never leaves the log pointer past a record the node lacks`() {
+            repeat(3) { run ->
+                val file = File(dir, "node$run")
+                val store = MVStore.Builder().fileName(file.path).autoCommitDisabled().open()
+                val node = MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver)
+                // between ROOT2 and the log pointer: a store spends milliseconds walking them, in which the puller applies
+                // records and moves the pointer past them (`R_mvstore_store_per_map`)
+                repeat(3000) { node.openUtilityMap<Long, Long>("filler$it") }
+                val syncer = Syncer(node, JavaDocumentSerializer, { EndlessLogClient() }, false)
+                val pointer = node.openUtilityMap<Boolean, Long>("CURRENT_LOG_PTR")
+                syncer.start()
+                expectAsync(true) { (pointer.find(false) ?: 0L) > 0L }
+                // MVStore's background writer stores, and the node is killed before its next store
+                store.commit()
+                store.closeImmediately()
+                syncer.close()
+                syncer.awaitClose()
+
+                createMvstoreUMN(file.path).use { reopened ->
+                    val saved = reopened.openUtilityMap<Boolean, Long>("CURRENT_LOG_PTR").find(false)!!
+                    val missing = (0 until saved).count { !reopened.exists(UUID(0, it)) }
+                    expect(0, "records missing below the saved pointer $saved, run $run") { missing }
+                }
+            }
+        }
+
+        @Test fun `the pointer catches up with an idle log, and is saved on stop`() {
+            val other = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver).syncing({ log.newClient() }, JavaDocumentSerializer, true)
+            val node = MvstoreUMN.inMemory(JavaDocumentSerializer, AutoTypeResolver)
+            val umn = node.syncing({ log.newClient() }, JavaDocumentSerializer, true)
+            val pointer = node.openUtilityMap<Boolean, Long>("CURRENT_LOG_PTR")
+            try {
+                val ids = (1..3).map { other.create("doc $it") }
+                expectAsync(true) { ids.all { umn.exists(it) } }
+                expectAsync(3L) { pointer.find(false) }
+
+                val last = other.create("last")
+                expectAsync(true) { umn.exists(last) }
+                umn.syncer.stop()
+                expectAsync(Stopped) { umn.syncer.status }
+                expect(4L) { pointer.find(false) }
+            } finally {
+                umn.close()
+                other.close()
+            }
+        }
+    }
+
     @Nested inner class ForceRestartSyncRelatedTests {
         private val tempFile = File.createTempFile("tmp", null).absolutePath
         private lateinit var umn: SyncingUMN
@@ -372,6 +425,37 @@ class ClientCapturingReceiver(val delegate: GlobalLogClient) : GlobalLogClient b
     override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
         receiver = callback
         delegate.setReceiverCallback(rewind, callback)
+    }
+}
+
+/**
+ * A log that never ends: from the rewind on, record `k` creates the document `"k"` under `UUID(0, k)`, as fast as the
+ * receiver takes them, on a thread of its own.
+ */
+class EndlessLogClient : GlobalLogClient {
+    @Volatile private var closed = false
+    @Volatile private var generator: Thread? = null
+    private var rewind = 0L
+    private var receiver: (ByteArray?) -> Unit = {}
+    override val isStarted: Boolean get() = generator != null && !closed
+    override fun setReceiverCallback(rewind: Long, callback: (record: ByteArray?) -> Unit) {
+        this.rewind = rewind
+        receiver = callback
+    }
+    override fun setAddCallback(callback: () -> Unit) {}
+    override fun start() {
+        generator = thread(isDaemon = true, name = "endless log") {
+            var k = rewind
+            while (!closed) {
+                receiver(LogRecord.DocumentCreated("$k", AutoTypeResolver.toType(String::class), UUID(0, k)).toByteArray(JavaDocumentSerializer))
+                k++
+            }
+        }
+    }
+    override fun addAsync(record: ByteArray) {}
+    override fun close() {
+        closed = true
+        generator?.join()
     }
 }
 

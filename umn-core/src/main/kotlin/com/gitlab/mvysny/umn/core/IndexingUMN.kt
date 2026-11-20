@@ -115,14 +115,6 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
         log.info("Built indices $names over $count documents in ${System.currentTimeMillis() - start} ms")
     }
 
-    /**
-     * Stores every write so far, before any later one. MVStore alone may store a later write to one map before an earlier write to
-     * another (`R_mvstore_store_per_map`).
-     */
-    private fun commit() {
-        generateSequence(delegate) { it.delegate }.filterIsInstance<MvstoreUMN>().firstOrNull()?.commit()
-    }
-
     override fun create(document: Any, id: UUID): Boolean {
         return indexUpdaterGlobalLock.withLock {
             val indexUpdates = prepareIndexUpdates(document, null)

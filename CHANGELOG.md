@@ -35,6 +35,12 @@ step; the wire format never breaks, and a release opens every file 0.9 or later 
   one, which the nodes connected at the kill then skipped. The cost: a node pushing a long offline
   queue takes ~0.3 ms a record on the server, and ~26 KB of the log file a record, which H2 reuses
   after 45 s.
+- A node killed while pulling, by Android's low-memory killer say, could save its log pointer past
+  records it never stored, and skip them for good. It now saves the pointer only right after a
+  commit, at most once a second: a kill re-pulls the records since, which apply again harmlessly.
+- A node killed while it first fills its outgoing buffer with its documents, on its first sync or
+  with `forceRestartSync`, could keep part of the buffer marked as complete and never push the
+  rest. The next start now fills it again.
 - **Breaking:** for code calling MVStore itself, 1.4.200 drops `compactRewriteFully()` and
   `getCurrentFillRate()`. Migration: drop the first, as MVStore's auto-compaction keeps the file
   small; not 1.4.200's `compactFile(Long.MAX_VALUE)`, which never returns on a store whose data

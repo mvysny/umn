@@ -136,6 +136,16 @@ keep it short. When you have written an entry, re-read it against the one above 
   another. **[src]**
 - A map's root is a copy-on-write snapshot: within one map, a stored write implies every earlier
   write to it. **[src]**
+- The walk follows `maps.values()`, a `ConcurrentHashMap` keyed by map id, ids handed out in
+  creation order: ascending while every id is below the table's size. A chunk holds the later of
+  two writes to different maps without the earlier only if the walk takes the earlier-written
+  map's root first, and both writes land before it takes the other's. **[src]**
+- A node pulling records, 3 000 maps opened between `ROOT2` and its log pointer, a `commit()` from
+  another thread, then `closeImmediately()`: the stored pointer stood 6 to 79 records past what
+  `ROOT2` held, in 5 runs of 5. **[verified 2026-11-20, 1.4.200]** (`SyncingUMNTest`)
+- `Builder.autoCommitDisabled()` sets only `autoCommitDelay` to 0, stopping the background writer.
+  `autoCommitMemory` is final, so a write past it still stores, from the writing thread
+  (`beforeWrite()`). **[src]**
 - `commit()` waits for `storeLock`, as `tryCommit()` doesn't, then stores every write made before
   the call; a later chunk holds them too, and a commit finding them stored does nothing. A no-op on
   an in-memory store; throws on a read-only one only with unsaved writes. **[src]**

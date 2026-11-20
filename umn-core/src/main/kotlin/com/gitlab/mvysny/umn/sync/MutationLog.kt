@@ -44,12 +44,17 @@ public class MutationLog(
         val map: UtilityMap<Long, ByteArray> = umn.openUtilityMap(bufferName)
         val initialPopulationMarker = umn.openUtilityMap<String, Boolean>("$bufferName-marker")
         fifolog = AckFIFOBuffer(map)
-        if (forceRepopulate || initialPopulationMarker.find("isPopulated") == null) {
+        val populated = initialPopulationMarker.find("isPopulated") != null
+        if (forceRepopulate || !populated) {
+            if (populated) {
+                // stored before the clear: a kill mid-refill must leave no marker over a partial buffer
+                initialPopulationMarker.put("isPopulated", null)
+                umn.commit()
+            }
             fifolog.clear()
 
             // this UMN has not been synced yet. We need to "fake" the history by creating DocumentCreated
             // records for all existing documents.
-            initialPopulationMarker.put("isPopulated", true)
             log.info("log history missing in $bufferName, creating fake from all current documents")
             check(map.isEmpty()) { "The FIFOBuffer was expected to be empty but it contains keys ${map.keyIterator(Long.MIN_VALUE..Long.MAX_VALUE).toList()}!!!" }
             var count = 0
@@ -58,6 +63,9 @@ public class MutationLog(
                 fifolog.append(LogRecord.DocumentCreated2(it.second, it.first).toByteArray(FailingSerializer))
                 count++
             }
+            // a stored marker must imply every record above; a kill before it repopulates on the next open
+            umn.commit()
+            initialPopulationMarker.put("isPopulated", true)
             log.info("log history faked, FIFOBuffer should now have $count records")
         }
     }
