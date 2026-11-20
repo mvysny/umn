@@ -72,10 +72,10 @@ moved to the files above first.
 
 ## Maintenance of this file
 
-Loaded every turn; cap 34 KB, a module's own `AGENTS.md` 10 KB. Over it, in this order:
+Loaded every turn; cap 34 KB. Over it, in this order:
 delete what has no home — status, history, class lists, what the code already says; trim
 each line to its fact plus one clause and send the explanation home — why →
 `design/decisions.md`, how across symbols → `design/architecture.md`, how in one symbol →
 its doc comment, what upstream does → `design/research.md`; only then a module's own
 `AGENTS.md`, peripheral modules first, never the core. Never paraphrase a lazy entry into a
-line here. `design/verify_design_tripwires.sh` checks the caps and the cites.
+line here. `design/verify_design_tripwires.sh` checks the cap and the cites.

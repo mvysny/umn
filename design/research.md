@@ -5,9 +5,9 @@ is a `D_`. `## R_<slug> — <title>`, one claim per bullet, one provenance marke
 **[docs]**, **[src]**, **[verified <date>, <version>]**, **[unverified]** (a hypothesis; a design
 built on it says so). A claim is earned by its provenance, or by having cost real work to find
 out. Checked against h2-mvstore 1.4.200 unless a claim names another version. Cite by
-slug, `R_<slug>`, never by position; `grep '^## R_' design/research.md` is the index. The first
-entry is the ruler: every later one trims to its length — which is how long this file gets, so
-keep it short. When you have written an entry, re-read it against the one above and cut the fat.
+slug, `R_<slug>`, never by position; `grep '^## R_' design/research.md` is the index. When you
+have written an entry, re-read it against the one above for consistency; a marker already says
+where a claim came from, so the prose doesn't repeat it.
 
 ---
 
