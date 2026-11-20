@@ -41,6 +41,8 @@ sourceSets.test {
 }
 
 tasks.test {
+    // the CI console lists each scenario, so it shows whether the Docker ones ran or skipped
+    testLogging.events("passed", "skipped", "failed")
     // the tests fork Driver015 on this classpath
     inputs.files(old.runtimeClasspath)
     jvmArgumentProviders += CommandLineArgumentProvider {

@@ -76,6 +76,8 @@ subprojects {
         testLogging {
             // to see the exceptions of failed tests in CI console.
             exceptionFormat = TestExceptionFormat.FULL
+            // a skip shows in the CI console too: CaddyTest without Caddy, Testcontainers without Docker
+            events("failed", "skipped")
         }
     }
 
