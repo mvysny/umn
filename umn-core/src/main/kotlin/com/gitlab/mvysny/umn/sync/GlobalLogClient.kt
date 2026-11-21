@@ -8,9 +8,7 @@ import java.util.*
 import java.util.concurrent.CancellationException
 
 /**
- * Connects multitude of [UMN]s to a *global log* and synchronizes data. For example,
- * one implementation would be a Kafka client, connecting to a Kafka server which holds the
- * global log itself, as a topic with one partition.
+ * Connects multitude of [UMN]s to a *global log* and synchronizes data.
  *
  * ### Global Log
  *

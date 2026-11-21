@@ -74,8 +74,6 @@ byte array. Fast enough to run in `umn-core:test`; a battery in `umn-sync-tester
 
 - `D_frozen_0_15_formats`: no new record or message type, the record bytes, headers and close
   codes stay; a node-local map is allowed.
-- **Sync over any server** (a promise): sync logic lives in the client, backends stay thin. A
-  server-side filter breaks it, or needs a decision of its own.
 - Installed Aedicts run 0.15 and older and never update; anything they push stays as it is.
 - Document IDs: Aedict's are all random (`umn.create(document)`). Does any UMN user create a
   document with an ID of its own, delete it and create it again? Then a create after a delete is
@@ -88,8 +86,7 @@ byte array. Fast enough to run in `umn-core:test`; a battery in `umn-sync-tester
 Applying a `DocumentDeleted` records the ID in a node-local map (`__TOMBSTONES`); a
 `DocumentCreated` of a tombstoned ID is skipped, and so is one the node itself would push.
 
-- Fixes `S_resurrect`, `S_lost_ack` and `S_replay` on every new node, from any backend, with no
-  wire change.
+- Fixes `S_resurrect`, `S_lost_ack` and `S_replay` on every new node, with no wire change.
 - Not `S_revert`.
 - Old nodes still resurrect: `S_mixed_versions` diverges. Is a node that shows a deleted item
   worse than all nodes showing it? `Q_divergence_vs_resurrection`.
@@ -119,14 +116,14 @@ the document stays opaque) and drops a create of an ID it has seen deleted, ACKi
 
 - Covers every client, 0.15 included, from the moment the server upgrades; no divergence between
   versions. Fits "box first".
-- Breaks "Sync over any server", and the ACK is positional: the server has to send `OnAdded` for a
-  record it didn't append, without the client noticing. `Q_ack_without_append`.
+- The ACK is positional: the server has to send `OnAdded` for a record it didn't append, without
+  the client noticing. `Q_ack_without_append`.
 - Not `S_revert`, and not the records already in production's logs (`S_replay`); a one-off purge
   of creates after their own delete could do those.
 
 ### D. Combinations
 
-C for the old apps and today, A for logs already polluted and other backends, B for a
+C for the old apps and today, A for logs already polluted, B for a
 restore the app knows about. What's the smallest set that covers what Aedict meets?
 
 ## Open questions

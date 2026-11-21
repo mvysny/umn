@@ -18,10 +18,9 @@ and open the doc comments it touches and delete what they already say.
 UMN was built for the Aedict dictionary on Android, where it must be fast and must sync across
 a user's devices. {UMN} is a map from UUID to a serialized document, mutated only by `create`,
 `update` and `delete`; MVStore appends each write to its copy-on-write log. Three mutations mean
-three {LogRecord} types, so the change history is a log any transport can carry and any node can
-replay in global order — that is the whole sync design, and it is why backends stay thin
-(**Sync over any server**). Indices, full-text and sync are wrappers, each keeping its own state
-in node-local utility maps. Why not SQL or sqlite: 10-100× slower than MVStore, and a query
+three {LogRecord} types, so the change history is a log the proxy server stores without reading
+it and any node can replay in global order — that is the whole sync design. Indices and sync are
+wrappers, each keeping its own state in node-local utility maps. Why not SQL or sqlite: 10-100× slower than MVStore, and a query
 language has no replayable shape. Why not JSON documents: binary serialization is faster on a
 phone, so the format is the caller's {DocumentSerializer}. The cost we carry: no transactions,
 no query planner, and a changed index definition takes a new index name (`D_build_index_on_open`).
@@ -48,6 +47,46 @@ server's only way back from a bad release is forward. The API may change freely:
 is easy, while a sync or storage mismatch shows up as silently diverging data.
 `umn-compat-0.15`'s tests hold HEAD to it.
 
+## D_own_sync_engine — Why our own store and sync rather than an off-the-shelf sync database?
+
+Aedict synced through Couchbase Lite before UMN: buggy, and a sync sometimes took a couple of
+hours. UMN began in June 2018, two months after Couchbase Lite 2.0 replaced the replicator Aedict
+was most likely running (`R_couchbase_lite`). The products have moved on since, but the installed
+base now keeps UMN (`D_frozen_0_15_formats`). Each product speaks its own protocol, so the proxy
+server would run on for every install that never updates, and a user's old and new devices would
+stop syncing with each other, unless a bridge copied between each user's `{user}__log` and the
+new backend both ways, running the app's {DocumentSerializer} on a server to which a record is
+opaque bytes. Nor does a vendor freeze its protocol for us: MongoDB ended Realm's sync
+(`R_sync_dead_ends`), Nitrite dropped DataGate (`R_nitrite`), Couchbase Lite 2.0 left CouchDB's
+protocol.
+
+Why not PowerSync, the strongest of them (`R_powersync`): maintained, self-hostable, an Apache 2.0
+Kotlin SDK on SQLite, and tables cost little, a document fitting one blob column. But the blob
+travels as hex or base64 text and sits in a JSON row read through a view. A blob hides the
+document from SQL, so every field an index needs becomes a column the server sends too, or a
+table on the device the app keeps up itself, which is {IndexingUMN} again. The server grows from
+one proxy-server container to Postgres, the PowerSync Service, its bucket storage and an upload
+API we would write, which also decides conflicts. And its floor, API 24, breaks **Runs on
+Android, minSdk 22**.
+
+Why not Couchbase Lite: the closest in features, documents with indexes and full-text search,
+and 2.0 may well have fixed what Aedict hit, though nobody has measured it. But its indexes read
+JSON properties, so a document becomes JSON or goes unindexed; the server is Sync Gateway plus a
+Couchbase Server; the free edition lacks Sync Gateway's cache tuning and, by its 3.3 docs, delta
+sync; and 3.4 needs API 24. Measuring it means a heavy user's log loaded as documents, and a
+fresh install's first pull timed against UMN's.
+
+Why not ObjectBox Sync (`R_objectbox`): the closest in spirit, a fast object store on API 21, but
+its sync is closed source and priced by quote, and it has no full-text index. Why not Firestore
+(`R_firestore_offline`): Google's servers only, a cache on the device rather than a database, no
+full-text search, API 23. Why not Ditto (`R_ditto`): commercial, API 24, and its peer-to-peer mesh
+solves a problem Aedict doesn't have. Why not Nitrite under our own sync (`R_nitrite`): it swaps
+the store, which works, and leaves us the sync, the hard part. Why not a CRDT library such as
+Automerge: it merges documents; the store, the indices and the server would still be ours.
+
+The cost we carry: a store and a sync engine of our own, on H2 1.4.x for now. A new app with no
+installed base would start from PowerSync, then Couchbase Lite once measured.
+
 ## D_index_key_codec — Why is a composite index key a `CompositeKey` rather than the app's own class or a codec?
 
 An index map (`__INDEX2_*`) keeps MVStore's `ObjectDataType` keys: `String`, the boxed primitives
@@ -67,8 +106,8 @@ and moving an index to `CompositeKey` takes a new index name (`D_build_index_on_
 0.15's {GlobalLogClient} had to reconnect by itself; {ProxyClient} never did, and sync stalled
 until the app restarted the {Syncer}. A client that reconnects must also resume pulling where the
 node left off and re-send what was never acked, but its `rewind` is fixed at
-`setReceiverCallback` and the outgoing buffer belongs to the syncer — every backend would redo
-the sync engine's bookkeeping, against **Sync over any server**. So one client is one connection,
+`setReceiverCallback` and the outgoing buffer belongs to the syncer — the client would redo the
+sync engine's bookkeeping. So one client is one connection,
 dead for good once it fails, and the syncer replaces client, puller and pusher together: the
 puller recomputes the rewind, the pusher re-sends every unacked record. Delivery is therefore
 at-least-once: a duplicate is harmless, a {LogRecord} being idempotent, while a skipped record

@@ -101,6 +101,28 @@ The syncing part is beta-quality and battle-tested in the Aedict Japanese Dictio
 UMN runs on Android 5.1 (API 22) or higher: set `minSdk = 22` or higher in your app.
 UMN is compiled to Java 17 bytecode, which Android Gradle Plugin 8 or newer desugars for older Android APIs.
 
+## Compared to other sync databases
+
+UMN keeps your documents as binary blobs, syncs them through one small self-hosted server, and runs
+on Android 5.1. Its sync protocol has stayed the same since 0.15, so every release syncs with every
+other. It has no query language, no transactions and no full-text search: an index looks documents
+up by key, key set, range or prefix. The off-the-shelf alternatives, as of November 2026:
+
+| | On the device | Queries | Full-text search | Sync server | Licence | Android |
+|---|---|---|---|---|---|---|
+| **UMN** | H2 MVStore: a map of UUID → binary blob | index lookups | no | UMN Proxy Server: one container, the log in MVStore | Apache 2.0, self-hosted | 5.1 (API 22) |
+| [PowerSync](https://www.powersync.com/) | SQLite; rows kept as JSON, binary values synced as hex or base64 text | SQL | SQLite FTS5 | PowerSync Service and its bucket storage, your Postgres (or MongoDB, MySQL, SQL Server), and an upload API you write | SDK Apache 2.0, service FSL; self-hosted or their cloud | 7.0 (API 24) |
+| [Couchbase Lite](https://docs.couchbase.com/couchbase-lite/current/) | JSON documents | SQL++ | yes | Sync Gateway and Couchbase Server, or their Capella cloud | BSL 1.1; free Community Edition, self-hosted | 7.0 (API 24) |
+| [ObjectBox](https://objectbox.io/) | objects of your entity classes | query builder | none documented | ObjectBox Sync Server | database free, Sync commercial | 5.0 (API 21) |
+| [Firestore](https://firebase.google.com/docs/firestore) | an offline cache of the server's data | Firestore queries | no | Google Cloud only | proprietary, hosted | 6.0 (API 23) |
+| [Ditto](https://docs.ditto.live/) | documents | DQL | not checked | Ditto's cloud, and peer to peer between devices | commercial | 7.0 (API 24) |
+
+Not in the table: [Nitrite](https://github.com/nitrite/nitrite-java), an embedded document store
+on MVStore with full-text search, whose sync server is no longer maintained; Realm, whose sync
+MongoDB shut down on 2025-09-30; and Turso, whose Kotlin SDK is a technical preview. The sources
+are in [design/research.md](design/research.md), and why Aedict stays on UMN is
+`D_own_sync_engine` in [design/decisions.md](design/decisions.md).
+
 ## Adding it to your project
 
 Make sure you have the following repository in your `build.gradle`:
@@ -184,9 +206,9 @@ performance (since we're just adding items to the log) and reliability (in the e
 simply the last non-corrupted log item is discovered in the database file).
 
 However, log also allows easy syncing. If we have but three simple mutation operations (create/update/delete),
-we only have three item types in the log. That makes it easy to simply broadcast the log to all
-other UMNs out there via any mechanism possible - Kafka (which is a log database itself), Hazelcast,
-any NoSQL or even SQL database, even Bittorrent. If we can replay the log in the same order on all other clients
+we only have three item types in the log. That makes it easy to broadcast the log to all other
+UMNs through the [UMN Proxy Server](umn-proxy-server), which keeps the log in order without ever
+reading a record. If we can replay the log in the same order on all other clients
 (which is rather easy), we gain syncing capabilities which are reliable.
 
 Simplicity is prerequisite to reliability.
@@ -362,11 +384,9 @@ all database modifications into a stream of events (called *log records*), and t
 to all other clients. Every client contains a queue of log records; the queue is emptied as the events
 are confirmed to be received by the server.
 
-To activate syncing, you first need to create a client which transmits the log to a particular server of your choosing.
-UMN currently syncs via the [UMN Proxy Server](umn-proxy-server), which stores the log in H2 MVStore.
+To activate syncing, you first need to create a client which transmits the log to your server.
+UMN syncs via the [UMN Proxy Server](umn-proxy-server), which stores the log in H2 MVStore.
 You use the [UMN Proxy Client](umn-proxy-client) which works on any Java 17 including Android.
-Another server only needs a thin `GlobalLogClient` implementation, tested with the batteries in
-[umn-sync-tester](umn-sync-tester).
 
 ### Syncing Example
 
@@ -453,8 +473,8 @@ one. Show that `LogRecordNotAppliedException` cause to the user: an app update u
 
 ### Syncing Limitations
 
-Every node keeps its own outgoing log. This technique keeps all logic client-side which allows for syncing
-over literally any database server, be it SQL, NoSQL, Kafka, Hazelcast. However it has a couple of disadvantages and
+Every node keeps its own outgoing log, and all sync logic runs on the nodes: the proxy server only
+stores the log and relays it. This has a couple of disadvantages and
 it is very important to remember those, otherwise you'll get very weird behavior.
 
 It is possible to apply `.syncing` to already existing UMN database. When `.syncing` is applied for the first time,
@@ -501,10 +521,3 @@ log into the server, resulting in mass log duplication and random data overwrite
 
 See [Issue #3](https://gitlab.com/mvysny/umn/issues/3) for more info on why it's
 impossible to sync to multiple servers with the current UMN architecture.
-
-### Syncing behind a firewall
-
-If you don't want to expose your database directly over the internet, you can use the
-[UMN Proxy](umn-proxy-server) to access your database remotely. The UMN Proxy client/server transparently
-relies record log commands via websocket communication, and accesses the database of your choice
-at the server side. Please see [UMN Proxy Server](umn-proxy-server) for more details.

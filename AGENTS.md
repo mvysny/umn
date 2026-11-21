@@ -11,7 +11,6 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 
 - **Runs on Android, minSdk 22 (5.1)**, 0.16's floor, kept although Aedict moved to 24. `umn-core`, `umn-proxy-protocol` and `umn-proxy-client` target Java 17 bytecode, which Android Gradle Plugin 8+ desugars, and keep to dependencies API 22 can load.
 - **A dumb core.** The storage is a UUID → blob map with three mutations; every other capability is a wrapper around it. See `D_three_op_log`.
-- **Sync over any server.** All sync logic is client-side; a new backend is a thin `GlobalLogClient`, nothing server-side.
 - **0.15-compatible on the wire both ways, on disk one way.** Every later release syncs with 0.15 nodes and proxy servers, and opens any file 0.9 or a later release wrote, migrating it in place; an older release never opens a newer file, as no node or proxy server is ever downgraded. See `D_frozen_0_15_formats`.
 
 ## Design docs
@@ -23,7 +22,7 @@ The U.M.N. is a NoSQL data storage designed to have the following properties:
 | `CHANGELOG.md` | what each release changes for a user; a `Breaking:` line and its migration | — |
 | `AGENTS.md` (this) | promises, invariants, the module map, conventions, commands | every turn |
 | `design/decisions.md` | why this and not that — `D_` entries, FAQ-shaped | lazy |
-| `design/research.md` | what H2 MVStore actually does — `R_` entries, each claim with its provenance | lazy |
+| `design/research.md` | what H2 MVStore and the off-the-shelf sync databases actually do — `R_` entries, each claim with its provenance | lazy |
 | KDoc | what one symbol does and why it is shaped so | at the symbol |
 
 Every fact lives in exactly one of these; the others link to it. `design/ideas/` holds ideas not
@@ -40,7 +39,7 @@ moved to the files above first.
 
 ## Module map
 
-- `umn-core` — the `UMN` interface, MVStore and in-memory stores, indexing, full-text, the sync engine.
+- `umn-core` — the `UMN` interface, MVStore and in-memory stores, indexing, the sync engine.
 - `umn-sync-tester` — shared test batteries every `GlobalLogClient` implementation runs; unpublished, for backends built in this repo.
 - `umn-proxy-protocol` — the proxy's wire messages (`AbstractMessage`), shared by client and server, so the server carries no okhttp; stdlib only, a record opaque bytes.
 - `umn-proxy-client` — websocket `GlobalLogClient` for Android, okhttp only.

@@ -1,10 +1,11 @@
-# Research — H2 MVStore
+# Research — H2 MVStore, and the off-the-shelf sync databases
 
 What the things we don't own actually do. About *them*, never us: a sentence starting "we chose"
 is a `D_`. `## R_<slug> — <title>`, one claim per bullet, one provenance marker per claim —
 **[docs]**, **[src]**, **[verified <date>, <version>]**, **[unverified]** (a hypothesis; a design
 built on it says so). A claim is earned by its provenance, or by having cost real work to find
-out. Checked against h2-mvstore 1.4.200 unless a claim names another version. Cite by
+out. Checked against h2-mvstore 1.4.200 unless a claim names another version; a sync database's
+entry, against its docs on 2026-11-21, at the version it names. Cite by
 slug, `R_<slug>`, never by position; `grep '^## R_' design/research.md` is the index. When you
 have written an entry, re-read it against the one above for consistency; a marker already says
 where a claim came from, so the prose doesn't repeat it.
@@ -297,3 +298,90 @@ where a claim came from, so the prose doesn't repeat it.
 - H2's own way across, 2.x's `org.h2.tools.Upgrade`, is for SQL databases only: it downloads the
   old version's jar from Maven Central at runtime, dumps the database with `SCRIPT TO` and
   reloads it with `RUNSCRIPT FROM`. **[src]** (2.4.240's class constants)
+
+## R_couchbase_lite — Couchbase Lite: 2.0 rewrote the replicator; Sync Gateway's free edition is cut down
+
+- 1.x replicated with CouchDB's REST protocol, a series of HTTP calls over four or more
+  connections, which Couchbase blames for socket-limit deadlocks and performance problems.
+  **[docs]**
+- 2.0, generally available on 2018-04-12, replicates over one WebSocket with a messaging
+  protocol, BLIP, that neither CouchDB nor a 1.x client speaks. **[docs]**
+- Couchbase put 2.0's developer preview at 6× 1.x's performance, without saying what it
+  measured. **[docs]**
+- A user's forum comparison on Android found 2.1.1 pulling the same data far faster than 1.4.1.
+  **[unverified]**
+- The device holds JSON documents, queried with SQL++; an index, full-text ones included, is an
+  expression over their properties. **[docs]**
+- 3.4 needs Android API 24; 3.3's pages say 22 in one place and 24 in another. **[docs]**
+- The server is Sync Gateway in front of a Couchbase Server, or Couchbase's hosted Capella App
+  Services. **[docs]**
+- The Community Edition binaries are free under Couchbase's own licence, a Couchbase Server
+  cluster at most five nodes; the source is BSL 1.1, each version turning Apache 2.0 four years
+  on. **[docs]**
+- Community Edition Sync Gateway ignores the revision-cache tuning; the 3.3 docs make delta sync
+  Enterprise-only too, while the edition comparison page lists it for both. **[docs]**
+
+## R_powersync — PowerSync: SQLite on the device, a sync service in front of Postgres
+
+- The Kotlin Multiplatform SDK (`com.powersync:core`, Maven Central) targets Android and the JVM
+  among others, under Apache 2.0. **[docs]**
+- Its Android floor is API 24: `android-minSdk = "24"` in the repo's `gradle/libs.versions.toml`,
+  on `main`. **[src]**
+- A synced row sits as JSON in `ps_data__<table>`; the app's tables are views extracting typed
+  columns from it. Raw tables, and managed tables (alpha), store real columns instead. **[docs]**
+- A view's column is `text`, `integer` or `real`. A binary value doesn't sync: the source has to
+  hex- or base64-encode it. **[docs]**
+- A column local to the device needs a raw table; the default views can't hold one. **[docs]**
+- Full-text search is SQLite's FTS5: tables the app creates, kept current by SQLite triggers;
+  whether FTS5 is there depends on the SDK's SQLite build. **[docs]**
+- A local write lands in the `ps_crud` upload queue in the same transaction. The SDK hands the
+  queue to an `uploadData()` the app implements, which sends it to the app's own backend, which
+  writes the source database. **[docs]**
+- The server side is the source database (Postgres, MongoDB, MySQL or SQL Server), the PowerSync
+  Service (`journeyapps/powersync-service`) and its bucket storage, a MongoDB replica set or a
+  Postgres. **[docs]**
+- The self-hosted Open Edition is under the Functional Source License: free except in a competing
+  product, each version turning Apache 2.0 two years on. **[docs]**
+
+## R_objectbox — ObjectBox: an object store on API 21; its sync is paid
+
+- ObjectBox runs on Android 5.0, API 21, and later. **[docs]**
+- It stores entity classes with indexes and relations, and from 4.0 searches vectors on the
+  device. **[docs]**
+- No full-text index turned up in its docs or release notes. **[unverified]**
+- Its Java API is Apache 2.0, its native core closed-source binaries. **[unverified]**
+- ObjectBox Sync is a separate commercial product, priced by quote. **[docs]**
+
+## R_firestore_offline — Firestore: an offline cache of Google's servers
+
+- Offline persistence is on by default on Android, and the cache survives restarts. **[docs]**
+- Firebase's Android SDKs need API 23. **[docs]**
+- Firestore runs on Google Cloud only; nothing self-hosts it. **[docs]**
+- It indexes no text for search; its docs point to Algolia, Elastic or Typesense. **[docs]**
+
+## R_ditto — Ditto: commercial, peer to peer as well as through its cloud
+
+- The v5 Kotlin SDK needs API 24 and Kotlin 2.0; v4 needed API 23. **[docs]**
+- Devices sync peer to peer, over Bluetooth, Wi-Fi and LAN, as well as through Ditto's cloud.
+  **[docs]**
+- It is sold commercially, priced through sales. **[unverified]**
+
+## R_nitrite — Nitrite: a document store on MVStore, without its sync
+
+- Nitrite 4.x stores documents in MVStore (`nitrite-mvstore-adapter`) or RocksDB, with indexes and
+  full-text indexes. **[docs]**
+- Its sync server, DataGate, is deprecated and unmaintained, by a fork's README; no official word
+  turned up. **[unverified]**
+- Listings put its Android floor at API 19 and at API 26. **[unverified]**
+
+## R_sync_dead_ends — sync products that ended, or don't reach Android
+
+- MongoDB ended Realm's Atlas Device Sync on 2025-09-30; Realm's local database lives on in a
+  community branch without sync. **[docs]**
+- Turso's Kotlin SDK is a technical preview (`tech.turso.libsql:libsql:0.1.0`, Android Gradle
+  Plugin only): an embedded replica syncs when the app calls `db.sync()`, and offline writes are
+  in beta. **[docs]**
+- RxDB, Replicache and Zero, ElectricSQL, Triplit and InstantDB are JavaScript-first, with no
+  Kotlin client. **[unverified]**
+- CouchDB's replication protocol has no maintained native Android client since Couchbase Lite
+  left it (`R_couchbase_lite`). **[unverified]**
