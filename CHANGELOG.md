@@ -4,6 +4,13 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the wire format never breaks, and a release opens every file 0.9 or later wrote
 (`D_frozen_0_15_formats`). Releases before 0.16 have no entries.
 
+## 0.19-1 — 2026-11-21, Docker image only
+
+- `mvysny/umn-proxy-server:0.19-1` is 0.19's proxy server, unchanged, on Temurin 25.0.5.1 instead
+  of 25.0.5+8. 25.0.5.1 fixes Java4Shell (CVE-2026-114938), reported as an unauthenticated RCE in
+  the JDK's Base64 intrinsic on CPUs with AVX-512 VBMI. Name `:0.19-1` in place of `:0.19`, which
+  stays as it was. The Maven artifacts don't change.
+
 ## 0.19 — 2026-11-20
 
 - The project moved from GitLab to GitHub: https://github.com/mvysny/umn. The groupId

@@ -26,7 +26,8 @@ To release the library to Maven Central:
 5. (Optional) watch [Maven Central Publishing Deployments](https://central.sonatype.com/publishing/deployments) as the deployment is published.
 6. Build and push the proxy server's Docker image for amd64 and arm64, logged in to Docker Hub
    (`docker login`) as its owner:
-   `docker buildx build --platform linux/amd64,linux/arm64 -t mvysny/umn-proxy-server:0.16 --push umn-proxy-server`.
+   `docker buildx build --pull --platform linux/amd64,linux/arm64 -t mvysny/umn-proxy-server:0.16 --push umn-proxy-server`.
+   `--pull` fetches the floating `eclipse-temurin:25-jre` afresh, not the builder's cached copy.
    Push only the version tag, never `latest`. Step 4's `clean` left exactly the release's zip in
    `build/distributions/`, which the `Dockerfile` copies; any other zip there gets in silently instead.
    The arm64 half runs the `Dockerfile`'s `RUN` steps under qemu: `sudo apt install qemu-user-binfmt`
@@ -41,3 +42,20 @@ To release the library to Maven Central:
 
 Publishing reads `sonatypeUsername` / `sonatypePassword` (a Central Portal user token) and the
 `signing.*` GPG properties from `~/.gradle/gradle.properties`.
+
+# Rebuilding a released image
+
+When the base image fixes a CVE, rebuild the release's image under a packaging revision, `0.19-1`,
+then `0.19-2`, never over its tag: `docker compose up` never pulls a tag a box already has, so an
+overwritten tag goes unnoticed wherever it was pulled, while a new one shows in the consumer's
+compose diff and keeps the old image addressable.
+
+1. Check out the release's tag, not master: `git worktree add --detach ../umn-0.19 0.19`.
+2. There, `mise exec -- ./gradlew clean umn-proxy-server:build -x test`.
+3. `docker buildx build --pull --platform linux/amd64,linux/arm64 -t mvysny/umn-proxy-server:0.19-1 --push umn-proxy-server`,
+   as Releasing's step 6.
+4. `docker run --rm --pull always --platform linux/arm64 mvysny/umn-proxy-server:0.19-1 java -version`,
+   and the same for `linux/amd64`, print the fixed JRE.
+5. On master: a `CHANGELOG.md` section `## 0.19-1 — <date>, Docker image only`, and the new tag in
+   every doc that names the image, which `grep -rn 'mvysny/umn-proxy-server:'` finds. No git tag:
+   the source is the release's.

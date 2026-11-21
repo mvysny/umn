@@ -8,10 +8,14 @@ for amd64 and, since 0.17, arm64 too (a Raspberry Pi, an ARM VPS). Only version 
 started on a log a newer one wrote loses records silently, see
 [the server's README](../../../README.md#configuration-and-deployment).
 
+A release's image rebuilt on a patched JRE, its server unchanged, gets a tag of its own: `0.19-1`,
+then `0.19-2`. Run the highest one of your release. A pushed tag is never overwritten, since
+`docker compose up` never pulls a tag again that a box already has.
+
 To run the UMN Proxy Server, simply issue the following command in your terminal:
 
 ```
-docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.19
+docker run --rm -ti -p 127.0.0.1:10144:10144 -p 127.0.0.1:10145:10145 -v $HOME/db:/var/umn-proxy-server/db mvysny/umn-proxy-server:0.19-1
 ```
 
 Inside the container the server listens on all interfaces, since the host can't reach the

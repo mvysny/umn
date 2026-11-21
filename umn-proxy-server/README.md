@@ -233,6 +233,6 @@ Main(Config(port = 0, adminPort = 0, proxy = Proxy(Standalone("build/umn-db"))))
   classpath, but one JVM holds one Jetty: Gradle picks the highest version anything asks for, so an
   app on an older Jetty 12.1.x runs the server's in its tests. Harmless within 12.1. Where it
   isn't, or where the tests should run the very artifact production runs, start the Docker image
-  through Testcontainers instead: a `GenericContainer` on `mvysny/umn-proxy-server:0.19`, ports
+  through Testcontainers instead: a `GenericContainer` on `mvysny/umn-proxy-server:0.19-1`, ports
   10144 and 10145 exposed, waiting on `GET /admin/users` on 10145, the URLs from `getMappedPort`.
   That costs Docker wherever the tests run, and seconds per start.
