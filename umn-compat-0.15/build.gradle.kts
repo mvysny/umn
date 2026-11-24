@@ -10,7 +10,7 @@ repositories {
 }
 
 // UMN 0.15 the way Aedict-Online's Gradle resolves it, never mixed with HEAD's classpath
-val umn015: Configuration by configurations.creating {
+val umn015: Configuration = configurations.create("umn015") {
     isCanBeConsumed = false
 }
 
@@ -31,7 +31,7 @@ dependencies {
 }
 
 // UMN 0.15's side: Driver015 and the shared steps, compiled against umn015 only
-val old: SourceSet by sourceSets.creating {
+val old: SourceSet = sourceSets.create("old") {
     java.srcDir("src/scenario/java")
     compileClasspath = umn015
     runtimeClasspath = output + umn015
