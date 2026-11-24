@@ -84,6 +84,13 @@ abstract class GenericUmnTestBattery {
         private lateinit var map: UtilityMap<Long, String>
         @BeforeEach fun openMap() { map = umn.openUtilityMap("testing") }
 
+        @Test fun `utilityMapNames() lists the maps opened, not those dropped`() {
+            umn.openUtilityMap<Long, String>("other")
+            expect(setOf("testing", "other")) { umn.utilityMapNames() intersect setOf("testing", "other", "never opened") }
+            umn.dropUtilityMap("other")
+            expect(setOf("testing")) { umn.utilityMapNames() intersect setOf("testing", "other") }
+        }
+
         @Test fun `The map is initially empty`() {
             expect(null) { map.getLargestKey() }
             expect(null) { map.getSmallestKey() }

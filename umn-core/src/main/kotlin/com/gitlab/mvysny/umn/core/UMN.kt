@@ -59,10 +59,10 @@ public interface UMN : Closeable {
     public fun delete(id: UUID)
 
     /**
-     * Opens an utility map, creating it if it doesn't exist. Various layers of document storage use the utility map to store various
-     * stuff it needs:
-     * * [IndexingUMN] creates a table which stores indices;
-     * * [ReplayLogUmn] stores the log entries there
+     * Opens an utility map, creating it if it doesn't exist. This library's wrappers keep their state in these, under names
+     * another map must not take:
+     * * [IndexingUMN]: `INDEX_STATE`, and every name starting `INDEX2_`, whose map it clears when not passed that index;
+     * * the sync, [com.gitlab.mvysny.umn.sync.SyncingUMN]: `CURRENT_LOG_PTR`, `OUTGOING_BUFFER` and `OUTGOING_BUFFER-marker`.
      *
      * This map is for internal storage purposes for this device only and must not be synced over network to other clients.
      *
@@ -92,6 +92,12 @@ public interface UMN : Closeable {
      * A [UtilityMap] opened on it before must not be used after.
      */
     public fun dropUtilityMap(name: String)
+
+    /**
+     * The names of the stored utility maps, as [openUtilityMap] and [dropUtilityMap] take them, whichever process or
+     * release opened them.
+     */
+    public fun utilityMapNames(): Set<String>
 
     /**
      * INTERNAL USE ONLY. Puts a [document] with given [id] to the database.

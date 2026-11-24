@@ -248,4 +248,13 @@ throw is logged and skipped: failing the open would lock the app out of its data
 built is never rebuilt, so a changed `keyGetter` or key type takes a new name; a name no longer
 passed is cleared, through `UMN.dropUtilityMap()`, which decodes no key, so the old key class may
 then be deleted (`R_mvstore_clear_reads_no_key`). A clear that fails is logged and retried on the
-next open, for the same reason.
+next open, for the same reason. The names to clear come from listing the `INDEX2_` maps
+(`UMN.utilityMapNames()`), not from the state alone: a store 0.17 or older last opened records no
+index, so an index renamed at its first open on 0.18 or later would keep its old map for good.
+Why not have the app name the old indices to drop: it would list them for as long as such a store
+may open, practically forever. Why not list the maps of the {MvstoreUMN} in the chain, sparing
+{UMN} a member: {IndexingUMN} would reach into MVStore. Why not a default `utilityMapNames()`
+asking the delegate, which breaks no implementation: a store implemented outside that forgets it
+would clear nothing, silently. Why list on every open, though only a first open on 0.18 or later
+leaves such maps: a once-only sweep needs a marker kept somewhere, and the listing reads one meta
+entry per map.

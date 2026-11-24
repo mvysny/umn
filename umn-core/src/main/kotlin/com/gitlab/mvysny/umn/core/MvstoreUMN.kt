@@ -142,13 +142,16 @@ public class MvstoreUMN(private val store: MVStore, private val serializer: Docu
      */
     @Synchronized
     override fun dropUtilityMap(name: String) {
-        val mapName = "__$name"
+        val mapName = "$UTILITY_MAP_PREFIX$name"
         // MVStore's own lookup, private there
         val id = store.metaMap["name.$mapName"]?.toInt(16) ?: return
         val map: MVMap<Any, Any> = store.getMap(id)
             ?: store.openMap(mapName, MVMap.Builder<Any, Any>().keyType(OpaqueDataType).valueType(OpaqueDataType))
         store.removeMap(map)
     }
+
+    override fun utilityMapNames(): Set<String> =
+        store.mapNames.filter { it.startsWith(UTILITY_MAP_PREFIX) }.map { it.removePrefix(UTILITY_MAP_PREFIX) }.toSet()
 
     override fun getSequenceOfIDs(): Sequence<UUID> = map.keyIterator(null).asSequence()
 
@@ -200,6 +203,11 @@ internal fun UMN.commit() {
 }
 
 /**
+ * Starts the MVStore map name of each utility map, telling it from the documents' map.
+ */
+private const val UTILITY_MAP_PREFIX = "__"
+
+/**
  * Obtain one through [MvstoreUMN.openUtilityMap]: two constructors racing on a map not created yet split it in two.
  *
  * Thread-safe.
@@ -224,7 +232,7 @@ public class MvstoreUtilityMap<K: Comparable<K>, V>(store: MVStore, name: String
         return keySequence.takeWhile { key -> key in range }
     }
 
-    private val map: MVMap<K, V> = store.openMap("__$name", MVMap.Builder<K, V>().keyType(keyType).valueType(valueType))
+    private val map: MVMap<K, V> = store.openMap("$UTILITY_MAP_PREFIX$name", MVMap.Builder<K, V>().keyType(keyType).valueType(valueType))
     override fun find(key: K): V? = map[key]
     override fun put(key: K, value: V?) {
         // here, not at serialization: MVStore serializes later, on its background writer thread

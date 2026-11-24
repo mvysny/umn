@@ -58,6 +58,8 @@ public class AnnouncingUMN(override val delegate: UMN, public val listener: List
         delegate.dropUtilityMap(name)
     }
 
+    override fun utilityMapNames(): Set<String> = delegate.utilityMapNames()
+
     override fun close() {
         delegate.close()
     }

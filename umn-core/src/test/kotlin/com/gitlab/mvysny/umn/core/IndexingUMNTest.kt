@@ -763,11 +763,19 @@ abstract class IndexingUmnTestBattery {
                 override fun dropUtilityMap(name: String): Unit = throw RuntimeException("simulated")
             }
             IndexingUMN(failing, setOf())
-            expect(true) { indexState.find("identity") }
             expect(false) { indexStore("identity").isEmpty() }
             IndexingUMN(storage, setOf())
             expect(null) { indexState.find("identity") }
             expect(true) { indexStore("identity").isEmpty() }
+        }
+
+        @Test fun `a dropped index that no state records, as in a store 0_17 or older last opened, is cleared`() {
+            IndexingUMN(storage, setOf(idxIdentity, idxLength)).create("a")
+            indexState.clear()
+            IndexingUMN(storage, setOf(idxLength))
+            expect(false) { "INDEX2_identity" in storage.utilityMapNames() }
+            expect(true) { "INDEX2_length" in storage.utilityMapNames() }
+            expect(true) { "INDEX_STATE" in storage.utilityMapNames() }
         }
 
         @Test fun `builds the entries that indexing on create writes, for every key type`() {

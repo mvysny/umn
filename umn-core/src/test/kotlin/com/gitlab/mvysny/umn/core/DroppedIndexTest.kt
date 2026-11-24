@@ -62,14 +62,15 @@ class DroppedIndexTest {
     private val file: String = File.createTempFile("dropped-index", ".mv").absolutePath
 
     /**
-     * Writes index `gone`, built, of [entries] keyed by [LiveKey]s stored as [GONE_KEY], interleaved in the same chunks
-     * with as many entries of map `kept`: a chunk wholly dead would leave [MVStore.getChunksFillRate]'s count.
+     * Writes index `gone` of [entries] keyed by [LiveKey]s stored as [GONE_KEY], interleaved in the same chunks with as
+     * many entries of map `kept`: a chunk wholly dead would leave [MVStore.getChunksFillRate]'s count.
      *
+     * @param recorded whether `INDEX_STATE` records `gone` built; a store 0.17 or older last opened records no index.
      * @return the depth of `gone`'s page tree.
      */
-    private fun writeDroppedIndex(entries: Int): Int =
+    private fun writeDroppedIndex(entries: Int, recorded: Boolean = true): Int =
         MVStore.Builder().fileName(file).autoCommitDisabled().open().use { store ->
-            store.openMap<String, Boolean>("__INDEX_STATE")["gone"] = true
+            if (recorded) store.openMap<String, Boolean>("__INDEX_STATE")["gone"] = true
             val gone = store.openMap("__INDEX2_gone", MVMap.Builder<LiveKey, Array<UUID>>().keyType(GoneKeyWriter))
             val kept = store.openMap<String, Array<UUID>>("kept")
             repeat(entries) {
@@ -96,6 +97,8 @@ class DroppedIndexTest {
         MvstoreUMN(store, JavaDocumentSerializer, AutoTypeResolver).use { storage ->
             IndexingUMN(storage, setOf())
             expect(null) { storage.openUtilityMap<String, Boolean>("INDEX_STATE").find("gone") }
+            // the chunks count the drop once stored, as any write
+            store.commit()
             val after = store.chunksFillRate
             expect(false) { store.hasMap("__INDEX2_gone") }
             expect(entries) { store.openMap<String, Array<UUID>>("kept").size }
@@ -116,5 +119,11 @@ class DroppedIndexTest {
         expect(1) { writeDroppedIndex(10) }
         expectKeysUnloadable()
         expectDroppedAndFreed(10)
+    }
+
+    @Test fun `a dropped index that no state records is cleared and freed, its key class gone`() {
+        expect(3) { writeDroppedIndex(5_000, recorded = false) }
+        expectKeysUnloadable()
+        expectDroppedAndFreed(5_000)
     }
 }

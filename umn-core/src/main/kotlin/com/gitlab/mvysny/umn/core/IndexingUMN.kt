@@ -58,8 +58,7 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
 
     /**
      * Each index's build state, by name: `true` built; `false` a build begun, maybe cut short by a crash; none never built, as
-     * every index of a store 0.17 or older last opened. An index's entries never outlive its state, the only way
-     * [clearDroppedIndices] finds them.
+     * every index of a store 0.17 or older last opened.
      */
     private val indexState: UtilityMap<String, Boolean> = delegate.openUtilityMap("INDEX_STATE")
 
@@ -70,24 +69,25 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
         }
     }
 
+    /**
+     * Clears every index not passed, found by its map, so also one [indexState] doesn't record.
+     */
     private fun clearDroppedIndices() {
-        val dropped = indexState.keyIterator().filter { it !in indexMap }.toList()
-        if (dropped.isEmpty()) return
+        val prefix = indexMapName("")
+        val stored = delegate.utilityMapNames().filter { it.startsWith(prefix) }.map { it.removePrefix(prefix) }
+        val dropped = (stored + indexState.keyIterator()).filter { it !in indexMap }.toSet()
         val cleared = dropped.filter { name ->
+            indexState.put(name, null)
             try {
                 delegate.dropUtilityMap(indexMapName(name))
                 true
             } catch (e: Exception) {
-                // its state kept, so the next open retries: failing the open would lock the app out of its data
+                // the map stays, so the next open finds it again: failing the open would lock the app out of its data
                 log.error("Failed to clear index $name, no longer passed; retrying on the next open", e)
                 false
             }
         }
-        if (cleared.isEmpty()) return
-        // else a crash could keep the entries yet store their state gone
-        commit()
-        cleared.forEach { name -> indexState.put(name, null) }
-        log.info("Cleared the entries of indices no longer passed: $cleared")
+        if (cleared.isNotEmpty()) log.info("Cleared the entries of indices no longer passed: $cleared")
     }
 
     /**
@@ -577,6 +577,8 @@ public class IndexingUMN(override val delegate: UMN, indices: Set<IndexDef<*, *,
     override fun dropUtilityMap(name: String) {
         delegate.dropUtilityMap(name)
     }
+
+    override fun utilityMapNames(): Set<String> = delegate.utilityMapNames()
 
     override fun close() {
         delegate.close()

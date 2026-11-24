@@ -4,6 +4,17 @@ What changes for a user of each release, newest first. A `Breaking:` line carrie
 step; the wire format never breaks, and a release opens every file 0.9 or later wrote
 (`D_frozen_0_15_formats`). Releases before 0.16 have no entries.
 
+## 0.20 — unreleased
+
+- `IndexingUMN` clears every index no longer passed, also one a store 0.17 or older last opened.
+  0.18 and 0.19 cleared only an index they had built: an index renamed at a store's first open on
+  0.18 or later kept its old entries in the file for good, never read. The next open clears them.
+- **Breaking:** `UMN.utilityMapNames()` lists the stored utility maps, whichever process or release
+  opened them. `IndexingUMN` now clears every utility map named `INDEX2_…` whose index it isn't
+  passed, so an app's own map must not take such a name; `openUtilityMap()` lists the names this
+  library takes. Migration: a `UMN` implemented outside this library, such as a wrapper,
+  implements it, typically as `delegate.utilityMapNames()`.
+
 ## 0.19-1 — 2026-11-21, Docker image only
 
 - `mvysny/umn-proxy-server:0.19-1` is 0.19's proxy server, unchanged, on Temurin 25.0.5.1 instead
